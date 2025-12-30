@@ -22,7 +22,7 @@ C# .NET 8 및 WPF 기반으로 제작되었으며, Python 등으로 학습된 �
 *   **Min-Max Normalization**: 데이터 스케일 정규화.
 *   **L2 Normalization**: 벡터 크기 정규화.
 *   **Feature Extraction**:
-    *   **Log Ratio**: 흡광도(Absorbance) 모드 (`Log(Gap/Target)`)
+    *   **Log Ratio**: 흡광도(Absorbance) 모드 (`Log(Target - Gap)`)
     *   **Raw Gap**: 반사율(Reflectance) 모드 (`Target - Gap`)
 
 ### 4. Industrial Reliability (산업급 신뢰성)

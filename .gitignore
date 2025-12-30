@@ -1,0 +1,25 @@
+# Build Results
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio & Rider
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.dll
+*.pdb
+*.exe
+
+# Nuget
+[Pp]ackages/
+!packages/build/
+*.nuget.props
+*.nuget.targets
+
+# OS
+.DS_Store
+Thumbs.db

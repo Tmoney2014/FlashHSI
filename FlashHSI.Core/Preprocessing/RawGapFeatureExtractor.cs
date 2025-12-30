@@ -9,9 +9,25 @@ namespace FlashHSI.Core.Preprocessing
         private int _count;
         private readonly int _gapShift;
 
+        // Calibration Data (Optional)
+        private double[]? _whiteRef;
+        private double[]? _darkRef;
+        private bool _useCalibration;
+
         public RawGapFeatureExtractor(int gapShift)
         {
             _gapShift = gapShift;
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// Set White/Dark reference for radiometric calibration.
+        /// </summary>
+        public void SetCalibration(double[] white, double[] dark)
+        {
+            _whiteRef = white;
+            _darkRef = dark;
+            _useCalibration = (white != null && dark != null && white.Length > 0);
         }
 
         public void Configure(List<int> selectedBands, int rawBandCount)
@@ -39,6 +55,21 @@ namespace FlashHSI.Core.Preprocessing
 
                 double valTarget = input[tIdx];
                 double valGap = input[gIdx];
+
+                // Apply Calibration if set: R = (Raw - Dark) / (White - Dark)
+                if (_useCalibration)
+                {
+                    double whiteT = _whiteRef![tIdx];
+                    double darkT = _darkRef![tIdx];
+                    double whiteG = _whiteRef![gIdx];
+                    double darkG = _darkRef![gIdx];
+
+                    double denomT = whiteT - darkT;
+                    double denomG = whiteG - darkG;
+
+                    valTarget = (denomT > 1e-6) ? (valTarget - darkT) / denomT : 0.0;
+                    valGap = (denomG > 1e-6) ? (valGap - darkG) / denomG : 0.0;
+                }
 
                 // Python Logic: Band[i] - Band[i+gap]
                 output[i] = valTarget - valGap;

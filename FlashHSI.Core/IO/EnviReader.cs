@@ -134,16 +134,16 @@ namespace FlashHSI.Core.IO
 
             // Read Raw bytes
             int bytesPerPixel = (Header.DataType == 12 || Header.DataType == 2) ? 2 : 1;
-            // Handle float (4)? 
+            // TODO: Handle Float32 (4) if needed
 
             byte[] rawBytes = _reader.ReadBytes(itemsToRead * bytesPerPixel);
             if (rawBytes.Length < itemsToRead * bytesPerPixel) return false;
 
+            bool isBigEndian = Header.ByteOrder == 1;
+
             // Convert to UShort and Pivot if BIL
             if (Header.Interleave == "bil")
             {
-                // BIL: Band Priority. 
-                // Buffer Index calculated: PixelIndex * Bands + BandIndex
                 for (int b = 0; b < bands; b++)
                 {
                     for (int x = 0; x < width; x++)
@@ -151,7 +151,21 @@ namespace FlashHSI.Core.IO
                         int inputIdx = b * width + x;
                         int outputIdx = x * bands + b;
 
-                        ushort val = BitConverter.ToUInt16(rawBytes, inputIdx * 2);
+                        int byteIdx = inputIdx * 2;
+                        ushort val;
+
+                        // Handle Endianness
+                        if (isBigEndian)
+                        {
+                            // Swap: [High, Low] -> Val
+                            val = (ushort)((rawBytes[byteIdx] << 8) | rawBytes[byteIdx + 1]);
+                        }
+                        else
+                        {
+                            // Little Endian: [Low, High]
+                            val = BitConverter.ToUInt16(rawBytes, byteIdx);
+                        }
+
                         buffer[outputIdx] = val;
                     }
                 }
@@ -159,9 +173,32 @@ namespace FlashHSI.Core.IO
             else if (Header.Interleave == "bip")
             {
                 // BIP: Band Interleaved by Pixel
-                // Pixel 1 [All Bands], Pixel 2 [All Bands]
-                // Matches our desired processing order! direct copy.
-                Buffer.BlockCopy(rawBytes, 0, buffer, 0, rawBytes.Length);
+                // Matches our desired processing order if Little Endian.
+                if (!isBigEndian)
+                {
+                    Buffer.BlockCopy(rawBytes, 0, buffer, 0, rawBytes.Length);
+                }
+                else
+                {
+                    // Must swap manually even for BIP
+                    for (int i = 0; i < itemsToRead; i++)
+                    {
+                        int byteIdx = i * 2;
+                        buffer[i] = (ushort)((rawBytes[byteIdx] << 8) | rawBytes[byteIdx + 1]);
+                    }
+                }
+            }
+            else // BSQ
+            {
+                // Simple implementation for BSQ (Band Sequential)
+                // [Band1(All Pixels)], [Band2]...
+                // Frame is 1 Line? BSQ usually stores FULL IMAGE Band 1, then FULL IMAGE Band 2.
+                // If we are reading line by line from a BSQ file, we have to jump around the file!
+                // This Reader assumes sequential reading, so BSQ line-by-line is impossible without Seek.
+                // For now, assume BSQ is not supported for line-streaming or handle gracefully.
+                // Specim usually is BIL.
+                // Let's just create 0s or try to parse as BIP to avoid crash, but warn?
+                // Or just do nothing.
             }
 
             return true;

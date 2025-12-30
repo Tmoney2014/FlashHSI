@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Text;
+using FlashHSI.Core.Settings;
 
 namespace FlashHSI.UI.ViewModels
 {
@@ -52,6 +53,28 @@ namespace FlashHSI.UI.ViewModels
         public MainViewModel()
         {
             _pipeline = new HsiPipeline();
+
+            // Load Settings
+            var s = SettingsService.Instance.Settings;
+            _headerPath = s.LastHeaderPath;
+            _targetFps = s.TargetFps;
+            _confidenceThreshold = s.ConfidenceThreshold;
+            _backgroundThreshold = s.BackgroundThreshold;
+
+            // Trigger Pipeline update
+            _pipeline.SetThreshold(_confidenceThreshold);
+        }
+
+        partial void OnTargetFpsChanged(double value)
+        {
+            SettingsService.Instance.Settings.TargetFps = value;
+            SettingsService.Instance.Save();
+        }
+
+        partial void OnBackgroundThresholdChanged(double value)
+        {
+            SettingsService.Instance.Settings.BackgroundThreshold = value;
+            SettingsService.Instance.Save();
         }
 
         partial void OnConfidenceThresholdChanged(double value)
@@ -60,11 +83,41 @@ namespace FlashHSI.UI.ViewModels
             {
                 _pipeline.SetThreshold(value);
             }
+            SettingsService.Instance.Settings.ConfidenceThreshold = value;
+            SettingsService.Instance.Save();
         }
 
-        private enum MaskMode { Mean, BandPixel }
+        private enum MaskMode { Mean, BandPixel, MaskRule }
         private MaskMode _currentMaskMode = MaskMode.Mean;
         private int _maskBandIndex = 0;
+        private bool _maskOperatorLess = true; // Default to < (Background is lower)
+        private FlashHSI.Core.Masking.MaskRule? _maskRule;
+
+        // Calibration Data
+        private double[]? _whiteRef;
+        private double[]? _darkRef;
+        private IFeatureExtractor? _currentExtractor;
+
+        // UI Indicators
+        [ObservableProperty]
+        private bool _isWhiteRefLoaded;
+
+        [ObservableProperty]
+        private bool _isDarkRefLoaded;
+
+
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// Apply White/Dark calibration to the current feature extractor if both are loaded.
+        /// </summary>
+        private void ApplyCalibrationIfReady()
+        {
+            if (_whiteRef != null && _darkRef != null && _currentExtractor != null)
+            {
+                _currentExtractor.SetCalibration(_whiteRef, _darkRef);
+            }
+        }
 
         [RelayCommand]
         public void LoadModel()
@@ -121,25 +174,40 @@ namespace FlashHSI.UI.ViewModels
                 double.TryParse(threshStr, out parsedThresh);
                 BackgroundThreshold = parsedThresh;
 
-                // Check for Complex Rule "b80 > 33000" inside MaskRules
-                // Accessing internal band logic
-                // Check for Complex Rule "b80 > 33000" inside MaskRules
-                // Accessing internal band logic
-                var match = System.Text.RegularExpressions.Regex.Match(rules, @"[bB](\d+)\s*[>]\s*([0-9.]+)");
-                if (match.Success)
+                // Check for Complex Rule using MaskRuleParser
+                try
                 {
-                    if (int.TryParse(match.Groups[1].Value, out int bIdx) && double.TryParse(match.Groups[2].Value, out double bThresh))
+                    _maskRule = FlashHSI.Core.Masking.MaskRuleParser.Parse(rules);
+                    if (_maskRule != null)
                     {
-                        _currentMaskMode = MaskMode.BandPixel;
-                        _maskBandIndex = bIdx;
-                        BackgroundThreshold = bThresh;
-                        StatusMessage = $"Mask Rule: Band {bIdx} > {bThresh}";
+                        _currentMaskMode = MaskMode.MaskRule;
+                        StatusMessage = $"Mask Rule Applied: {rules}";
+                        // Try to update BackgroundThreshold for UI if it's a simple single-condition rule
+                        // This is optional but helps user see the value if it's simple
+                        var simpleMatch = System.Text.RegularExpressions.Regex.Match(rules, @"[0-9.]+$");
+                        if (simpleMatch.Success && double.TryParse(simpleMatch.Value, out double simpleVal))
+                        {
+                            BackgroundThreshold = simpleVal;
+                        }
+
+                        // Extract Band Index for Debug Log
+                        var bandMatch = System.Text.RegularExpressions.Regex.Match(rules, @"[bB](\d+)");
+                        if (bandMatch.Success && int.TryParse(bandMatch.Groups[1].Value, out int bIdx))
+                        {
+                            _maskBandIndex = bIdx;
+                        }
+                    }
+                    else
+                    {
+                        // Fallback to Mean/Threshold from JSON if Parse returned null (e.g. "Mean" or empty)
+                        _currentMaskMode = MaskMode.Mean;
+                        StatusMessage = $"Mask Mode: Mean (Threshold {BackgroundThreshold})";
                     }
                 }
-                else if (rules.Contains(">"))
+                catch (Exception ex)
                 {
-                    // Fallback/Error log
-                    StatusMessage = $"⚠️ Mask Parsing Failed for: '{rules}'";
+                    StatusMessage = $"⚠️ Mask Error: {ex.Message}";
+                    _currentMaskMode = MaskMode.Mean;
                 }
 
                 // 3. Setup Core Components
@@ -150,17 +218,25 @@ namespace FlashHSI.UI.ViewModels
                 int gap = config.Preprocessing.Gap;
                 IFeatureExtractor extractor;
 
-                if (config.Preprocessing.ApplyAbsorbance)
+                // User Request: Check 'Mode' string for 'Absorbance' vs 'Reflectance'/'Raw'
+                // ApplyAbsorbance might be deprecated or auxiliary.
+                string mode = config.Preprocessing.Mode ?? "";
+                if (mode.Contains("Absorbance", StringComparison.OrdinalIgnoreCase) || config.Preprocessing.ApplyAbsorbance)
                 {
                     extractor = new LogGapFeatureExtractor(gap);
                 }
                 else
                 {
+                    // "Reflectance", "Raw", or others -> Raw Difference
                     extractor = new RawGapFeatureExtractor(gap);
                 }
 
                 _pipeline.SetClassifier(classifier);
                 _pipeline.SetFeatureExtractor(extractor);
+
+                // Store reference for calibration
+                _currentExtractor = extractor;
+                ApplyCalibrationIfReady();
 
                 // Add Preprocessors
                 // Note: Order matters. Usually SNV -> MinMax -> L2 if multiple selected.
@@ -172,7 +248,14 @@ namespace FlashHSI.UI.ViewModels
 
                 _lastConfig = config;
 
-                string modeInfo = _currentMaskMode == MaskMode.BandPixel ? $"Band{_maskBandIndex}>{BackgroundThreshold}" : $"Mean>{BackgroundThreshold}";
+                string modeInfo;
+                if (_currentMaskMode == MaskMode.MaskRule)
+                    modeInfo = $"Rule: {config.Preprocessing.MaskRules}";
+                else if (_currentMaskMode == MaskMode.BandPixel)
+                    modeInfo = $"Band{_maskBandIndex} {(_maskOperatorLess ? "<" : ">")} {BackgroundThreshold:N2}";
+                else
+                    modeInfo = $"Mean < {BackgroundThreshold:N2}";
+
                 StatusMessage = $"Model Loaded: {Path.GetFileName(path)} ({_modelClassCount} Classes, Mode: {config.Preprocessing.Mode}, Mask: {modeInfo})";
             }
             catch (Exception ex)
@@ -228,6 +311,14 @@ namespace FlashHSI.UI.ViewModels
                     return;
                 }
 
+                // Check Validation for Absorbance
+                if (_currentExtractor is LogGapFeatureExtractor && (!IsWhiteRefLoaded || !IsDarkRefLoaded))
+                {
+                    StatusMessage = "⚠️ Model requires Absorbance (White/Dark References needed)!";
+                    MessageBox.Show("This model/mode requires Radiometric Calibration.\nPlease load White and Dark Reference files.", "Calibration Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 IsSimulating = true;
                 StatusMessage = "Simulation Started.";
 
@@ -253,8 +344,94 @@ namespace FlashHSI.UI.ViewModels
             {
                 _headerPath = dlg.FileName;
                 StatusMessage = $"Data Selected: {Path.GetFileName(_headerPath)}";
+
+                SettingsService.Instance.Settings.LastHeaderPath = _headerPath;
+                SettingsService.Instance.Save();
             }
         }
+
+        [RelayCommand]
+        public void LoadWhiteRef()
+        {
+            var (path, data) = LoadReferenceSpectrum("White");
+            if (data != null)
+            {
+                _whiteRef = data;
+                IsWhiteRefLoaded = true;
+                StatusMessage = $"White Ref Loaded: {Path.GetFileName(path)}";
+                ApplyCalibrationIfReady();
+
+                SettingsService.Instance.Settings.LastWhiteRefPath = path;
+                SettingsService.Instance.Save();
+            }
+        }
+
+        [RelayCommand]
+        public void LoadDarkRef()
+        {
+            var (path, data) = LoadReferenceSpectrum("Dark");
+            if (data != null)
+            {
+                _darkRef = data;
+                IsDarkRefLoaded = true;
+                StatusMessage = $"Dark Ref Loaded: {Path.GetFileName(path)}";
+                ApplyCalibrationIfReady();
+
+                SettingsService.Instance.Settings.LastDarkRefPath = path;
+                SettingsService.Instance.Save();
+            }
+        }
+
+        private (string, double[]?) LoadReferenceSpectrum(string type)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Title = $"Select {type} Reference (ENVI Header)";
+            dlg.Filter = "ENVI Header (*.hdr)|*.hdr|All files (*.*)|*.*";
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    var reader = new FlashHSI.Core.IO.EnviReader();
+                    reader.Load(dlg.FileName);
+
+                    int bands = reader.Header.Bands;
+                    int width = reader.Header.Samples;
+                    long[] sum = new long[bands];
+                    int count = 0;
+
+                    int linesToRead = Math.Min(50, reader.Header.Lines);
+                    ushort[] buffer = new ushort[width * bands];
+
+                    for (int i = 0; i < linesToRead; i++)
+                    {
+                        if (!reader.ReadNextFrame(buffer)) break;
+                        for (int x = 0; x < width; x++)
+                        {
+                            int baseIdx = x * bands;
+                            for (int b = 0; b < bands; b++)
+                            {
+                                sum[b] += buffer[baseIdx + b];
+                            }
+                        }
+                        count += width;
+                    }
+                    reader.Close();
+
+                    if (count > 0)
+                    {
+                        double[] avg = new double[bands];
+                        for (int b = 0; b < bands; b++) avg[b] = (double)sum[b] / count;
+                        return (dlg.FileName, avg);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"Error Loading {type}: {ex.Message}";
+                }
+            }
+            return ("", null);
+        }
+
 
         private void RunSimulationLoop()
         {
@@ -321,12 +498,26 @@ namespace FlashHSI.UI.ViewModels
                                 double mean = (double)sum / bandCount;
                                 if (mean < BackgroundThreshold) isBackground = true;
                             }
+                            else if (_currentMaskMode == MaskMode.MaskRule && _maskRule != null)
+                            {
+                                // Pass Calibration References if available
+                                bool useAbs = (_currentExtractor is LogGapFeatureExtractor);
+                                if (_maskRule.Evaluate(pPixel, _whiteRef, _darkRef, useAbs)) isBackground = true;
+                            }
                             else if (_currentMaskMode == MaskMode.BandPixel)
                             {
                                 // Safe check in case mask index is out of bounds (should correspond to loaded data)
                                 if (_maskBandIndex < bandCount)
                                 {
-                                    if (pPixel[_maskBandIndex] <= BackgroundThreshold) isBackground = true;
+                                    double val = pPixel[_maskBandIndex];
+                                    if (_maskOperatorLess)
+                                    {
+                                        if (val < BackgroundThreshold) isBackground = true;
+                                    }
+                                    else
+                                    {
+                                        if (val > BackgroundThreshold) isBackground = true;
+                                    }
                                 }
                             }
 
@@ -416,7 +607,34 @@ namespace FlashHSI.UI.ViewModels
                                     ushort* pCenter = pLine + (cx * bandCount);
 
                                     // 1. Calculate Mask Value
-                                    if (_currentMaskMode == MaskMode.BandPixel && _maskBandIndex < bandCount)
+                                    if (_currentMaskMode == MaskMode.MaskRule && _maskRule != null && _maskBandIndex < bandCount)
+                                    {
+                                        // Calculate Calibrated Value for Debug
+                                        double val = pCenter[_maskBandIndex];
+                                        if (_whiteRef != null && _darkRef != null && _maskBandIndex < _whiteRef.Length && _maskBandIndex < _darkRef.Length)
+                                        {
+                                            double dark = _darkRef[_maskBandIndex];
+                                            double white = _whiteRef[_maskBandIndex];
+                                            double denom = white - dark;
+                                            if (Math.Abs(denom) < 1e-6) denom = 1.0;
+                                            double refl = (val - dark) / denom;
+                                            if (_currentExtractor is LogGapFeatureExtractor) // Absorbance
+                                            {
+                                                if (refl <= 1e-6) refl = 1e-6;
+                                                debugMaskValue = -Math.Log10(refl);
+                                            }
+                                            else
+                                            {
+                                                debugMaskValue = refl;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            debugMaskValue = val; // Show Raw if no calibration
+                                        }
+                                        maskLabel = $"B{_maskBandIndex} (Mask)";
+                                    }
+                                    else if (_currentMaskMode == MaskMode.BandPixel && _maskBandIndex < bandCount)
                                     {
                                         debugMaskValue = pCenter[_maskBandIndex];
                                         maskLabel = $"Band {_maskBandIndex}";
@@ -449,7 +667,14 @@ namespace FlashHSI.UI.ViewModels
                                 }
                             }
 
-                            StatusMessage = $"Running... {maskLabel}: {debugMaskValue:F0} (Threshold: {BackgroundThreshold:F0}) | PP: {scores[0]:F2} | PE: {scores[1]:F2} | ABS: {scores[2]:F2}";
+                            string modeStr = _currentMaskMode == MaskMode.MaskRule ? "M" : "Mean";
+                            string countInfo = $"Total: {TotalFrames}";
+                            // Only show scores up to 3 classes to fit
+                            string scoresInfo = "";
+                            if (_modelClassCount >= 3) scoresInfo = $"| S1: {scores[0]:F2} | S2: {scores[1]:F2} | S3: {scores[2]:F2}";
+                            else if (_modelClassCount > 0) scoresInfo = $"| S1: {scores[0]:F2}";
+
+                            StatusMessage = $"Running... [{modeStr}] {maskLabel}: {debugMaskValue:F2} (Th: {BackgroundThreshold:N2}) {scoresInfo}";
                         }, System.Windows.Threading.DispatcherPriority.Background); // Priority: Background < Input
 
                         lastUiUpdate = frameTimer.ElapsedMilliseconds;

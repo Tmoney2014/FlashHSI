@@ -40,13 +40,14 @@ namespace FlashHSI.Core.Preprocessing
 
             for (int i = 0; i < _count; i++)
             {
-                int gapIdx = _targetIndices[i] - _gapShift;
-                if (gapIdx < 0) gapIdx = 0; // Boundary handling
+                // Forward Difference: GapIdx = Target + Shift
+                int gapIdx = _targetIndices[i] + _gapShift;
+                if (gapIdx >= rawBandCount) gapIdx = rawBandCount - 1; // Clamp to max
                 _gapIndices[i] = gapIdx;
             }
         }
 
-        public void Extract(ushort* input, double* output)
+        public void Extract(double* input, double* output)
         {
             for (int i = 0; i < _count; i++)
             {
@@ -56,7 +57,14 @@ namespace FlashHSI.Core.Preprocessing
                 double valTarget = input[tIdx];
                 double valGap = input[gIdx];
 
-                // Apply Calibration if set: R = (Raw - Dark) / (White - Dark)
+                // Calibration is now handled in Preprocessing Step (before Extraction) or here if Raw.
+                // But since input is double*, we assume it might be already calibrated/preprocessed.
+                // However, to maintain logic: if Calibration is set, we apply it.
+                // Note: If Recalibration was done in RawProcessor, we shouldn't do it here twice.
+                // For now, let's keep it but check if we need to apply it.
+                // Actually, if we use HsiPipeline with Raw Processors (Reflectance), input is already Reflectance.
+                // So _useCalibration should be effectively false in that pipeline config.
+                
                 if (_useCalibration)
                 {
                     double whiteT = _whiteRef![tIdx];
@@ -71,7 +79,7 @@ namespace FlashHSI.Core.Preprocessing
                     valGap = (denomG > Epsilon) ? (valGap - darkG) / denomG : Epsilon;
                 }
 
-                // Formula: Log10((Gap+e)/(Target+e))
+                // Forward Difference: Log(Gap/Target) -> Band[i+Gap] / Band[i]
                 output[i] = Math.Log10((valGap + Epsilon) / (valTarget + Epsilon));
             }
         }

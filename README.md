@@ -51,3 +51,6 @@ C# .NET 8 및 WPF 기반으로 제작되었으며, Python 등으로 학습된 �
 
 ---
 *Developed for High-Speed Industrial Sorting Applications.*
+
+## 🤖 AI Developers
+- **[Gemini.md](Gemini.md)**: AI Context & Coding Guidelines.

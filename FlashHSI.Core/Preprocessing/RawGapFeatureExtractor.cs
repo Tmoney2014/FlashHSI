@@ -46,7 +46,7 @@ namespace FlashHSI.Core.Preprocessing
             }
         }
 
-        public void Extract(ushort* input, double* output)
+        public void Extract(double* input, double* output)
         {
             for (int i = 0; i < _count; i++)
             {
@@ -56,7 +56,7 @@ namespace FlashHSI.Core.Preprocessing
                 double valTarget = input[tIdx];
                 double valGap = input[gIdx];
 
-                // Apply Calibration if set: R = (Raw - Dark) / (White - Dark)
+                // Apply Calibration if set
                 if (_useCalibration)
                 {
                     double whiteT = _whiteRef![tIdx];
@@ -71,8 +71,8 @@ namespace FlashHSI.Core.Preprocessing
                     valGap = (denomG > 1e-6) ? (valGap - darkG) / denomG : 0.0;
                 }
 
-                // Python Logic: Band[i] - Band[i+gap]
-                output[i] = valTarget - valGap;
+                // Forward Difference: Band[i+gap] - Band[i]
+                output[i] = valGap - valTarget;
             }
         }
     }

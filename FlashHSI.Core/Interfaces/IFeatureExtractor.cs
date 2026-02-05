@@ -7,7 +7,7 @@ namespace FlashHSI.Core.Interfaces
         /// <summary>
         /// Extract features from raw processed frame into output buffer.
         /// </summary>
-        void Extract(ushort* input, double* output);
+        void Extract(double* input, double* output);
 
         /// <summary>
         /// Set White/Dark reference spectra for radiometric calibration.

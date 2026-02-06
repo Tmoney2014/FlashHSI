@@ -7,8 +7,10 @@ using FlashHSI.Core.Logging;
 using FlashHSI.Core.Services;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core.Control.Hardware;
+using FlashHSI.Core.Control.Serial;
 using FlashHSI.UI.Services;
 using FlashHSI.UI.ViewModels;
+using FlashHSI.UI.Views;
 using CommunityToolkit.Mvvm.Messaging;
 
 namespace FlashHSI.UI
@@ -60,6 +62,7 @@ namespace FlashHSI.UI
             services.AddSingleton<HsiEngine>();
             services.AddSingleton<WaterfallService>();
             services.AddSingleton<IEtherCATService, EtherCATService>();
+            services.AddSingleton<SerialCommandService>(); // Serial Service Added
 
             // ViewModels
             services.AddSingleton<MainViewModel>();

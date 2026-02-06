@@ -14,6 +14,7 @@ using System.Windows.Media;
 using FlashHSI.UI.Services;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.Control.Hardware;
+using FlashHSI.Core.Control.Serial; // Added
 using FlashHSI.Core.Services;
 using System.Linq;
 using System;
@@ -28,6 +29,7 @@ namespace FlashHSI.UI.ViewModels
         private readonly IEtherCATService _hardwareService;
         private readonly IMessenger _messenger;
         private readonly CommonDataShareService _dataShare;
+        private readonly SerialCommandService _serialService;
         
         // Child ViewModels (Injected)
         public HomeViewModel HomeVM { get; }
@@ -44,6 +46,7 @@ namespace FlashHSI.UI.ViewModels
             HsiEngine hsiEngine,
             WaterfallService waterfallService,
             IEtherCATService hardwareService,
+            SerialCommandService serialService,
             CommonDataShareService dataShare,
             IMessenger messenger,
             HomeViewModel homeVM,
@@ -54,6 +57,7 @@ namespace FlashHSI.UI.ViewModels
             _hsiEngine = hsiEngine;
             _waterfallService = waterfallService;
             _hardwareService = hardwareService;
+            _serialService = serialService;
             _dataShare = dataShare;
             _messenger = messenger;
 

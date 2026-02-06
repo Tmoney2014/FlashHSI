@@ -1,0 +1,78 @@
+<UserControl x:Class="FlashHSI.UI.Views.Pages.SettingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <StackPanel Margin="16" MaxWidth="600" HorizontalAlignment="Left" MinWidth="400">
+        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                 <TextBlock Text="Model &amp; Data" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                 <Button Command="{Binding LoadModelCommand}" Content="Load Model JSON" Margin="0,0,0,8"/>
+                 <Button Command="{Binding SelectDataFileCommand}" Content="Select ENVI Header" Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                 <TextBlock Text="{Binding HeaderPath}" Margin="0,8,0,0" FontSize="10" Foreground="Gray"/>
+            </StackPanel>
+        </materialDesign:Card>
+        
+        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                 <TextBlock Text="References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                 <Grid>
+                    <Grid.ColumnDefinitions> <ColumnDefinition/> <ColumnDefinition/> </Grid.ColumnDefinitions>
+                    
+                    <Button Grid.Column="0" Command="{Binding LoadWhiteRefCommand}" Content="White Ref" Margin="0,0,4,0">
+                         <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWhiteRefLoaded}" Value="True">
+                                        <Setter Property="Background" Value="#4CAF50"/>
+                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <Button Grid.Column="1" Command="{Binding LoadDarkRefCommand}" Content="Dark Ref" Margin="4,0,0,0">
+                         <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkRefLoaded}" Value="True">
+                                        <Setter Property="Background" Value="#4CAF50"/>
+                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                 </Grid>
+            </StackPanel>
+        </materialDesign:Card>
+        
+        <materialDesign:Card Padding="16">
+             <StackPanel>
+                 <TextBlock Text="Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                 
+                 <DockPanel Margin="0,0,0,8">
+                     <TextBlock Text="Target FPS" Width="150"/>
+                     <TextBlock Text="{Binding TargetFps, StringFormat=N0}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                     <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                 </DockPanel>
+                 
+                 <DockPanel Margin="0,8,0,8">
+                     <TextBlock Text="Confidence Threshold" Width="150"/>
+                     <TextBlock Text="{Binding ConfidenceThreshold, StringFormat=P0}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                     <Slider Minimum="0.5" Maximum="0.99" Value="{Binding ConfidenceThreshold}" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                 </DockPanel>
+                 
+                 <DockPanel Margin="0,8,0,0">
+                     <TextBlock Text="Background Threshold" Width="150"/>
+                     <TextBlock Text="{Binding BackgroundThreshold, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
+                     <Slider Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold}" TickFrequency="100" IsSnapToTickEnabled="False"/>
+                 </DockPanel>
+             </StackPanel>
+        </materialDesign:Card>
+    </StackPanel>
+</UserControl>

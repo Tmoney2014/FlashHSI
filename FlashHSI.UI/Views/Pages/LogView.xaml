@@ -1,0 +1,31 @@
+<UserControl x:Class="FlashHSI.UI.Views.Pages.LogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+             <RowDefinition Height="Auto"/>
+             <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+             <Button Command="{Binding ClearLogsCommand}" Content="CLEAR LOGS" Style="{StaticResource MaterialDesignOutlinedButton}"/>
+        </StackPanel>
+        
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Logs}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                  AlternatingRowBackground="#1A1A1A" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  materialDesign:DataGridAssist.CellPadding="12" materialDesign:DataGridAssist.ColumnHeaderPadding="12">
+               <DataGrid.Columns>
+                    <DataGridTextColumn Header="Time" Binding="{Binding TimestampShort}" Width="120" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                    <DataGridTextColumn Header="Blob ID" Binding="{Binding BlobId}" Width="80" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                    <DataGridTextColumn Header="Class ID" Binding="{Binding ClassId}" Width="80" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                    <DataGridTextColumn Header="Valve ID" Binding="{Binding ValveId}" Width="80" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                    <DataGridTextColumn Header="Delay (Lines)" Binding="{Binding Delay}" Width="120" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+                    <DataGridTextColumn Header="Type" Binding="{Binding HitType}" Width="*" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
+               </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

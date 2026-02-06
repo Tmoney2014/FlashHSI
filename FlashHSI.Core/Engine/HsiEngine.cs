@@ -40,6 +40,8 @@ namespace FlashHSI.Core.Engine
         public event Action<EngineStats>? StatsUpdated;
         public event Action<string>? LogMessage;
         public event Action<bool>? SimulationStateChanged;
+        public event Action<int[], int>? FrameProcessed;
+        public event Action<EjectionLogItem>? EjectionOccurred;
 
         public bool IsSimulating => _isRunning;
         
@@ -62,6 +64,7 @@ namespace FlashHSI.Core.Engine
                 // Initialize Components
                 _blobTracker = new BlobTracker(config.Weights.Count);
                 _ejectionService = new EjectionService();
+                _ejectionService.OnEjectionSignal += (item) => EjectionOccurred?.Invoke(item);
 
                 LogMessage?.Invoke($"Model Loaded: {config.ModelType}");
             }
@@ -277,6 +280,9 @@ namespace FlashHSI.Core.Engine
                             }
                         }
                     }
+
+                    // Notify Visualization (Synchronous to avoid allocation, subscriber must be fast)
+                    FrameProcessed?.Invoke(classificationRow, width);
 
                     // 2. Tracking
                     if (_blobTracker != null)

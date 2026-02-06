@@ -1,0 +1,65 @@
+<UserControl x:Class="FlashHSI.UI.Views.Pages.StatisticView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+             <RowDefinition Height="*"/>
+             <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Summary Cards -->
+         <Grid Grid.Row="0" Margin="0,0,0,16">
+               <Grid.ColumnDefinitions>
+                   <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <!-- FPS -->
+               <materialDesign:Card Grid.Column="0" Margin="4" Padding="16">
+                   <StackPanel>
+                       <TextBlock Text="FPS" Style="{StaticResource MaterialDesignCaptionTextBlock}"/>
+                       <TextBlock Text="{Binding Fps, StringFormat=N1}" Style="{StaticResource MaterialDesignHeadline4TextBlock}"/>
+                   </StackPanel>
+               </materialDesign:Card>
+               <!-- Total -->
+               <materialDesign:Card Grid.Column="1" Margin="4" Padding="16">
+                   <StackPanel>
+                       <TextBlock Text="Total Objects" Style="{StaticResource MaterialDesignCaptionTextBlock}"/>
+                       <TextBlock Text="{Binding TotalObjects, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline4TextBlock}"/>
+                   </StackPanel>
+               </materialDesign:Card>
+         </Grid>
+         
+         <!-- Class Stats -->
+         <ScrollViewer Grid.Row="1">
+            <ItemsControl ItemsSource="{Binding ClassStats}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="3" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                         <materialDesign:Card Margin="4" Padding="16" Background="{Binding ColorBrush}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Count, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="White"/>
+                                <TextBlock Text="{Binding Percentage}" Foreground="#EEE" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </ScrollViewer>
+         
+         <!-- Control -->
+         <Grid Grid.Row="2" Margin="0,16,0,0">
+             <Button Command="{Binding ResetStatsCommand}" Style="{StaticResource MaterialDesignOutlinedButton}" Content="RESET STATISTICS"/>
+         </Grid>
+    </Grid>
+</UserControl>

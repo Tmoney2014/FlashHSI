@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:vm="clr-namespace:FlashHSI.UI.ViewModels"
+        xmlns:pages="clr-namespace:FlashHSI.UI.Views.Pages"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -13,219 +14,92 @@
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}"
         mc:Ignorable="d"
-        Title="FlashHSI - High Speed Sorter" Height="600" Width="1000">
-    <Window.DataContext>
-        <vm:MainViewModel/>
-    </Window.DataContext>
-    <TabControl Background="{DynamicResource MaterialDesignPaper}" Margin="8">
-        <!-- Tab 1: Operational Monitor (Real Camera) -->
-        <TabItem Header="MONITOR">
-            <Grid>
-                <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="Realtime Camera Monitor" Style="{StaticResource MaterialDesignHeadline4TextBlock}" Margin="16"/>
-                <TextBlock Grid.Row="1" Text="Camera Connection &amp; Realtime Classification View will be here." 
-                           VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="Gray"/>
-            </Grid>
-        </TabItem>
-
-        <!-- Tab 2: Simulation / Test -->
-        <TabItem Header="TEST / SIMULATION">
-            <Grid Margin="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Left: Status Dashboard -->
-                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                    <TextBlock Text="Simulator Status" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,16"/>
-
-                    <!-- Stats Cards -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Total Count -->
-                        <materialDesign:Card Grid.Row="0" Grid.Column="0" Margin="4" Padding="16">
-                            <StackPanel>
-                                <TextBlock Text="Total Frames/Lines" Style="{StaticResource MaterialDesignCaptionTextBlock}" Foreground="#DDDDDD"/>
-                                <TextBlock Text="{Binding TotalFrames, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="White"/>
-                            </StackPanel>
-                        </materialDesign:Card>
-
-                        <!-- FPS -->
-                        <materialDesign:Card Grid.Row="0" Grid.Column="1" Margin="4" Padding="16">
-                            <StackPanel>
-                                <TextBlock Text="FPS" Style="{StaticResource MaterialDesignCaptionTextBlock}" Foreground="#DDDDDD"/>
-                                <TextBlock Text="{Binding Fps}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
-                            </StackPanel>
-                        </materialDesign:Card>
-                    </Grid>
-
-                    <!-- Dynamic Class Cards -->
-                    <ItemsControl ItemsSource="{Binding ClassStats}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Columns="2" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                 <materialDesign:Card Margin="4" Padding="16" Background="{Binding ColorBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource MaterialDesignCaptionTextBlock}" Foreground="White" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding Count, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="White"/>
-                                    </StackPanel>
-                                </materialDesign:Card>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    
-                    <Grid Margin="4,16,4,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        
-                        <!-- Unknown Card -->
-                        <materialDesign:Card Grid.Column="0" Padding="16" Background="#424242" Margin="0,0,4,0">
-                            <StackPanel>
-                                <TextBlock Text="Unknown (Failed)" Style="{StaticResource MaterialDesignCaptionTextBlock}" Foreground="LightGray"/>
-                                <TextBlock Text="{Binding UnknownCount, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="#FF5252"/>
-                            </StackPanel>
-                        </materialDesign:Card>
-
-                        <!-- Background Card -->
-                        <materialDesign:Card Grid.Column="1" Padding="16" Background="#2A2A2A" Margin="4,0,0,0">
-                            <StackPanel>
-                                <TextBlock Text="Background (Skip)" Style="{StaticResource MaterialDesignCaptionTextBlock}" Foreground="Gray"/>
-                                <TextBlock Text="{Binding BackgroundCount, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="DarkGray"/>
-                            </StackPanel>
-                        </materialDesign:Card>
-                    </Grid>
-                </StackPanel>
-
-                <!-- Right: Controls & Logs -->
-                <Grid Grid.Column="1">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Top Right: Sensitivity & Controls -->
-                    <materialDesign:Card Grid.Row="0" Margin="4" Padding="16">
+        Title="FlashHSI - High Speed Sorter" Height="700" Width="1200"
+        d:DataContext="{d:DesignInstance vm:MainViewModel, IsDesignTimeCreatable=False}">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header / Status Bar -->
+        <materialDesign:ColorZone Mode="PrimaryMid" Padding="16" materialDesign:ShadowAssist.ShadowDepth="Depth2">
+            <DockPanel>
+                <ToggleButton Style="{StaticResource MaterialDesignHamburgerToggleButton}" DockPanel.Dock="Left" Margin="0,0,16,0"/>
+                <TextBlock Text="Flash HSI Sorter" VerticalAlignment="Center" Style="{StaticResource MaterialDesignHeadline6TextBlock}"/>
+                
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                     <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Margin="16,0"/>
+                     <materialDesign:PopupBox PlacementMode="BottomAndAlignRightEdges" StaysOpen="False" Margin="16,0,0,0">
                         <StackPanel>
-                            <TextBlock Text="Control Panel" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                            
-                            <TextBlock Text="Confidence Threshold" Margin="0,0,0,8"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Slider Grid.Column="0" Minimum="0.5" Maximum="0.99" Value="{Binding ConfidenceThreshold}" Margin="0,0,16,0" IsSnapToTickEnabled="True" TickFrequency="0.01"/>
-                                <TextBlock Grid.Column="1" Text="{Binding ConfidenceThreshold, StringFormat=P0}" VerticalAlignment="Center" Width="40"/>
-                            </Grid>
-
-                            <TextBlock Text="Background Threshold" Margin="0,16,0,8"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Slider Grid.Column="0" Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold}" Margin="0,0,16,0" IsSnapToTickEnabled="False" TickFrequency="0.01" SmallChange="0.01" LargeChange="100"/>
-                                <TextBlock Grid.Column="1" Text="{Binding BackgroundThreshold, StringFormat=N2}" VerticalAlignment="Center" Width="50" Foreground="White" FontWeight="Bold"/>
-                            </Grid>
-
-                            <TextBlock Text="Target FPS" Margin="0,16,0,8"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Slider Grid.Column="0" Minimum="10" Maximum="1000" Value="{Binding TargetFps}" Margin="0,0,16,0" IsSnapToTickEnabled="True" TickFrequency="10"/>
-                                <TextBlock Grid.Column="1" Text="{Binding TargetFps, StringFormat=N0}" VerticalAlignment="Center" Width="40"/>
-                            </Grid>
-
-                            <Grid Margin="0,24,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Command="{Binding LoadModelCommand}" Content="Load Model JSON" Margin="0,0,4,0" Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                                <Button Grid.Column="1" Command="{Binding SelectDataFileCommand}" Content="Select ENVI Header" Margin="4,0,0,0" Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                            </Grid>
-
-                            <!-- White/Dark Reference Buttons -->
-                            <Grid Margin="0,24,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Command="{Binding LoadWhiteRefCommand}" Margin="0,0,4,0" Content="Load White Ref">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsWhiteRefLoaded}" Value="True">
-                                                    <Setter Property="Background" Value="#4CAF50"/> <!-- Green -->
-                                                    <Setter Property="BorderBrush" Value="#4CAF50"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                                <Button Grid.Column="1" Command="{Binding LoadDarkRefCommand}" Margin="4,0,0,0" Content="Load Dark Ref">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsDarkRefLoaded}" Value="True">
-                                                    <Setter Property="Background" Value="#4CAF50"/> <!-- Green -->
-                                                    <Setter Property="BorderBrush" Value="#4CAF50"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </Grid>
-
-                            <Button Command="{Binding ToggleSimulationCommand}" Margin="0,8,0,0">
-                                    <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                        <Setter Property="Content" Value="Start Simulation"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSimulating}" Value="True">
-                                                <Setter Property="Content" Value="Stop Simulation"/>
-                                                <Setter Property="Background" Value="#d32f2f"/>
-                                                <Setter Property="BorderBrush" Value="#d32f2f"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-
-                            <Button Command="{Binding ResetStatsCommand}" Content="Reset Statistics" Margin="0,8,0,0" Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                            <Button Content="Exit" Command="{Binding WindowClosingCommand}"/>
                         </StackPanel>
-                    </materialDesign:Card>
+                    </materialDesign:PopupBox>
+                </StackPanel>
+            </DockPanel>
+        </materialDesign:ColorZone>
 
-                    <!-- Bottom Right: Logs -->
-                    <materialDesign:Card Grid.Row="1" Margin="4,16,4,4" Padding="16" VerticalAlignment="Stretch">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="System Log" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,8"/>
-                            <TextBox Text="{Binding StatusMessage}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True"
-                                     BorderThickness="0" Background="Transparent"/>
-                        </DockPanel>
-                    </materialDesign:Card>
-                </Grid>
-            </Grid>
-        </TabItem>
-    </TabControl>
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" Background="{DynamicResource MaterialDesignPaper}" Margin="8" Style="{StaticResource MaterialDesignNavigationRailTabControl}">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Width="Auto" Height="Auto">
+                        <materialDesign:PackIcon Kind="Home" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Home" HorizontalAlignment="Center" FontSize="10"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <pages:HomeView DataContext="{Binding HomeVM}"/>
+            </TabItem>
+            
+             <TabItem>
+                <TabItem.Header>
+                    <StackPanel Width="Auto" Height="Auto">
+                        <materialDesign:PackIcon Kind="Eye" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Live View" HorizontalAlignment="Center" FontSize="10"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <!-- LiveView uses MainVM for Waterfall Image -->
+                <pages:LiveView DataContext="{Binding}"/> 
+            </TabItem>
+            
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Width="Auto" Height="Auto">
+                        <materialDesign:PackIcon Kind="ChartBar" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Statistic" HorizontalAlignment="Center" FontSize="10"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <pages:StatisticView DataContext="{Binding StatisticVM}"/>
+            </TabItem>
+            
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Width="Auto" Height="Auto">
+                        <materialDesign:PackIcon Kind="Cog" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Settings" HorizontalAlignment="Center" FontSize="10"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <pages:SettingView DataContext="{Binding SettingVM}"/>
+            </TabItem>
+            
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Width="Auto" Height="Auto">
+                        <materialDesign:PackIcon Kind="History" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Logs" HorizontalAlignment="Center" FontSize="10"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <pages:LogView DataContext="{Binding LogVM}"/>
+            </TabItem>
+        </TabControl>
+        
+        <!-- Bottom Status Bar (Optional) -->
+        <StatusBar Grid.Row="2" Background="#333">
+             <StatusBarItem>
+                 <TextBlock Text="{Binding StatusMessage}" Foreground="White"/>
+             </StatusBarItem>
+        </StatusBar>
+    </Grid>
 </Window>

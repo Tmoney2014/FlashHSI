@@ -15,7 +15,7 @@ namespace FlashHSI.Core.Control
         public int DistanceLines { get; set; } = 500; // Camera to Gun distance in Lines
         public int MaxBlobLength { get; set; } = 200; // Threshold for Long Object (Head Hit)
 
-        public event Action<string> OnEjectionSignal;
+        public event Action<EjectionLogItem>? OnEjectionSignal;
 
         public void Process(ActiveBlob blob)
         {
@@ -81,8 +81,18 @@ namespace FlashHSI.Core.Control
             }
 
             // Output
-            string msg = $"[EJECT] Blob #{blob.Id} (Class {bestClass}) -> Valve {valveId} | Delay {delayLines} lines ({hitType})";
-            OnEjectionSignal?.Invoke(msg);
+            // Output
+            var log = new EjectionLogItem 
+            {
+                Timestamp = DateTime.Now,
+                BlobId = blob.Id,
+                ClassId = bestClass,
+                ValveId = valveId,
+                Delay = delayLines,
+                HitType = hitType
+            };
+            
+            OnEjectionSignal?.Invoke(log);
             
             // Console Debug
             // System.Diagnostics.Debug.WriteLine(msg);

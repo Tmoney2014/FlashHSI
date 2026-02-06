@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core;
 using FlashHSI.Core.Settings;
@@ -7,285 +8,145 @@ using Newtonsoft.Json;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using System.Threading.Tasks;
 using System.Windows.Threading;
+using System.Windows.Media;
+using FlashHSI.UI.Services;
+using FlashHSI.Core.Control;
+using FlashHSI.Core.Control.Hardware;
+using FlashHSI.Core.Services;
+using System.Linq;
+using System;
 
 namespace FlashHSI.UI.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
+        // Core Services (Injected)
         private readonly HsiEngine _hsiEngine;
+        private readonly WaterfallService _waterfallService;
+        private readonly IEtherCATService _hardwareService;
+        private readonly IMessenger _messenger;
+        private readonly CommonDataShareService _dataShare;
         
-        // UI State
-        [ObservableProperty] private double _confidenceThreshold = 0.75;
-        [ObservableProperty] private double _backgroundThreshold = 3000.0;
-        
-        // Stats
-        [ObservableProperty] private long _unknownCount; 
-        [ObservableProperty] private long _backgroundCount; 
-        [ObservableProperty] private long _detectedObjects;
-        [ObservableProperty] private double _fps;
-        [ObservableProperty] private long _totalFrames;
+        // Child ViewModels (Injected)
+        public HomeViewModel HomeVM { get; }
+        public StatisticViewModel StatisticVM { get; }
+        public SettingViewModel SettingVM { get; }
+        public LogViewModel LogVM { get; }
 
-        // Status
+        // Global UI State
         [ObservableProperty] private string _statusMessage = "Ready";
-        [ObservableProperty] private bool _isSimulating;
-        [ObservableProperty] private double _targetFps = 100.0;
-        [ObservableProperty] private bool _isWhiteRefLoaded;
-        [ObservableProperty] private bool _isDarkRefLoaded;
-
-        // Model & Data
-        private string _headerPath = "";
-        private ModelConfig? _currentConfig;
+        [ObservableProperty] private ImageSource? _waterfallImage;
         
-        public ObservableCollection<ClassInfo> ClassStats { get; } = new();
-
-        public MainViewModel()
+        /// <ai>AI가 수정함: 모든 의존성을 생성자를 통해 주입받음 (DI 체인)</ai>
+        public MainViewModel(
+            HsiEngine hsiEngine,
+            WaterfallService waterfallService,
+            IEtherCATService hardwareService,
+            CommonDataShareService dataShare,
+            IMessenger messenger,
+            HomeViewModel homeVM,
+            StatisticViewModel statisticVM,
+            SettingViewModel settingVM,
+            LogViewModel logVM)
         {
-            _hsiEngine = new HsiEngine();
-            _hsiEngine.StatsUpdated += OnStatsUpdated;
-            _hsiEngine.LogMessage += msg => Application.Current.Dispatcher.Invoke(() => StatusMessage = msg);
-            _hsiEngine.SimulationStateChanged += state => Application.Current.Dispatcher.Invoke(() => IsSimulating = state);
+            _hsiEngine = hsiEngine;
+            _waterfallService = waterfallService;
+            _hardwareService = hardwareService;
+            _dataShare = dataShare;
+            _messenger = messenger;
 
-            // Load Settings
-            var s = SettingsService.Instance.Settings;
-            _headerPath = s.LastHeaderPath;
-            _targetFps = s.TargetFps;
-            _confidenceThreshold = s.ConfidenceThreshold;
-            _backgroundThreshold = s.BackgroundThreshold;
-
-            _hsiEngine.SetTargetFps(_targetFps);
-            // Engine settings will be applied when model loads or user changes them
+            HomeVM = homeVM;
+            StatisticVM = statisticVM;
+            SettingVM = settingVM;
+            LogVM = logVM;
+            
+            // 3. Event Subscriptions
+            _hsiEngine.LogMessage += msg => StatusMessage = msg;
+            _hardwareService.LogMessage += msg => StatusMessage = msg;
+            
+            _hsiEngine.FrameProcessed += OnFrameProcessed;
+            _hsiEngine.EjectionOccurred += OnEjectionOccurredHardwareTrigger;
+            
+            SettingVM.ModelLoaded += OnModelLoaded;
+            
+            // 4. Load Initial Settings
+             var s = SettingsService.Instance.Settings;
+            if(!string.IsNullOrEmpty(s.LastHeaderPath))
+            {
+               SettingVM.HeaderPath = s.LastHeaderPath;
+            }
+            
+            _hsiEngine.SetTargetFps(s.TargetFps);
         }
 
-        private void OnStatsUpdated(EngineStats stats)
+        private void OnFrameProcessed(int[] data, int width)
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                UnknownCount += stats.Unknown;
-                BackgroundCount += stats.Background;
-                DetectedObjects += stats.Objects;
-                TotalFrames += stats.ProcessedLines;
-                Fps = stats.Fps;
-
-                for (int i = 0; i < stats.ClassCounts.Length; i++)
+                if (_waterfallService.DisplayImage == null)
                 {
-                    if (i < ClassStats.Count)
-                    {
-                        ClassStats[i].Count += stats.ClassCounts[i];
-                    }
+                    _waterfallService.Initialize(width, 400); 
+                    WaterfallImage = _waterfallService.DisplayImage;
                 }
-                
-                string debugInfo = $"Obj: {DetectedObjects}"; 
-                StatusMessage = $"Running... {debugInfo} | Fps: {Fps}";
-            }, DispatcherPriority.Background);
+                _waterfallService.AddLine(data, width);
+            }, DispatcherPriority.Render);
         }
 
-        [RelayCommand]
-        public void LoadModel()
+        private void OnEjectionOccurredHardwareTrigger(EjectionLogItem log)
         {
-            var dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "Model JSON (*.json)|*.json|All files (*.*)|*.*";
-            if (dlg.ShowDialog() == true)
-            {
-                LoadModelFromFile(dlg.FileName);
-            }
+             if(_hardwareService.IsConnected)
+             {
+                 Application.Current.Dispatcher.InvokeAsync(async () =>
+                 {
+                    double fps = _hsiEngine.IsSimulating ? SettingsService.Instance.Settings.TargetFps : 100.0;
+                    if (fps <= 0) fps = 100;
+                    
+                    int delayMs = (int)(log.Delay / fps * 1000.0);
+                    int pulseMs = 10; 
+                    
+                    _ = Task.Run(async () => 
+                    {
+                        if (delayMs > 0) await Task.Delay(delayMs);
+                        await _hardwareService.FireChannelAsync(log.ValveId, pulseMs);
+                    });
+                 });
+             }
         }
-
-        private void LoadModelFromFile(string path)
+        
+        private void OnModelLoaded(string path)
         {
             try
             {
-                // Delegate to Engine
                 _hsiEngine.LoadModel(path);
-
-                // UI Setup (Colors/Names)
                 StatusMessage = "Loading Model UI...";
+                
                 string json = File.ReadAllText(path);
                 var config = JsonConvert.DeserializeObject<ModelConfig>(json);
                 if (config == null) return;
-                _currentConfig = config;
 
-                ClassStats.Clear();
-                int count = config.Weights.Count;
-                var sortedKeys = config.Labels.Keys.OrderBy(k => int.Parse(k)).ToList();
-
-                foreach (var key in sortedKeys)
-                {
-                    if (int.TryParse(key, out int index))
-                    {
-                        var name = config.Labels.ContainsKey(key) ? config.Labels[key] : $"Class {index}";
-                        var color = config.Colors.ContainsKey(key) ? config.Colors[key] : "#888888";
-                        ClassStats.Add(new ClassInfo { Index = index, Name = name, ColorHex = color });
-                    }
-                }
-                while (ClassStats.Count < count)
-                {
-                    ClassStats.Add(new ClassInfo { Index = ClassStats.Count, Name = $"Class {ClassStats.Count}", ColorHex = "#888888" });
-                }
+                StatisticVM.InitializeStats(config);
+                _waterfallService.UpdateColorMap(config);
                 
-                // Set initial settings to Engine 
-                // (Engine LoadModel might overwrite with Config defaults, so we might need to re-apply User Overrides if desired)
-                // For now, let's assume Config defaults are respected but User UI sliders override them.
+                string threshStr = config.Preprocessing.Threshold ?? "0";
+                double.TryParse(threshStr, out double thresh);
                 
-                // Config might have Mask Rules
-                ApplyMaskSettings();
-
+                SettingVM.BackgroundThreshold = thresh;
+                
                 StatusMessage = $"Model Loaded: {config.ModelType}";
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                StatusMessage = $"Error: {ex.Message}";
-                MessageBox.Show(ex.Message);
+                StatusMessage = $"Error loading model: {ex.Message}";
             }
         }
-
-        private void ApplyMaskSettings()
-        {
-             // We need to parse mask rules again here or trust Engine?
-             // Engine doesn't expose Mask Parsing helper currently.
-             // We can duplicate parsing logic or move Parser to Core (It is in Core).
-             if (_currentConfig == null) return;
-             
-             string rules = _currentConfig.Preprocessing.MaskRules ?? "Mean";
-             string threshStr = _currentConfig.Preprocessing.Threshold ?? "0";
-             
-             double thresh = 0;
-             double.TryParse(threshStr, out thresh);
-             BackgroundThreshold = thresh; // Update UI
-
-             try 
-             {
-                 var rule = FlashHSI.Core.Masking.MaskRuleParser.Parse(rules);
-                 if (rule != null)
-                 {
-                    // Advanced rule
-                    // Extract Band Index if present for Simple display?
-                    // Let's just push to Engine
-                    // We need to extract arguments for Engine.SetMaskSettings
-                    // Engine SetMaskSettings takes (Mode, Rule, BandIndex, LessThan, Thresh)
-                    
-                    // Simple extraction logic for BandPixel mode:
-                    int bIdx = 0;
-                    var match = System.Text.RegularExpressions.Regex.Match(rules, @"[bB](\d+)");
-                    if (match.Success) int.TryParse(match.Groups[1].Value, out bIdx);
-                    
-                    bool less = rules.Contains("<");
-                    
-                    _hsiEngine.SetMaskSettings(FlashHSI.Core.Engine.MaskMode.MaskRule, rule, bIdx, less, thresh);
-                 }
-                 else
-                 {
-                    _hsiEngine.SetMaskSettings(FlashHSI.Core.Engine.MaskMode.Mean, null, 0, true, BackgroundThreshold);
-                 }
-             }
-             catch
-             {
-                 _hsiEngine.SetMaskSettings(FlashHSI.Core.Engine.MaskMode.Mean, null, 0, true, BackgroundThreshold);
-             }
-        }
-
+        
         [RelayCommand]
-        public void ToggleSimulation()
+        public async Task WindowClosing()
         {
-            if (IsSimulating)
-            {
-                _hsiEngine.Stop();
-            }
-            else
-            {
-                if (string.IsNullOrEmpty(_headerPath)) { StatusMessage = "Select Data First!"; return; }
-                _hsiEngine.StartSimulation(_headerPath);
-            }
-        }
-
-        [RelayCommand]
-        public void SelectDataFile()
-        {
-            var dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "ENVI Header (*.hdr)|*.hdr";
-            if (dlg.ShowDialog() == true)
-            {
-                _headerPath = dlg.FileName;
-                StatusMessage = $"Data: {Path.GetFileName(_headerPath)}";
-                SettingsService.Instance.Settings.LastHeaderPath = _headerPath;
-                SettingsService.Instance.Save();
-            }
-        }
-
-        [RelayCommand]
-        public void LoadWhiteRef()
-        {
-            LoadRef(false);
-        }
-
-        [RelayCommand]
-        public void LoadDarkRef()
-        {
-            LoadRef(true);
-        }
-
-        private void LoadRef(bool isDark)
-        {
-            var dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "ENVI Header (*.hdr)|*.hdr";
-            if (dlg.ShowDialog() == true)
-            {
-                var data = _hsiEngine.LoadReference(dlg.FileName, isDark);
-                if (data != null)
-                {
-                    string name = Path.GetFileName(dlg.FileName);
-                    if (isDark) { IsDarkRefLoaded = true; StatusMessage = $"Dark Ref: {name}"; SettingsService.Instance.Settings.LastDarkRefPath = dlg.FileName; }
-                    else { IsWhiteRefLoaded = true; StatusMessage = $"White Ref: {name}"; SettingsService.Instance.Settings.LastWhiteRefPath = dlg.FileName; }
-                    
-                    SettingsService.Instance.Save();
-                }
-            }
-        }
-
-        [RelayCommand]
-        public void ResetStats()
-        {
-            UnknownCount = 0;
-            BackgroundCount = 0;
-            DetectedObjects = 0;
-            TotalFrames = 0;
-            Fps = 0;
-            foreach(var c in ClassStats) c.Count = 0;
-        }
-
-        // Property Change Handlers
-        partial void OnTargetFpsChanged(double value)
-        {
-            _hsiEngine.SetTargetFps(value);
-            SettingsService.Instance.Settings.TargetFps = value;
-            SettingsService.Instance.Save();
-        }
-
-        partial void OnBackgroundThresholdChanged(double value)
-        {
-             // Update Engine Threshold
-             // Note: Engine needs re-configuration of usage? 
-             // SetMaskSettings takes threshold. We should re-call SetMaskSettings or add SetThreshold.
-             // For now re-apply mask settings logic or simplified SetThreshold
-             _hsiEngine.SetMaskSettings(FlashHSI.Core.Engine.MaskMode.Mean, null, 0, true, value); 
-             // Caution: This overwrites MaskRule if active. Ideally Engine should have dedicated SetThreshold.
-             // But for Mean mode (default slider) this is fine.
-             
-             SettingsService.Instance.Settings.BackgroundThreshold = value;
-             SettingsService.Instance.Save();
-        }
-
-        partial void OnConfidenceThresholdChanged(double value)
-        {
-            // Engine doesn't expose Pipeline for Threshold setting directly?
-            // HsiPipeline has SetThreshold.
-            // We need to Expose this on Engine.
-             _hsiEngine.SetConfidenceThreshold(value); 
-            
-            SettingsService.Instance.Settings.ConfidenceThreshold = value;
-            SettingsService.Instance.Save();
+            _hsiEngine.Stop();
+             await _hardwareService.DisconnectAsync();
         }
     }
-
-
 }

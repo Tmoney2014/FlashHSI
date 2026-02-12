@@ -8,6 +8,7 @@ using FlashHSI.Core.Services;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial;
+using FlashHSI.Core.Control.Camera;  // AI가 추가함
 using FlashHSI.UI.Services;
 using FlashHSI.UI.ViewModels;
 using FlashHSI.UI.Views;
@@ -62,11 +63,15 @@ namespace FlashHSI.UI
             services.AddSingleton<HsiEngine>();
             services.AddSingleton<WaterfallService>();
             services.AddSingleton<IEtherCATService, EtherCATService>();
-            services.AddSingleton<SerialCommandService>(); // Serial Service Added
+            services.AddSingleton<SerialCommandService>();
+            
+            // Camera Service (Pleora Driver)
+            services.AddSingleton<ICameraService, PleoraCameraService>();
 
             // ViewModels
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<HomeViewModel>();
+            services.AddSingleton<LiveViewModel>();  // AI가 추가함: 카메라/라이브 스트림 담당
             services.AddSingleton<StatisticViewModel>();
             services.AddSingleton<SettingViewModel>();
             services.AddSingleton<LogViewModel>();

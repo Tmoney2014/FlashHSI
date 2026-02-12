@@ -60,8 +60,8 @@
                         <TextBlock Text="Live View" HorizontalAlignment="Center" FontSize="10"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- LiveView uses MainVM for Waterfall Image -->
-                <pages:LiveView DataContext="{Binding}"/> 
+                <!-- LiveView uses LiveVM for camera control and Waterfall Image -->
+                <pages:LiveView DataContext="{Binding LiveVM}"/> 
             </TabItem>
             
             <TabItem>

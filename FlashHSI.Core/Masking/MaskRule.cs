@@ -14,11 +14,14 @@ namespace FlashHSI.Core.Masking
     /// <summary>
     /// Represents a single condition like "b80 > 0.1".
     /// </summary>
-    public readonly struct Condition
+    /// <summary>
+    /// Represents a single condition like "b80 > 0.1".
+    /// </summary>
+    public class Condition
     {
         public readonly int BandIndex; // zero‑based index
         public readonly char Operator; // one of '<', '>', '=', '!' (used internally)
-        public readonly double Threshold;
+        public double Threshold { get; set; } // Mutable for dynamic adjustment
         public readonly bool IsLess; // true if operator is '<' or '<='
         public readonly bool IncludeEqual; // true if operator includes equality
 
@@ -88,6 +91,30 @@ namespace FlashHSI.Core.Masking
             _conditions = conditions;
             _postfixTokens = postfixTokens;
         }
+
+        /// <summary>
+        /// Updates the threshold for all conditions in this rule.
+        /// Used for dynamic adjustment via UI slider.
+        /// </summary>
+        public void UpdateThreshold(double newThreshold)
+        {
+            foreach (var cond in _conditions)
+            {
+                cond.Threshold = newThreshold;
+            }
+        }
+
+        /// <summary>
+        /// Returns the threshold of the first condition.
+        /// Used to initialize the UI slider.
+        /// </summary>
+        public double GetFirstThreshold()
+        {
+            if (_conditions.Count > 0) return _conditions[0].Threshold;
+            return 0.0;
+        }
+
+
 
         /// <summary>
         /// Evaluates the rule against a spectrum pointer with optional radiometric calibration.

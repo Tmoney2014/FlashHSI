@@ -67,20 +67,24 @@ namespace FlashHSI.Core.Classifiers
             }
 
             // 2. Decision Logic
-            // SVM/PLS (Regression/Distance) -> ArgMax (Ignore Threshold)
-            // ModelType is often "LinearModel" for all, so we check OriginalType.
-            if (_originalType.Contains("PLS") || _originalType.Contains("SVM") || _originalType.Contains("SVC"))
+            // AI가 수정함: 모델 타입별 3분기 처리
+            if (_originalType.Contains("PLS"))
             {
-                return ArgMax(classScores);
+                return PlsThreshold(classScores);
+            }
+            else if (_originalType.Contains("SVM") || _originalType.Contains("SVC"))
+            {
+                return ArgMaxOnly(classScores);
             }
             else
             {
-                // LDA / Default -> Softmax -> Threshold
+                // LDA / Default
                 return SoftmaxAndThreshold(classScores);
             }
         }
 
-        private int ArgMax(double* scores)
+        /// <ai>AI가 작성함: PLS-DA용 - 점수 직접 Threshold 비교 (소속도 ≈ 0~1)</ai>
+        private int PlsThreshold(double* scores)
         {
             double maxVal = NegativeInfinity;
             int maxIdx = -1;
@@ -92,9 +96,37 @@ namespace FlashHSI.Core.Classifiers
                     maxIdx = c;
                 }
             }
-            // For SVM/PLS, if max score is too low? 
-            // Maybe apply threshold if we interpret scores as confidence?
-            // Let's assume user wants raw argmax for now unless logic refines.
+
+            // PLS-DA 점수는 0~1 근처이지만 초과/미달 가능 → clamp
+            double confidence = Math.Clamp(maxVal, 0.0, 1.0);
+
+            if ((_logCounter++ % 5000) == 0)
+            {
+                GlobalLog?.Invoke($"[PLS] Score: {confidence:P1} / Threshold: {_confidenceThreshold:P1} => {(confidence >= _confidenceThreshold ? $"Class: {maxIdx}" : "Unknown")}");
+            }
+
+            return (confidence >= _confidenceThreshold) ? maxIdx : -1;
+        }
+
+        /// <ai>AI가 작성함: SVM용 - ArgMax만 (Threshold 미적용, 거리값이라 비교 무의미)</ai>
+        private int ArgMaxOnly(double* scores)
+        {
+            double maxVal = NegativeInfinity;
+            int maxIdx = -1;
+            for (int c = 0; c < _classCount; c++)
+            {
+                if (scores[c] > maxVal)
+                {
+                    maxVal = scores[c];
+                    maxIdx = c;
+                }
+            }
+
+            if ((_logCounter++ % 5000) == 0)
+            {
+                GlobalLog?.Invoke($"[SVM] BestScore: {maxVal:F4} => Class: {maxIdx} (No Threshold)");
+            }
+
             return maxIdx;
         }
 
@@ -125,7 +157,17 @@ namespace FlashHSI.Core.Classifiers
                 }
             }
 
+            // AI: Debug Logging (Sampled) - Confidence Check
+            if ((_logCounter++ % 5000) == 0) 
+            {
+               string msg = $"[LinearClassifier] MaxProb: {maxProb:P2} / Threshold: {_confidenceThreshold:P2} => Decided: {(maxProb >= _confidenceThreshold ? predictedClass : -1)}";
+               GlobalLog?.Invoke(msg);
+            }
+
             return (maxProb >= _confidenceThreshold) ? predictedClass : -1;
         }
+
+        private static int _logCounter = 0;
+        public static event Action<string>? GlobalLog;
     }
 }

@@ -23,6 +23,8 @@ namespace FlashHSI.Core.IO
 
         public void Load(string headerPath)
         {
+            Close(); // Clean up previous resources if any
+
             ParseHeader(headerPath);
 
             // Assume data file uses extension-less name or .raw/.img
@@ -31,6 +33,8 @@ namespace FlashHSI.Core.IO
 
             string dir = Path.GetDirectoryName(headerPath) ?? "";
             string name = Path.GetFileNameWithoutExtension(headerPath);
+            
+            _dataPath = Path.Combine(dir, name); // Default guess
 
             // Try explicit matching if needed, but usually same base name
             // Let's check a few extensions
@@ -38,19 +42,20 @@ namespace FlashHSI.Core.IO
             foreach (var ext in extensions)
             {
                 string candidate = Path.Combine(dir, name + ext);
-                if (File.Exists(candidate) && candidate != headerPath)
+                if (File.Exists(candidate))
                 {
                     _dataPath = candidate;
                     break;
                 }
             }
 
-            if (string.IsNullOrEmpty(_dataPath))
+            if (!File.Exists(_dataPath))
             {
-                throw new FileNotFoundException($"Could not find data file for header: {headerPath}");
+                 // Fallback check if headerPath itself is the data file? No, usually .hdr is separate.
+                 throw new FileNotFoundException($"Could not find data file for header: {headerPath}");
             }
 
-            _fileStream = new FileStream(_dataPath, FileMode.Open, FileAccess.Read);
+            _fileStream = new FileStream(_dataPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             _reader = new BinaryReader(_fileStream);
         }
 
@@ -87,7 +92,9 @@ namespace FlashHSI.Core.IO
         public void Close()
         {
             _reader?.Close();
+            _reader = null;
             _fileStream?.Close();
+            _fileStream = null;
         }
 
         /// <summary>

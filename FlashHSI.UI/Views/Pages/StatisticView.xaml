@@ -45,7 +45,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                         <materialDesign:Card Margin="4" Padding="16" Background="{Binding ColorBrush}">
+                         <materialDesign:Card Margin="4" Padding="16" Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
                             <StackPanel>
                                 <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding Count, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="White"/>
@@ -58,8 +58,25 @@
          </ScrollViewer>
          
          <!-- Control -->
-         <Grid Grid.Row="2" Margin="0,16,0,0">
-             <Button Command="{Binding ResetStatsCommand}" Style="{StaticResource MaterialDesignOutlinedButton}" Content="RESET STATISTICS"/>
-         </Grid>
+         <UniformGrid Grid.Row="2" Rows="1" Margin="0,16,0,0">
+             <Button Command="{Binding ToggleCollectionCommand}" Margin="0,0,8,0">
+                 <Button.Style>
+                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                         <Setter Property="Content" Value="START COLLECTION"/>
+                         <Setter Property="Background" Value="#4CAF50"/>
+                         <Setter Property="BorderBrush" Value="#4CAF50"/>
+                         <Style.Triggers>
+                             <DataTrigger Binding="{Binding IsCollecting}" Value="True">
+                                 <Setter Property="Content" Value="STOP COLLECTION"/>
+                                 <Setter Property="Background" Value="#F44336"/> 
+                                 <Setter Property="BorderBrush" Value="#F44336"/>
+                             </DataTrigger>
+                         </Style.Triggers>
+                     </Style>
+                 </Button.Style>
+             </Button>
+             
+             <Button Command="{Binding ResetStatsCommand}" Margin="8,0,0,0" Style="{StaticResource MaterialDesignOutlinedButton}" Content="RESET STATISTICS"/>
+         </UniformGrid>
     </Grid>
 </UserControl>

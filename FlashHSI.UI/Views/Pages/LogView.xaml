@@ -9,10 +9,15 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
              <RowDefinition Height="Auto"/>
-             <RowDefinition Height="*"/>
+             <RowDefinition Height="2*"/>
+             <RowDefinition Height="16"/>
+             <RowDefinition Height="Auto"/>
+             <RowDefinition Height="1*"/>
         </Grid.RowDefinitions>
+        
         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
              <Button Command="{Binding ClearLogsCommand}" Content="CLEAR LOGS" Style="{StaticResource MaterialDesignOutlinedButton}"/>
+             <TextBlock Text="EJECTION LOGS" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="Bold" Opacity="0.5"/>
         </StackPanel>
         
         <DataGrid Grid.Row="1" ItemsSource="{Binding Logs}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
@@ -27,5 +32,14 @@
                     <DataGridTextColumn Header="Type" Binding="{Binding HitType}" Width="*" ElementStyle="{StaticResource MaterialDesignDataGridTextColumnStyle}"/>
                </DataGrid.Columns>
         </DataGrid>
+        
+        <TextBlock Grid.Row="3" Text="SYSTEM / DEBUG LOGS" FontWeight="Bold" Margin="0,0,0,8" Opacity="0.7"/>
+        <ListBox Grid.Row="4" ItemsSource="{Binding SystemLogs}" Background="#1E1E1E" Foreground="#CCCCCC" FontFamily="Consolas" FontSize="12" BorderThickness="1" BorderBrush="#333333">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="6,2"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
     </Grid>
 </UserControl>

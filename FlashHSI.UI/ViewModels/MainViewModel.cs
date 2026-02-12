@@ -33,13 +33,14 @@ namespace FlashHSI.UI.ViewModels
         
         // Child ViewModels (Injected)
         public HomeViewModel HomeVM { get; }
+        public LiveViewModel LiveVM { get; }  // AI가 추가함
         public StatisticViewModel StatisticVM { get; }
         public SettingViewModel SettingVM { get; }
         public LogViewModel LogVM { get; }
 
         // Global UI State
         [ObservableProperty] private string _statusMessage = "Ready";
-        [ObservableProperty] private ImageSource? _waterfallImage;
+        // AI가 수정함: WaterfallImage는 LiveViewModel로 이동됨
         
         /// <ai>AI가 수정함: 모든 의존성을 생성자를 통해 주입받음 (DI 체인)</ai>
         public MainViewModel(
@@ -50,6 +51,7 @@ namespace FlashHSI.UI.ViewModels
             CommonDataShareService dataShare,
             IMessenger messenger,
             HomeViewModel homeVM,
+            LiveViewModel liveVM,  // AI가 추가함
             StatisticViewModel statisticVM,
             SettingViewModel settingVM,
             LogViewModel logVM)
@@ -62,6 +64,7 @@ namespace FlashHSI.UI.ViewModels
             _messenger = messenger;
 
             HomeVM = homeVM;
+            LiveVM = liveVM;  // AI가 추가함
             StatisticVM = statisticVM;
             SettingVM = settingVM;
             LogVM = logVM;
@@ -70,7 +73,7 @@ namespace FlashHSI.UI.ViewModels
             _hsiEngine.LogMessage += msg => StatusMessage = msg;
             _hardwareService.LogMessage += msg => StatusMessage = msg;
             
-            _hsiEngine.FrameProcessed += OnFrameProcessed;
+            // AI가 수정함: FrameProcessed 구독은 LiveViewModel로 이동됨
             _hsiEngine.EjectionOccurred += OnEjectionOccurredHardwareTrigger;
             
             SettingVM.ModelLoaded += OnModelLoaded;
@@ -85,18 +88,7 @@ namespace FlashHSI.UI.ViewModels
             _hsiEngine.SetTargetFps(s.TargetFps);
         }
 
-        private void OnFrameProcessed(int[] data, int width)
-        {
-            Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                if (_waterfallService.DisplayImage == null)
-                {
-                    _waterfallService.Initialize(width, 400); 
-                    WaterfallImage = _waterfallService.DisplayImage;
-                }
-                _waterfallService.AddLine(data, width);
-            }, DispatcherPriority.Render);
-        }
+        // AI가 수정함: OnFrameProcessed 메서드는 LiveViewModel로 이동됨
 
         private void OnEjectionOccurredHardwareTrigger(EjectionLogItem log)
         {
@@ -124,6 +116,14 @@ namespace FlashHSI.UI.ViewModels
             try
             {
                 _hsiEngine.LoadModel(path);
+                
+                // AI가 추가함: MaskRule 활성화 여부 업데이트
+                SettingVM.IsMaskRuleActive = _hsiEngine.IsMaskRuleActive;
+                
+                // AI가 추가함: SVM 모델 시 Confidence 슬라이더 비활성화
+                var loadedType = _hsiEngine.LoadedModelType;
+                SettingVM.IsConfidenceEnabled = !(loadedType.Contains("SVM") || loadedType.Contains("SVC"));
+                
                 StatusMessage = "Loading Model UI...";
                 
                 string json = File.ReadAllText(path);
@@ -133,10 +133,8 @@ namespace FlashHSI.UI.ViewModels
                 StatisticVM.InitializeStats(config);
                 _waterfallService.UpdateColorMap(config);
                 
-                string threshStr = config.Preprocessing.Threshold ?? "0";
-                double.TryParse(threshStr, out double thresh);
-                
-                SettingVM.BackgroundThreshold = thresh;
+                // AI가 수정함: 엔진에서 현재 적용된 임계값(MaskRule 포함)을 가져와 UI 설정
+                SettingVM.BackgroundThreshold = _hsiEngine.GetCurrentThreshold();
                 
                 StatusMessage = $"Model Loaded: {config.ModelType}";
             }

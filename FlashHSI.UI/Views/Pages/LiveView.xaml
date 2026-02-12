@@ -2,14 +2,164 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:FlashHSI.UI.ViewModels"
+             d:DataContext="{d:DesignInstance viewModels:LiveViewModel}"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
-    <Grid Background="Black">
-        <!-- Waterfall Image Binding -->
-        <!-- Note: DataContext is MainViewModel inherited from Shell -->
-        <Image Source="{Binding WaterfallImage}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+             d:DesignHeight="600" d:DesignWidth="1000">
+    
+    <!-- AI가 작성함: 카메라 제어 UI 및 라이브 스트림 표시 -->
+    <Grid Background="#1a1a2e">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         
-        <TextBlock Text="Live Visualization" Foreground="White" Opacity="0.5" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"/>
+        <!-- 상단: 카메라 정보 및 제어 버튼 -->
+        <Border Grid.Row="0" Background="#16213e" Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 카메라 상태 표시 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 연결 상태 도트 -->
+                    <Ellipse Width="12" Height="12" Margin="0,0,10,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#ff4757"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
+                                        <Setter Property="Fill" Value="#2ed573"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    
+                    <!-- 카메라 아이콘 -->
+                    <Border Width="40" Height="40" Background="#0f3460" CornerRadius="8" Margin="0,0,12,0">
+                        <TextBlock Text="📷" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    
+                    <!-- 카메라 이름 -->
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="카메라" Foreground="#a0a0a0" FontSize="11"/>
+                        <TextBlock Text="{Binding CameraName}" Foreground="White" FontSize="16" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+                
+                <!-- 상태 메시지 -->
+                <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" 
+                           Foreground="#7f8fa6" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                
+                <!-- 제어 버튼 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <!-- 카메라 연결 버튼 -->
+                    <Button Command="{Binding ToggleCameraCommand}"
+                            Width="120" Height="40" Margin="0,0,10,0"
+                            Background="#3742fa" Foreground="White" 
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Content" Value="🔌 연결"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
+                                        <Setter Property="Content" Value="❌ 연결 해제"/>
+                                        <Setter Property="Background" Value="#57606f"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- 라이브 시작/중지 버튼 -->
+                    <Button Command="{Binding ToggleLiveCommand}"
+                            Width="120" Height="40" Margin="0,0,10,0"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Content" Value="▶ 라이브"/>
+                                <Setter Property="Background" Value="#2ed573"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLive}" Value="True">
+                                        <Setter Property="Content" Value="⏹ 중지"/>
+                                        <Setter Property="Background" Value="#ff4757"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- AI가 추가함: 분류 시작/정지 버튼 -->
+                    <Button Command="{Binding TogglePredictionCommand}"
+                            Width="120" Height="40"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Content" Value="🔮 분류 시작"/>
+                                <Setter Property="Background" Value="#8e44ad"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPredicting}" Value="True">
+                                        <Setter Property="Content" Value="⏸ 분류 중지"/>
+                                        <Setter Property="Background" Value="#e74c3c"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- 중앙: Waterfall 이미지 -->
+        <Border Grid.Row="1" Background="Black" Margin="16">
+            <Grid>
+                <Image Source="{Binding WaterfallImage}" 
+                       Stretch="Fill" 
+                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                
+                <!-- 라이브 중 표시 -->
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top" 
+                        Background="#ff4757" CornerRadius="4" Padding="8,4" Margin="10"
+                        Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="8" Height="8" Fill="White" Margin="0,0,6,0"/>
+                        <TextBlock Text="LIVE" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 데이터 없음 표시 - AI가 수정함: 컨버터 대신 기본 Visible -->
+                <TextBlock Text="카메라 데이터 대기 중..." 
+                           Foreground="#7f8fa6" FontSize="18"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           x:Name="WaitingText">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding WaterfallImage}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Border>
+        
+        <!-- 하단: 정보 바 -->
+        <Border Grid.Row="2" Background="#16213e" Padding="16,8">
+            <TextBlock Text="💡 카메라를 연결한 후 '라이브' 버튼을 눌러 스트리밍을 시작하세요." 
+                       Foreground="#7f8fa6" FontSize="12"
+                       HorizontalAlignment="Center"/>
+        </Border>
     </Grid>
 </UserControl>

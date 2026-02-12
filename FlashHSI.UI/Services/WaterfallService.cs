@@ -36,7 +36,7 @@ namespace FlashHSI.UI.Services
             // Add default or special handling if needed
         }
 
-        public unsafe void AddLine(int[] classificationRow, int width)
+        public unsafe void AddLine(int[] classificationRow, int width, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>? blobs = null)
         {
             if (DisplayImage == null) return;
             if (width != DisplayImage.PixelWidth) 
@@ -88,6 +88,10 @@ namespace FlashHSI.UI.Services
                     {
                         color = (0, 0, 0); // Black
                     }
+                    else if (cls == 999) // AI가 추가함: Blob Outline (White)
+                    {
+                        color = (255, 255, 255);
+                    }
                     else
                     {
                         color = (128, 128, 128); // Unknown/Gray
@@ -102,11 +106,77 @@ namespace FlashHSI.UI.Services
                     }
                 }
 
+                // 3. AI: Precise Contour Rendering (Pixel-Perfect)
+                // Using Range Difference between CurrentSegments and PrevSegments
+                
+                if (blobs != null && height >= 2)
+                {
+                    byte* prevLine = backBuffer + (height - 2) * stride;
+                    byte* currLine = backBuffer + (height - 1) * stride;
+                    
+                    foreach (var blob in blobs)
+                    {
+                        // A. Top Edge: Parts of Current that are NOT in Prev -> Draw on PrevLine (y-1)
+                        foreach (var currSeg in blob.CurrentSegments)
+                        {
+                            for (int x = currSeg.Start; x <= currSeg.End; x++)
+                            {
+                                if (!IsContained(x, blob.PrevSegments))
+                                {
+                                    DrawPixel(prevLine, x, stride, bytesPerPixel, width);
+                                }
+                            }
+                            
+                            // Side Walls (Current) - Draw on CurrLine
+                            DrawPixel(currLine, currSeg.Start - 1, stride, bytesPerPixel, width);
+                            DrawPixel(currLine, currSeg.End + 1, stride, bytesPerPixel, width);
+                        }
+                        
+                        // B. Bottom Edge: Parts of Prev that are NOT in Current -> Draw on CurrLine (y)
+                        // This handles Closed Blobs effectively because their CurrentSegments will be empty, causing PrevSegments to be drawn fully.
+                        foreach (var prevSeg in blob.PrevSegments)
+                        {
+                            for (int x = prevSeg.Start; x <= prevSeg.End; x++)
+                            {
+                                // If CurrentSegments is empty (Closed Blob), this condition is always true.
+                                if (!IsContained(x, blob.CurrentSegments))
+                                {
+                                    DrawPixel(currLine, x, stride, bytesPerPixel, width);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                
                 bitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
             }
             finally
             {
                 bitmap.Unlock();
+            }
+        }
+        
+        private bool IsContained(int x, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSegment> segments)
+        {
+            foreach (var seg in segments)
+            {
+                if (x >= seg.Start && x <= seg.End) return true;
+            }
+            return false;
+        }
+        
+        private unsafe void DrawPixel(byte* linePtr, int x, int stride, int bpp, int width)
+        {
+            if (x < 0 || x >= width) return;
+            
+            int offset = x * bpp;
+            if (offset + 2 < stride)
+            {
+                // White Outline
+                linePtr[offset] = 255;     // B
+                linePtr[offset + 1] = 255; // G
+                linePtr[offset + 2] = 255; // R
             }
         }
 

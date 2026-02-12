@@ -9,6 +9,7 @@ using FlashHSI.Core.IO;
 using FlashHSI.Core.Masking;
 using FlashHSI.Core.Pipelines;
 using FlashHSI.Core.Settings;
+using FlashHSI.Core.Control.Camera;
 
 
 namespace FlashHSI.Core.Engine
@@ -17,11 +18,13 @@ namespace FlashHSI.Core.Engine
     {
         // Components
         private HsiPipeline _pipeline;
+        private ICameraService? _cameraService;
         private BlobTracker? _blobTracker;
         private EjectionService? _ejectionService;
         private ModelConfig? _currentConfig;
 
         // Threading
+        private RunMode _runMode = RunMode.Simulation;
         private Thread? _simThread;
         private volatile bool _isRunning;
         private double _targetFps = 700.0;
@@ -35,19 +38,40 @@ namespace FlashHSI.Core.Engine
         private int _maskBandIndex;
         private bool _maskOperatorLess;
         private double _backgroundThreshold = 1000.0;
+
+        // AI가 추가함: Blob 설정값 캐싱 (모델 로드 시 초기화 방지)
+        private int _cachedMinPixels = 5;
+        private int _cachedLineGap = 5;
+        private int _cachedPixelGap = 10;
+
+        // Live Statistics
+        private EngineStats _liveStats;
+        private long[] _liveClassCounts = Array.Empty<long>();
+        private Stopwatch _liveUiTimer = new Stopwatch();
+        private Stopwatch _liveFpsTimer = new Stopwatch();
+        private int _liveFrameCount = 0;
         
         // Events
         public event Action<EngineStats>? StatsUpdated;
         public event Action<string>? LogMessage;
         public event Action<bool>? SimulationStateChanged;
-        public event Action<int[], int>? FrameProcessed;
+        // AI: Changed event signature to include active blobs for advanced visualization (Top Cap)
+        public event Action<int[], int, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>>? FrameProcessed;
         public event Action<EjectionLogItem>? EjectionOccurred;
 
         public bool IsSimulating => _isRunning;
+        public bool IsMaskRuleActive => _maskMode == MaskMode.MaskRule;
         
-        public HsiEngine()
+        // AI가 추가함: 현재 로드된 모델의 OriginalType (UI에서 Confidence 슬라이더 활성화 판단용)
+        public string LoadedModelType { get; private set; } = "";
+        
+        public HsiEngine(ICameraService? cameraService = null)
         {
             _pipeline = new HsiPipeline();
+            _cameraService = cameraService;
+            
+            // AI: LinearClassifier 디버그 로그 연결 (UI 출력용)
+            FlashHSI.Core.Classifiers.LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
         }
 
         public void LoadModel(string jsonPath)
@@ -63,9 +87,39 @@ namespace FlashHSI.Core.Engine
 
                 // Initialize Components
                 _blobTracker = new BlobTracker(config.Weights.Count);
+                // AI: 모델 로드 후 캐싱된 설정값 재적용
+                _blobTracker.MinPixels = _cachedMinPixels;
+                _blobTracker.MaxLineGap = _cachedLineGap;
+                _blobTracker.MaxPixelGap = _cachedPixelGap;
+                LogMessage?.Invoke($"BlobTracker Settings Restored: MinPx={_cachedMinPixels}, LineGap={_cachedLineGap}, PixelGap={_cachedPixelGap}");
+
                 _ejectionService = new EjectionService();
                 _ejectionService.OnEjectionSignal += (item) => EjectionOccurred?.Invoke(item);
 
+                // AI가 추가함: 모델의 MaskRules 자동 적용
+                _maskRule = MaskRuleParser.Parse(config.Preprocessing.MaskRules);
+                if (_maskRule != null)
+                {
+                    _maskMode = MaskMode.MaskRule;
+                    LogMessage?.Invoke($"MaskRules 적용: {config.Preprocessing.MaskRules}");
+                }
+                else
+                {
+                    // MaskRules가 없거나 "Mean"인 경우 Threshold 사용
+                    _maskMode = MaskMode.Mean;
+                    if (double.TryParse(config.Preprocessing.Threshold, out double thresh))
+                    {
+                        _backgroundThreshold = thresh;
+                    }
+                    LogMessage?.Invoke($"Mean 마스킹 적용: Threshold = {_backgroundThreshold}");
+                }
+
+                // AI: 초기 Confidence Threshold 설정
+                SetConfidenceThreshold(FlashHSI.Core.Settings.SettingsService.Instance.Settings.ConfidenceThreshold);
+                
+                // AI가 추가함: 모델 타입 저장 (UI 연동용)
+                LoadedModelType = config.OriginalType ?? "";
+                
                 LogMessage?.Invoke($"Model Loaded: {config.ModelType}");
             }
             catch (Exception ex)
@@ -136,17 +190,249 @@ namespace FlashHSI.Core.Engine
             _backgroundThreshold = threshold;
         }
 
-        public void SetTargetFps(double fps) => _targetFps = fps;
+        /// <summary>
+        /// AI가 추가함: 배경 임계값만 동적으로 업데이트
+        /// MaskRule 모드일 경우 규칙 내부의 임계값을 변경함
+        /// </summary>
+        public void UpdateBackgroundThreshold(double threshold)
+        {
+            _backgroundThreshold = threshold;
+            if (_maskMode == MaskMode.MaskRule && _maskRule != null)
+            {
+                _maskRule.UpdateThreshold(threshold);
+            }
+        }
 
+        /// <summary>
+        /// AI가 추가함: 런타임 Blob Tracking 설정 업데이트
+        /// </summary>
+        public void UpdateBlobTrackerSettings(int minPixels, int lineGap, int pixelGap)
+        {
+            // AI: 설정값 캐싱
+            _cachedMinPixels = minPixels;
+            _cachedLineGap = lineGap;
+            _cachedPixelGap = pixelGap;
+
+            if (_blobTracker != null)
+            {
+                _blobTracker.MinPixels = minPixels;
+                _blobTracker.MaxLineGap = lineGap;
+                _blobTracker.MaxPixelGap = pixelGap;
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 분류 신뢰도 임계값 설정
+        /// </summary>
+        /// <summary>
+        /// AI가 추가함: 분류 신뢰도 임계값 설정
+        /// </summary>
         public void SetConfidenceThreshold(double threshold)
         {
-            _pipeline.SetThreshold(threshold);
+            _pipeline?.SetThreshold(threshold);
+        }
+
+        /// <summary>
+        /// AI가 추가함: 현재 적용된 임계값 반환
+        /// </summary>
+        public double GetCurrentThreshold()
+        {
+            if (_maskMode == MaskMode.MaskRule && _maskRule != null)
+            {
+                return _maskRule.GetFirstThreshold();
+            }
+            return _backgroundThreshold;
+        }
+
+        public void SetTargetFps(double fps) => _targetFps = fps;
+
+        // Duplicate removed
+
+
+        /// <summary>
+        /// AI가 추가함: 카메라 프레임을 직접 처리하는 메서드 (이벤트 기반 라이브 분류)
+        /// </summary>
+        /// <param name="frameData">카메라에서 수신한 raw 프레임 데이터 (ushort)</param>
+        /// <param name="width">프레임 너비 (픽셀)</param>
+        /// <param name="height">프레임 높이 (밴드 수)</param>
+        public unsafe void ProcessCameraFrame(ushort[] frameData, int width, int height)
+        {
+            if (_currentConfig == null) return;
+            // The provided debug log and Application.Current check seem to belong to LiveViewModel,
+            // not HsiEngine, as 'blobs' and 'Log' are undefined here.
+            // Adding only the missing brace as per instruction 1.
+            
+            int bandCount = height; // HSI에서 height = band count
+            int[] classificationRow = new int[width];
+            long[] classCounts = new long[_currentConfig.Weights.Count];
+
+            bool useMean = (_maskMode == MaskMode.Mean);
+
+            fixed (ushort* pFrame = frameData)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    ushort* pPixel = pFrame + (x * bandCount);
+                    bool isBackground = false;
+
+                    // Masking (Mean 모드만 지원, 간소화)
+                    // Masking Strategy
+                    if (_maskMode == MaskMode.MaskRule && _maskRule != null)
+                    {
+                        // AI가 수정함: Evaluate=true는 '객체'이므로 반전 필요 (RunLoop Line 497과 통일)
+                        isBackground = !_maskRule.Evaluate(pPixel, _whiteRef, _darkRef, false);
+                    }
+                    else if (_maskMode == MaskMode.Mean)
+                    {
+                        // 2. Mean-based Masking (Average Threshold)
+                        long sum = 0;
+                        for (int b = 0; b < bandCount; b++) sum += pPixel[b];
+                        if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
+                    }
+                    else if (_maskMode == MaskMode.BandPixel)
+                    {
+                        // 3. Single Band Threshold Masking
+                        if (_maskBandIndex >= 0 && _maskBandIndex < bandCount)
+                        {
+                            ushort val = pPixel[_maskBandIndex];
+                            if (_maskOperatorLess)
+                            {
+                                if (val < _backgroundThreshold) isBackground = true;
+                            }
+                            else
+                            {
+                                if (val > _backgroundThreshold) isBackground = true;
+                            }
+                        }
+                    }
+
+                    if (isBackground)
+                    {
+                        classificationRow[x] = -1;
+                    }
+                    else
+                    {
+                        int cls = _pipeline.ProcessFrame(pPixel, bandCount);
+                        classificationRow[x] = cls;
+                        if (cls >= 0 && cls < classCounts.Length) classCounts[cls]++;
+                    }
+                }
+            }
+
+
+
+
+            // AI가 추가함: Blob Tracking & Ejection (Live Mode)
+            if (_blobTracker != null)
+            {
+                var closedBlobs = _blobTracker.ProcessLine(_globalLineIndex++, classificationRow);
+                foreach (var blob in closedBlobs)
+                {
+                    int bestClass = blob.GetBestClass();
+                    if (bestClass >= 0)
+                    {
+                        // Ejection Service
+                        _ejectionService?.Process(blob);
+
+                        // Live Stats Accumulation
+                        if (_liveClassCounts != null && bestClass < _liveClassCounts.Length) 
+                            _liveClassCounts[bestClass]++;
+                        if (_liveStats != null) 
+                            _liveStats.Objects++;
+
+                        // Logging
+                        if (LogMessage != null)
+                        {
+                            string key = bestClass.ToString();
+                            string className = (_currentConfig?.Labels != null && _currentConfig.Labels.ContainsKey(key))
+                                ? _currentConfig.Labels[key] 
+                                : $"Class {bestClass}";
+                            LogMessage.Invoke($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
+                        }
+                    }
+                }
+            }
+
+            // AI Refactor: Create Snapshots and Invoke Event AFTER updates
+            // This ensures the UI receives the latest state of blobs (Thread-Safe)
+            var snapshots = new System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>();
+            if (_blobTracker != null)
+            {
+                foreach(var b in _blobTracker.GetActiveBlobs())
+                {
+                    // AI: Visualization Filter (Hide Noise in Live Mode too)
+                    if (b.TotalPixels >= _cachedMinPixels)
+                    {
+                        snapshots.Add(b.GetSnapshot());
+                    }
+                }
+            }
+            FrameProcessed?.Invoke(classificationRow, width, snapshots);
+
+            // Live Stats Update (Throttle 30fps)
+            _liveFrameCount++;
+            if (_liveFpsTimer.ElapsedMilliseconds >= 1000)
+            {
+                if (_liveStats != null) _liveStats.Fps = _liveFrameCount;
+                _liveFrameCount = 0;
+                _liveFpsTimer.Restart();
+            }
+
+            if (_liveUiTimer.ElapsedMilliseconds >= 33)
+            {
+                if (_liveStats != null && _liveClassCounts != null)
+                {
+                    Array.Copy(_liveClassCounts, _liveStats.ClassCounts, _liveClassCounts.Length);
+                    Array.Clear(_liveClassCounts, 0, _liveClassCounts.Length);
+                    
+                    StatsUpdated?.Invoke(_liveStats);
+                    
+                    // Reset delta counts for next batch
+                    _liveStats.Objects = 0;
+                    _liveStats.Background = 0; 
+                    _liveStats.Unknown = 0;
+                }
+                _liveUiTimer.Restart();
+            }
+        }
+
+
+        // AI가 추가함: 라이브 모드에서 라인 인덱스 추적
+        private int _globalLineIndex = 0;
+
+        public void StartLive()
+        {
+            if (_isRunning) return;
+
+            // Stats Init
+            if (_currentConfig != null) {
+                _liveClassCounts = new long[_currentConfig.Weights.Count];
+                if (_liveStats == null) _liveStats = new EngineStats();
+                _liveStats.ClassCounts = new long[_currentConfig.Weights.Count];
+            }
+            _liveUiTimer.Restart();
+            _liveFpsTimer.Restart();
+            _liveFrameCount = 0;
+            if (_liveStats == null) _liveStats = new EngineStats(); // Ensure non-null
+            
+            _runMode = RunMode.Live;
+             _isRunning = true;
+            SimulationStateChanged?.Invoke(true);
+
+            _simThread = new Thread(RunLoop)
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.Highest, // Critical for Live
+                Name = "HsiEngineLiveLoop"
+            };
+            _simThread.Start();
         }
 
         public void StartSimulation(string headerPath)
         {
             if (_isRunning) return;
 
+            _runMode = RunMode.Simulation;
             _headerPath = headerPath;
             if (!File.Exists(_headerPath))
             {
@@ -227,129 +513,184 @@ namespace FlashHSI.Core.Engine
 
                 int globalLineIndex = 0;
 
-                while (_isRunning)
+                try
                 {
-                    long startTick = loopTimer.ElapsedTicks;
-                    double fps = _targetFps < 1.0 ? 1.0 : _targetFps;
-                    double targetFrameTimeMs = 1000.0 / fps;
+                    LogMessage?.Invoke($"[RunLoop] Started. Size: {width}x{bandCount}");
 
-                    // IO
-                    if (!reader.ReadNextFrame(lineBuffer))
+                    while (_isRunning)
                     {
-                        reader.Load(_headerPath); // Restart loop
-                        // ActiveBlob.ResetCounter(); // Optional: Reset IDs on loop?
-                        if (!reader.ReadNextFrame(lineBuffer)) break;
-                    }
+                        long startTick = loopTimer.ElapsedTicks;
+                        double fps = _targetFps < 1.0 ? 1.0 : _targetFps;
+                        double targetFrameTimeMs = 1000.0 / fps;
 
-                    // Processing
-                    fixed (ushort* pLine = lineBuffer)
-                    {
-                        for (int x = 0; x < width; x++)
+                        // IO
+                        if (!reader.ReadNextFrame(lineBuffer))
                         {
-                            ushort* pPixel = pLine + (x * bandCount);
-                            bool isBackground = false;
-
-                            // 1. Masking
-                            if (useMean)
+                            LogMessage?.Invoke("[RunLoop] EOF. Rewinding...");
+                            reader.Load(_headerPath); // Restart loop
+                            if (!reader.ReadNextFrame(lineBuffer)) 
                             {
-                                long sum = 0;
-                                for (int b = 0; b < bandCount; b++) sum += pPixel[b];
-                                if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
-                            }
-                            else if (useMaskRule)
-                            {
-                                if (!_maskRule!.Evaluate(pPixel, _whiteRef, _darkRef, useAbsorbanceForMask)) isBackground = true;
-                            }
-                            else if (useBandPixel)
-                            {
-                                double val = pPixel[_maskBandIndex];
-                                if (_maskOperatorLess) { if (val < _backgroundThreshold) isBackground = true; }
-                                else { if (val > _backgroundThreshold) isBackground = true; }
-                            }
-
-                            if (isBackground)
-                            {
-                                classificationRow[x] = -1;
-                                stats.Background++;
-                            }
-                            else
-                            {
-                                int cls = _pipeline.ProcessFrame(pPixel, bandCount);
-                                classificationRow[x] = cls;
-                                if (cls < 0) stats.Unknown++;
+                                 LogMessage?.Invoke("[RunLoop] Failed to read after rewind. Stop.");
+                                 break;
                             }
                         }
-                    }
 
-                    // Notify Visualization (Synchronous to avoid allocation, subscriber must be fast)
-                    FrameProcessed?.Invoke(classificationRow, width);
+                        // Processing
+                        fixed (ushort* pLine = lineBuffer)
+                        {
+                            for (int x = 0; x < width; x++)
+                            {
+                                ushort* pPixel = pLine + (x * bandCount);
+                                bool isBackground = false;
 
-                    // 2. Tracking
-                    if (_blobTracker != null)
-                    {
-                       var closedBlobs = _blobTracker.ProcessLine(globalLineIndex, classificationRow);
-                       foreach (var blob in closedBlobs)
-                       {
-                           int bestClass = blob.GetBestClass();
-                           if (bestClass >= 0)
+                                // 1. Masking
+                                if (useMean)
+                                {
+                                    long sum = 0;
+                                    for (int b = 0; b < bandCount; b++) sum += pPixel[b];
+                                    if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
+                                }
+                                else if (useMaskRule)
+                                {
+                                    if (!_maskRule!.Evaluate(pPixel, _whiteRef, _darkRef, useAbsorbanceForMask)) isBackground = true;
+                                }
+                                else if (useBandPixel)
+                                {
+                                    double val = pPixel[_maskBandIndex];
+                                    if (_maskOperatorLess) { if (val < _backgroundThreshold) isBackground = true; }
+                                    else { if (val > _backgroundThreshold) isBackground = true; }
+                                }
+
+                                if (isBackground)
+                                {
+                                    classificationRow[x] = -1;
+                                    stats.Background++;
+                                }
+                                else
+                                {
+                                    int cls = _pipeline.ProcessFrame(pPixel, bandCount);
+                                    classificationRow[x] = cls;
+                                    if (cls < 0) stats.Unknown++;
+                                }
+                            }
+                        }
+
+                        // Notify Visualization (Synchronous to avoid allocation? No, now we allocate for safety)
+                    // Generate Snapshots for Thread Safety
+                    var snapshots = new System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>();
+
+                        // 2. Tracking
+                        if (_blobTracker != null)
+                        {
+                           var closedBlobs = _blobTracker.ProcessLine(globalLineIndex, classificationRow);
+                           
+                           // Add Active Blobs to Snapshots
+                           foreach(var b in _blobTracker.GetActiveBlobs())
                            {
-                               _ejectionService?.Process(blob);
-                               stats.Objects++;
-                               if (bestClass < currentClassCounts.Length) currentClassCounts[bestClass]++;
+                               // AI: Visualization Filter (Hide Noise)
+                               // Only show blobs that have enough pixels to be considered 'real'
+                               if (b.TotalPixels >= _cachedMinPixels)
+                               {
+                                   snapshots.Add(b.GetSnapshot());
+                               }
                            }
-                       }
-                    }
 
+                           foreach (var blob in closedBlobs)
+                           {
+                               // Add Closed Blobs to Snapshots (for Bottom Cap rendering)
+                               snapshots.Add(blob.GetSnapshot());
 
-                    frames++;
-                    globalLineIndex++;
-                    linesSinceLastUpdate++;
-
-                    // FPS Calculation
-                    if (frameTimer.ElapsedMilliseconds >= 1000)
-                    {
-                        stats.Fps = frames;
-                        frames = 0;
-                        frameTimer.Restart();
-                        lastUiUpdate = 0;
-                    }
-
-                    // UI Notification (Throttle 30fps)
-                    if (frameTimer.ElapsedMilliseconds - lastUiUpdate >= 33)
-                    {
-                        // Copy counts safely
-                        Array.Copy(currentClassCounts, stats.ClassCounts, currentClassCounts.Length);
-                        Array.Clear(currentClassCounts, 0, currentClassCounts.Length); // Reset per-update counts? Or accum?
-                        // Wait, UI expects ACCUMULATED counts or DELTA?
-                        // MainViewModel logic was adding delta. Let's send DELTA.
+                               int bestClass = blob.GetBestClass();
+                               if (bestClass >= 0)
+                               {
+                                   _ejectionService?.Process(blob);
+                                   stats.Objects++;
+                                   if (bestClass < currentClassCounts.Length) currentClassCounts[bestClass]++;
+                               }
+                           }
+                        } // End BlobTracker
                         
-                        StatsUpdated?.Invoke(stats); // Send struct copy
+                        // AI: Visualization Pixel Filtering (Noise Removal)
+                        // Create a clean slate for visualization to remove 1px noise
+                        int[] vizRow = new int[width];
+                        Array.Fill(vizRow, -1); // Default to background
                         
-                        // Reset delta counters
-                        stats.Unknown = 0;
-                        stats.Background = 0;
-                        stats.Objects = 0;
-                        stats.ProcessedLines = linesSinceLastUpdate;
-                        linesSinceLastUpdate = 0;
-
-                        Array.Clear(stats.ClassCounts, 0, stats.ClassCounts.Length); // Clear struct buffer for next batch
+                        // Only draw pixels that belong to Valid Blobs (>= MinPixels)
+                        // A. Active Blobs
+                        foreach (var blob in snapshots)
+                        {
+                             // Snapshots are already filtered by MinPixels above
+                             foreach(var seg in blob.CurrentSegments)
+                             {
+                                 // Copy original classification for this segment
+                                 // Note: We need to ensure we copy the correct class.
+                                 // But classificationRow has the class info.
+                                 // We can just copy from classificationRow at these positions.
+                                 for(int x = seg.Start; x <= seg.End; x++)
+                                 {
+                                     vizRow[x] = classificationRow[x];
+                                 }
+                             }
+                        }
                         
-                        lastUiUpdate = frameTimer.ElapsedMilliseconds;
-                    }
+                        
+                        if (classificationRow != null)
+                        {
+                            FrameProcessed?.Invoke(vizRow, width, snapshots);
+                        }
+                        frames++;
+                        globalLineIndex++;
+                        linesSinceLastUpdate++;
 
-                    // Sleep
-                    while (true)
-                    {
-                        double elapsedMs = (loopTimer.ElapsedTicks - startTick) / (double)Stopwatch.Frequency * 1000.0;
-                        if (elapsedMs >= targetFrameTimeMs) break;
-                        if (targetFrameTimeMs - elapsedMs > 1.0) Thread.Sleep(1); else Thread.SpinWait(10);
-                    }
+                        // FPS Calculation
+                        if (frameTimer.ElapsedMilliseconds >= 1000)
+                        {
+                            stats.Fps = frames;
+                            frames = 0;
+                            frameTimer.Restart();
+                            lastUiUpdate = 0;
+                        }
+
+                        // UI Notification (Throttle 30fps)
+                        if (frameTimer.ElapsedMilliseconds - lastUiUpdate >= 33)
+                        {
+                            Array.Copy(currentClassCounts, stats.ClassCounts, currentClassCounts.Length);
+                            Array.Clear(currentClassCounts, 0, currentClassCounts.Length);
+                            
+                            StatsUpdated?.Invoke(stats);
+                            
+                            stats.Unknown = 0;
+                            stats.Background = 0;
+                            stats.Objects = 0;
+                            stats.ProcessedLines = linesSinceLastUpdate;
+                            linesSinceLastUpdate = 0;
+
+                            Array.Clear(stats.ClassCounts, 0, stats.ClassCounts.Length);
+                            
+                            lastUiUpdate = frameTimer.ElapsedMilliseconds;
+                        }
+
+                        // Sleep
+                        while (true)
+                        {
+                            double elapsedMs = (loopTimer.ElapsedTicks - startTick) / (double)Stopwatch.Frequency * 1000.0;
+                            if (elapsedMs >= targetFrameTimeMs) break;
+                            if (targetFrameTimeMs - elapsedMs > 1.0) Thread.Sleep(1); else Thread.SpinWait(10);
+                        }
+                    } // End while (_isRunning)
+                }
+                catch (Exception ex)
+                {
+                    LogMessage?.Invoke($"[RunLoop CRASH] {ex.Message}");
+                    LogMessage?.Invoke(ex.StackTrace);
                 }
 
                 reader.Close();
-            }
-        }
+            } // End unsafe
+        } // End RunLoop
     }
+
+
 
     public class EngineStats
     {
@@ -367,4 +708,5 @@ namespace FlashHSI.Core.Engine
     }
 
     public enum MaskMode { Mean, BandPixel, MaskRule }
+    public enum RunMode { Simulation, Live }
 }

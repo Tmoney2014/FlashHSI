@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core;
 using FlashHSI.Core.Settings;
+using FlashHSI.Core.Messages; // AI가 추가함: SnackbarMessage 수신
 using Newtonsoft.Json;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -16,6 +17,8 @@ using FlashHSI.Core.Control;
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial; // Added
 using FlashHSI.Core.Services;
+using MaterialDesignThemes.Wpf; // AI가 추가함: SnackbarMessageQueue
+using System.Collections.Generic;
 using System.Linq;
 using System;
 
@@ -41,6 +44,15 @@ namespace FlashHSI.UI.ViewModels
         // Global UI State
         [ObservableProperty] private string _statusMessage = "Ready";
         // AI가 수정함: WaterfallImage는 LiveViewModel로 이동됨
+        
+        // AI가 추가함: Busy 상태 오버레이 관리
+        /// <ai>AI가 작성함</ai>
+        private readonly IList<BusyMessage> _busyList = new List<BusyMessage>();
+        [ObservableProperty] private bool _isBusy;
+        
+        // AI가 추가함: Snackbar 알림 큐 (하단 알림 메시지 표시용)
+        /// <ai>AI가 작성함</ai>
+        public SnackbarMessageQueue SnackbarQueue { get; } = new SnackbarMessageQueue(TimeSpan.FromSeconds(3));
         
         /// <ai>AI가 수정함: 모든 의존성을 생성자를 통해 주입받음 (DI 체인)</ai>
         public MainViewModel(
@@ -77,6 +89,22 @@ namespace FlashHSI.UI.ViewModels
             _hsiEngine.EjectionOccurred += OnEjectionOccurredHardwareTrigger;
             
             SettingVM.ModelLoaded += OnModelLoaded;
+            
+            // AI가 추가함: SnackbarMessage 수신 → 하단 Snackbar 알림 표시
+            _messenger.Register<Core.Messages.SnackbarMessage>(this, (r, m) =>
+            {
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    SnackbarQueue.DiscardDuplicates = true;
+                    SnackbarQueue.Enqueue(m.Value);
+                });
+            });
+            
+            // AI가 추가함: BusyMessage 수신 → Busy 오버레이 표시/해제
+            _messenger.Register<BusyMessage>(this, (r, m) =>
+            {
+                Application.Current?.Dispatcher.InvokeAsync(() => OnBusyMessage(m));
+            });
             
             // 4. Load Initial Settings
              var s = SettingsService.Instance.Settings;
@@ -172,8 +200,73 @@ namespace FlashHSI.UI.ViewModels
         [RelayCommand]
         public async Task WindowClosing()
         {
+            // AI가 수정함: 종료 안전 처리 — 레거시 MainWindowViewModel.OnTimerCompleted() 동등
+            Serilog.Log.Information("앱 종료 처리 시작");
+            
+            // 1. 엔진 정지
             _hsiEngine.Stop();
-             await _hardwareService.DisconnectAsync();
+            
+            // 2. 시리얼(DIO) 보드 종료 (피더 OFF → 램프 OFF → 벨트 OFF → 전원 OFF)
+            try
+            {
+                await _serialService.ShutDown();
+                Serilog.Log.Information("시리얼 보드 종료 완료");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "시리얼 보드 종료 중 오류 발생");
+            }
+            
+            // 3. EtherCAT 마스터 종료
+            try
+            {
+                await _hardwareService.DisconnectAsync();
+                Serilog.Log.Information("EtherCAT 마스터 종료 완료");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "EtherCAT 마스터 종료 중 오류 발생");
+            }
+            
+            // 4. 설정 저장
+            try
+            {
+                SettingsService.Instance.Save();
+                Serilog.Log.Information("설정 저장 완료");
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "설정 저장 중 오류 발생");
+            }
+        }
+        
+        /// <summary>
+        /// BusyMessage를 처리하여 _busyList 관리 및 IsBusy 갱신
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        private void OnBusyMessage(BusyMessage message)
+        {
+            if (message.Value)
+            {
+                // 이미 추가된 BusyId면 무시
+                var exist = _busyList.FirstOrDefault(b => b.BusyId == message.BusyId);
+                if (exist != null) return;
+                _busyList.Add(message);
+            }
+            else
+            {
+                var exist = _busyList.FirstOrDefault(b => b.BusyId == message.BusyId);
+                if (exist == null) return;
+                _busyList.Remove(exist);
+            }
+            
+            IsBusy = _busyList.Any();
+        }
+        
+        /// <ai>AI가 작성함</ai>
+        partial void OnIsBusyChanged(bool oldValue, bool newValue)
+        {
+            Serilog.Log.Information("IsBusy 값 변경: {NewValue}, 이전: {OldValue}", newValue, oldValue);
         }
     }
 }

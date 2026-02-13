@@ -182,34 +182,127 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <!-- 모델 로드 버튼 + 정보 -->
+                <!-- AI가 수정함: 모델 카드 기반 선택 UI (디렉터리 스캔 → 수평 카드 리스트) -->
                 <Border Grid.Row="0" Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="워크플로우 / 모델" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <TextBlock Foreground="#7f8fa6" FontSize="12">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="모델이 로드되지 않았습니다. 모델을 선택해주세요."/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
-                                                <Setter Property="Text" Value="{Binding LoadedModelName, StringFormat='현재 모델: {0}'}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding Settings.LoadModelCommand}" 
-                                Content="모델 로드" VerticalAlignment="Center"
-                                Style="{StaticResource MaterialDesignOutlinedButton}"
-                                Foreground="#5dade2" BorderBrush="#5dade2"
-                                Padding="16,8"/>
-                    </Grid>
+                    <StackPanel>
+                        <!-- 제목 + 디렉터리 선택/리프레시 버튼 -->
+                        <DockPanel Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="워크플로우 / 모델" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,4"/>
+                                <TextBlock Foreground="#7f8fa6" FontSize="12">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="모델 디렉터리를 선택해주세요."/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
+                                                    <Setter Property="Text" Value="{Binding LoadedModelName, StringFormat='현재 모델: {0}'}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Command="{Binding RefreshModelCardsCommand}" 
+                                        ToolTip="새로고침"
+                                        Style="{StaticResource MaterialDesignIconButton}"
+                                        Foreground="#5dade2" Width="32" Height="32">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18"/>
+                                </Button>
+                                <Button Command="{Binding BrowseModelDirectoryCommand}" 
+                                        Content="폴더 선택"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Foreground="#5dade2" BorderBrush="#5dade2"
+                                        Padding="12,6" Height="32" FontSize="12" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                        
+                        <!-- 모델 디렉터리 경로 표시 (비어있으면 숨김) -->
+                        <TextBlock Text="{Binding ModelDirectory}" Foreground="#57606f" FontSize="10" 
+                                   TextTrimming="CharacterEllipsis" Margin="0,0,0,8">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ModelDirectory}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        
+                        <!-- 수평 스크롤 모델 카드 리스트 -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                      PreviewMouseWheel="ModelCardScroll_PreviewMouseWheel">
+                            <ItemsControl ItemsSource="{Binding ModelCards}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="140" Margin="0,0,8,0" CornerRadius="8" Padding="12" Cursor="Hand"
+                                                MouseLeftButtonDown="ModelCard_MouseLeftButtonDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#0f3460"/>
+                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="#5dade2"/>
+                                                            <Setter Property="Background" Value="#1a3a6b"/>
+                                                        </DataTrigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#163d70"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <materialDesign:PackIcon Kind="FileDocument" Width="28" Height="28" 
+                                                                         Foreground="#5dade2" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                                <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" FontWeight="SemiBold"
+                                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxHeight="36"
+                                                           TextWrapping="Wrap"/>
+                                                <!-- 선택 마크 -->
+                                                <TextBlock Text="✓ 로드됨" Foreground="#2ed573" FontSize="10" FontWeight="Bold"
+                                                           TextAlignment="Center" Margin="0,6,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        
+                        <!-- 카드 없을 때 안내 -->
+                        <TextBlock Text="모델 디렉터리를 선택하면 JSON 모델 파일이 카드로 표시됩니다." 
+                                   Foreground="#57606f" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ModelCards.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
                 </Border>
                 
                 <!-- SortClass 목록 (에어건 타겟 선택) -->
@@ -228,6 +321,9 @@
                                 <Button Content="전체" Command="{Binding Settings.SelectAllSortClassesCommand}" 
                                         Style="{StaticResource MaterialDesignFlatButton}" 
                                         Foreground="#5dade2" Padding="8,4" Height="28" FontSize="11"/>
+                                <Button Content="리버스" Command="{Binding Settings.ReverseSortClassesCommand}" 
+                                        Style="{StaticResource MaterialDesignFlatButton}" 
+                                        Foreground="#f39c12" Padding="8,4" Height="28" FontSize="11"/>
                                 <Button Content="해제" Command="{Binding Settings.DeselectAllSortClassesCommand}" 
                                         Style="{StaticResource MaterialDesignFlatButton}" 
                                         Foreground="#aaa" Padding="8,4" Height="28" FontSize="11"/>

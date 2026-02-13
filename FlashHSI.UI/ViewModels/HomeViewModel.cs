@@ -5,8 +5,11 @@ using FlashHSI.Core.Engine;
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial; // AI가 추가함: 피더 전원 제어
 using FlashHSI.Core.Messages; // AI가 추가함: HardwareStatusMessage 수신
+using FlashHSI.Core.Models; // AI가 추가함: ModelCard
 using FlashHSI.Core.Settings;
 using Serilog; // AI가 추가함: 램프 온도 로깅
+using System.Collections.ObjectModel; // AI가 추가함: ModelCards 컬렉션
+using System.IO; // AI가 추가함: 디렉터리 스캔
 using System.Windows.Threading; // AI가 추가함: 시작 타이머용
 
 namespace FlashHSI.UI.ViewModels
@@ -95,6 +98,15 @@ namespace FlashHSI.UI.ViewModels
         
         /// <ai>AI가 추가함: SettingVM 참조 — HomeView에서 SortClasses 등 운영 데이터 바인딩용</ai>
         public SettingViewModel Settings { get; }
+        
+        // AI가 추가함: 모델 카드 목록 (디렉터리 스캔 결과)
+        /// <summary>모델 디렉터리 내 JSON 파일을 카드로 표시하는 컬렉션</summary>
+        /// <ai>AI가 작성함</ai>
+        public ObservableCollection<ModelCard> ModelCards { get; } = new();
+        
+        /// <summary>모델 디렉터리 경로 (설정에 저장됨)</summary>
+        /// <ai>AI가 작성함</ai>
+        [ObservableProperty] private string _modelDirectory = "";
 
         /// <ai>AI가 수정함: DI 주입 확장 — SettingVM, SerialCommandService 추가</ai>
         public HomeViewModel(HsiEngine engine, IEtherCATService hardware, IMessenger messenger, SettingViewModel settingVM, SerialCommandService serialService)
@@ -131,6 +143,14 @@ namespace FlashHSI.UI.ViewModels
             
             // AI가 추가함: 카메라 재시도 카운트다운 타이머 시작
             StartTimer();
+            
+            // AI가 추가함: 저장된 모델 디렉터리 경로 복원 및 스캔
+            var savedModelDir = SettingsService.Instance.Settings.ModelDirectory;
+            if (!string.IsNullOrEmpty(savedModelDir) && Directory.Exists(savedModelDir))
+            {
+                _modelDirectory = savedModelDir;
+                ScanModelDirectory();
+            }
         }
         
         /// <ai>AI가 작성함: 모델 로드 완료 시 HomeView 상태 갱신용</ai>
@@ -260,6 +280,97 @@ namespace FlashHSI.UI.ViewModels
                 StatusMessage = $"에러 클리어 실패: {ex.Message}";
             }
         }
+        
+        #region 모델 카드 (디렉터리 기반 선택)
+        
+        /// <summary>
+        /// 모델 디렉터리를 선택하는 폴더 브라우저 다이얼로그를 열어요.
+        /// 선택하면 디렉터리 내 JSON 파일을 스캔하여 ModelCards에 추가해요.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        [RelayCommand]
+        private void BrowseModelDirectory()
+        {
+            // WPF에서 FolderBrowserDialog 대신 OpenFolderDialog 사용 (.NET 8)
+            var dlg = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "모델 디렉터리 선택"
+            };
+            
+            if (!string.IsNullOrEmpty(ModelDirectory) && Directory.Exists(ModelDirectory))
+            {
+                dlg.InitialDirectory = ModelDirectory;
+            }
+            
+            if (dlg.ShowDialog() == true)
+            {
+                ModelDirectory = dlg.FolderName;
+                SettingsService.Instance.Settings.ModelDirectory = ModelDirectory;
+                SettingsService.Instance.Save();
+                ScanModelDirectory();
+                Log.Information("모델 디렉터리 설정: {Path}", ModelDirectory);
+            }
+        }
+        
+        /// <summary>
+        /// 모델 디렉터리 내 JSON 파일을 스캔하여 ModelCards 컬렉션을 갱신해요.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        [RelayCommand]
+        private void RefreshModelCards()
+        {
+            ScanModelDirectory();
+        }
+        
+        /// <summary>
+        /// 카드 클릭 시 해당 모델을 로드해요.
+        /// 기존 SettingVM.ModelLoaded 이벤트 플로우를 재사용해요.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        [RelayCommand]
+        private void SelectModelCard(ModelCard card)
+        {
+            if (card == null) return;
+            
+            // 기존 선택 해제
+            foreach (var c in ModelCards)
+                c.IsSelected = false;
+            
+            card.IsSelected = true;
+            
+            // AI가 수정함: CS0070 해결 — 이벤트 직접 Invoke 대신 public 메서드 호출
+            Settings.RaiseModelLoaded(card.FilePath);
+            Log.Information("모델 카드 선택: {Name} ({Path})", card.Name, card.FilePath);
+        }
+        
+        /// <summary>
+        /// ModelDirectory 내의 *.json 파일을 스캔하여 ModelCards를 채워요.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        private void ScanModelDirectory()
+        {
+            ModelCards.Clear();
+            
+            if (string.IsNullOrEmpty(ModelDirectory) || !Directory.Exists(ModelDirectory))
+            {
+                Log.Warning("모델 디렉터리가 없거나 비어있어요: {Path}", ModelDirectory);
+                return;
+            }
+            
+            var jsonFiles = Directory.GetFiles(ModelDirectory, "*.json");
+            var currentModelPath = SettingsService.Instance.Settings.LastModelPath;
+            
+            foreach (var file in jsonFiles.OrderBy(f => Path.GetFileNameWithoutExtension(f)))
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                var isSelected = string.Equals(file, currentModelPath, System.StringComparison.OrdinalIgnoreCase);
+                ModelCards.Add(new ModelCard(name, file, isSelected));
+            }
+            
+            Log.Information("모델 디렉터리 스캔 완료: {Count}개 파일 발견 ({Path})", ModelCards.Count, ModelDirectory);
+        }
+        
+        #endregion
         
         #region 시작 타이머 (카메라 재시도, 레거시 StartTimerUserControl 동등)
         

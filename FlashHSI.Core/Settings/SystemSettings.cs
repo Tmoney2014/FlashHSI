@@ -67,5 +67,9 @@ namespace FlashHSI.Core.Settings
         // AI가 추가함: 카메라 재시도 타이머 설정
         /// <summary>카메라 재시도 타이머 (분, 앱 시작 시 카운트다운 후 카메라 초기화 재시도)</summary>
         public int CameraRetryTimerMinutes { get; set; } = 5;
+
+        // AI가 추가함: 모델 디렉터리 경로 (카드 기반 모델 선택용)
+        /// <summary>모델 JSON 파일이 들어있는 디렉터리 경로</summary>
+        public string ModelDirectory { get; set; } = "";
     }
 }

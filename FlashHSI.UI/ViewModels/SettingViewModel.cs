@@ -171,6 +171,13 @@ namespace FlashHSI.UI.ViewModels
         
         public event Action<string>? ModelLoaded;
         
+        /// <summary>
+        /// 외부에서 ModelLoaded 이벤트를 발행할 수 있도록 하는 메서드예요.
+        /// HomeViewModel의 카드 선택 플로우에서 사용해요.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        public void RaiseModelLoaded(string path) => ModelLoaded?.Invoke(path); // AI가 추가함: 외부 이벤트 발행용
+        
         [RelayCommand]
         public void SelectDataFile()
         {
@@ -772,6 +779,17 @@ namespace FlashHSI.UI.ViewModels
         {
             foreach (var sc in SortClasses)
                 sc.IsSelected = false;
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// 리버스 선택: 현재 선택된 클래스는 해제하고, 해제된 클래스는 선택해요.
+        /// </summary>
+        [RelayCommand]
+        private void ReverseSortClasses()
+        {
+            foreach (var sc in SortClasses)
+                sc.IsSelected = !sc.IsSelected;
         }
 
         /// <summary>

@@ -14,7 +14,7 @@
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}"
         mc:Ignorable="d"
-        Title="FlashHSI - High Speed Sorter" Height="700" Width="1200"
+        Title="FlashHSI - High Speed Sorter" Height="1080" Width="1920"
         Closing="Window_Closing"
         d:DataContext="{d:DesignInstance vm:MainViewModel, IsDesignTimeCreatable=False}">
     

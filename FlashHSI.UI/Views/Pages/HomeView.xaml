@@ -4,10 +4,15 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:FlashHSI.UI.Converters"
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="1000">
+             d:DesignHeight="700" d:DesignWidth="1200">
     
-    <!-- AI가 작성함: 운영 대시보드 UI -->
+    <!-- AI가 수정함: 운영 대시보드 UI 전면 재설계 — 레거시 HomePage 구조 반영 -->
+    <UserControl.Resources>
+        <converters:HexToColorBrushConverter x:Key="HexToColorBrushConverter"/>
+    </UserControl.Resources>
+    
     <Grid Background="#1a1a2e">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,21 +20,17 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- 상단: 시스템 상태 인디케이터 -->
-        <Border Grid.Row="0" Background="#16213e" Padding="16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- 상단: 시스템 상태 인디케이터 4개 -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#16213e" Padding="12,8">
+            <UniformGrid Rows="1" Columns="4">
                 
-                <!-- 시뮬레이션 상태 -->
-                <Border Grid.Column="0" Background="#0f3460" CornerRadius="8" Margin="8" Padding="16">
+                <!-- 1) 시뮬레이션 상태 -->
+                <Border Background="#0f3460" CornerRadius="8" Margin="4" Padding="12,8">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Ellipse Width="12" Height="12" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Ellipse Width="10" Height="10" Margin="0,0,6,0">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
                                         <Setter Property="Fill" Value="#57606f"/>
@@ -41,9 +42,9 @@
                                     </Style>
                                 </Ellipse.Style>
                             </Ellipse>
-                            <TextBlock Text="시뮬레이션" Foreground="#a0a0a0" FontSize="12"/>
+                            <TextBlock Text="시뮬레이션" Foreground="#a0a0a0" FontSize="11"/>
                         </StackPanel>
-                        <TextBlock Foreground="White" FontSize="18" FontWeight="SemiBold">
+                        <TextBlock Foreground="White" FontSize="16" FontWeight="SemiBold">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Text" Value="대기"/>
@@ -58,11 +59,11 @@
                     </StackPanel>
                 </Border>
                 
-                <!-- 하드웨어 상태 -->
-                <Border Grid.Column="1" Background="#0f3460" CornerRadius="8" Margin="8" Padding="16">
+                <!-- 2) EtherCAT 상태 -->
+                <Border Background="#0f3460" CornerRadius="8" Margin="4" Padding="12,8">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Ellipse Width="12" Height="12" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Ellipse Width="10" Height="10" Margin="0,0,6,0">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
                                         <Setter Property="Fill" Value="#57606f"/>
@@ -74,9 +75,9 @@
                                     </Style>
                                 </Ellipse.Style>
                             </Ellipse>
-                            <TextBlock Text="EtherCAT" Foreground="#a0a0a0" FontSize="12"/>
+                            <TextBlock Text="EtherCAT" Foreground="#a0a0a0" FontSize="11"/>
                         </StackPanel>
-                        <TextBlock Foreground="White" FontSize="18" FontWeight="SemiBold">
+                        <TextBlock Foreground="White" FontSize="16" FontWeight="SemiBold">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Text" Value="연결 끊김"/>
@@ -91,128 +92,348 @@
                     </StackPanel>
                 </Border>
                 
-                <!-- 모델 상태 (Placeholder) -->
-                <Border Grid.Column="2" Background="#0f3460" CornerRadius="8" Margin="8" Padding="16">
+                <!-- 3) AI 모델 상태 -->
+                <Border Background="#0f3460" CornerRadius="8" Margin="4" Padding="12,8">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="🔮" FontSize="12" Margin="0,0,8,0"/>
-                            <TextBlock Text="AI 모델" Foreground="#a0a0a0" FontSize="12"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Ellipse Width="10" Height="10" Margin="0,0,6,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#57606f"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
+                                                <Setter Property="Fill" Value="#2ed573"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="AI 모델" Foreground="#a0a0a0" FontSize="11"/>
                         </StackPanel>
-                        <TextBlock Text="대기" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Foreground="White" FontSize="16" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="미로드"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
+                                            <Setter Property="Text" Value="{Binding LoadedModelName}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
                 
-                <!-- FPS 표시 (Placeholder) -->
-                <Border Grid.Column="3" Background="#0f3460" CornerRadius="8" Margin="8" Padding="16">
+                <!-- 4) 피더 상태 -->
+                <Border Background="#0f3460" CornerRadius="8" Margin="4" Padding="12,8">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="⚡" FontSize="12" Margin="0,0,8,0"/>
-                            <TextBlock Text="처리 속도" Foreground="#a0a0a0" FontSize="12"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Ellipse Width="10" Height="10" Margin="0,0,6,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#57606f"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
+                                                <Setter Property="Fill" Value="#2ed573"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="피더" Foreground="#a0a0a0" FontSize="11"/>
                         </StackPanel>
-                        <TextBlock Text="0 FPS" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Foreground="White" FontSize="16" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="OFF"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
+                                            <Setter Property="Text" Value="ON"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
-            </Grid>
+            </UniformGrid>
         </Border>
         
-        <!-- 중앙: 컨트롤 패널 -->
-        <Grid Grid.Row="1" Margin="24">
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- 중앙: 2-column 운영 대시보드 -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="1" Margin="12,8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="350"/>
             </Grid.ColumnDefinitions>
             
-            <!-- 시뮬레이션 컨트롤 -->
-            <materialDesign:Card Grid.Column="0" Margin="8" Padding="24" 
-                                  materialDesign:ShadowAssist.ShadowDepth="Depth2"
-                                  Background="#16213e">
-                <StackPanel>
-                    <TextBlock Text="📁 시뮬레이션 모드" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
-                    <TextBlock Text="저장된 HSI 데이터 파일을 사용하여 분류를 테스트합니다." 
-                               Foreground="#a0a0a0" TextWrapping="Wrap" Margin="0,0,0,24"/>
-                    
-                    <Button Command="{Binding ToggleSimulationCommand}" 
-                            Height="60" FontSize="16" Cursor="Hand"
-                            materialDesign:ButtonAssist.CornerRadius="8">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                <Setter Property="Background" Value="#2ed573"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Content">
-                                    <Setter.Value>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="▶" FontSize="18" Margin="0,0,8,0"/>
-                                            <TextBlock Text="시뮬레이션 시작" FontSize="16" FontWeight="SemiBold"/>
-                                        </StackPanel>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsSimulating}" Value="True">
-                                        <Setter Property="Background" Value="#ff4757"/>
-                                        <Setter Property="Content">
-                                            <Setter.Value>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="⏹" FontSize="18" Margin="0,0,8,0"/>
-                                                    <TextBlock Text="시뮬레이션 중지" FontSize="16" FontWeight="SemiBold"/>
+            <!-- ════════════════════════════════════════ -->
+            <!-- 좌측: 모델 정보 + SortClass 목록 -->
+            <!-- ════════════════════════════════════════ -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 모델 로드 버튼 + 정보 -->
+                <Border Grid.Row="0" Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="워크플로우 / 모델" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock Foreground="#7f8fa6" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="모델이 로드되지 않았습니다. 모델을 선택해주세요."/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
+                                                <Setter Property="Text" Value="{Binding LoadedModelName, StringFormat='현재 모델: {0}'}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <Button Grid.Column="1" Command="{Binding Settings.LoadModelCommand}" 
+                                Content="모델 로드" VerticalAlignment="Center"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Foreground="#5dade2" BorderBrush="#5dade2"
+                                Padding="16,8"/>
+                    </Grid>
+                </Border>
+                
+                <!-- SortClass 목록 (에어건 타겟 선택) -->
+                <Border Grid.Row="1" Background="#16213e" CornerRadius="8" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 제목 -->
+                        <DockPanel Grid.Row="0" Margin="4,0,4,8">
+                            <TextBlock Text="에어건 타겟 클래스" Foreground="White" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                <Button Content="전체" Command="{Binding Settings.SelectAllSortClassesCommand}" 
+                                        Style="{StaticResource MaterialDesignFlatButton}" 
+                                        Foreground="#5dade2" Padding="8,4" Height="28" FontSize="11"/>
+                                <Button Content="해제" Command="{Binding Settings.DeselectAllSortClassesCommand}" 
+                                        Style="{StaticResource MaterialDesignFlatButton}" 
+                                        Foreground="#aaa" Padding="8,4" Height="28" FontSize="11"/>
+                            </StackPanel>
+                        </DockPanel>
+                        
+                        <Border Grid.Row="1" Height="1" Background="#2c3e6b" Margin="0,0,0,8"/>
+                        
+                        <!-- 클래스 리스트 스크롤 -->
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Settings.SortClasses}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#0f3460" CornerRadius="6" Margin="0,0,0,4" Padding="10,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="8"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- 클래스 색상 바 -->
+                                                <Border Grid.Column="0" Width="4" CornerRadius="2"
+                                                        Background="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"
+                                                        VerticalAlignment="Stretch"/>
+                                                
+                                                <!-- 클래스 이름 -->
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Foreground="White" FontSize="13" FontWeight="Medium"
+                                                               Text="{Binding Name, Mode=OneWay}"/>
+                                                    <TextBlock Foreground="#7f8fa6" FontSize="10">
+                                                        <Run Text="Class"/>
+                                                        <Run Text="{Binding Index, Mode=OneWay}"/>
+                                                    </TextBlock>
                                                 </StackPanel>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </StackPanel>
-            </materialDesign:Card>
+                                                
+                                                <!-- 선택 토글 -->
+                                                <ToggleButton Grid.Column="3"
+                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                                              VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        
+                        <!-- 모델 미로드 안내 -->
+                        <TextBlock Grid.Row="2" Text="모델을 먼저 로드해주세요." 
+                                   Foreground="#57606f" FontSize="14" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Settings.SortClasses.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+            </Grid>
             
-            <!-- 하드웨어 컨트롤 -->
-            <materialDesign:Card Grid.Column="1" Margin="8" Padding="24"
-                                  materialDesign:ShadowAssist.ShadowDepth="Depth2"
-                                  Background="#16213e">
+            <!-- 구분선 -->
+            <Border Grid.Column="1" Width="1" Background="#2c3e6b" Margin="8,0"/>
+            
+            <!-- ════════════════════════════════════════ -->
+            <!-- 우측: 운영 컨트롤 (Start/Stop, HW, Feeder) -->
+            <!-- ════════════════════════════════════════ -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <TextBlock Text="🔌 하드웨어 연결" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
-                    <TextBlock Text="EtherCAT 마스터를 통해 에어건을 제어합니다." 
-                               Foreground="#a0a0a0" TextWrapping="Wrap" Margin="0,0,0,24"/>
                     
-                    <Button Command="{Binding ConnectHardwareCommand}" 
-                            Height="60" FontSize="16" Cursor="Hand"
-                            materialDesign:ButtonAssist.CornerRadius="8">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                <Setter Property="BorderBrush" Value="#3742fa"/>
-                                <Setter Property="Foreground" Value="#3742fa"/>
-                                <Setter Property="Content">
-                                    <Setter.Value>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🔗" FontSize="18" Margin="0,0,8,0"/>
-                                            <TextBlock Text="하드웨어 연결" FontSize="16" FontWeight="SemiBold"/>
-                                        </StackPanel>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsHardwareConnected}" Value="True">
-                                        <Setter Property="Background" Value="#388E3C"/>
+                    <!-- 1) 시뮬레이션 Start/Stop -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="시뮬레이션 모드" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="저장된 HSI 데이터로 분류를 테스트합니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            
+                            <Button Command="{Binding ToggleSimulationCommand}" 
+                                    Height="50" FontSize="14" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                        <Setter Property="Background" Value="#2ed573"/>
                                         <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="Content">
-                                            <Setter.Value>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="✅" FontSize="18" Margin="0,0,8,0"/>
-                                                    <TextBlock Text="연결 해제" FontSize="16" FontWeight="SemiBold"/>
-                                                </StackPanel>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                                        <Setter Property="Content" Value="▶  시뮬레이션 시작"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSimulating}" Value="True">
+                                                <Setter Property="Background" Value="#ff4757"/>
+                                                <Setter Property="Content" Value="⏹  시뮬레이션 중지"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 2) 하드웨어(EtherCAT) 연결 -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="하드웨어 연결" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="EtherCAT 마스터를 통해 에어건을 제어합니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            
+                            <Button Command="{Binding ConnectHardwareCommand}" 
+                                    Height="50" FontSize="14" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                        <Setter Property="BorderBrush" Value="#3742fa"/>
+                                        <Setter Property="Foreground" Value="#3742fa"/>
+                                        <Setter Property="Content" Value="하드웨어 연결"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHardwareConnected}" Value="True">
+                                                <Setter Property="Background" Value="#388E3C"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#388E3C"/>
+                                                <Setter Property="Content" Value="✓ 연결됨 — 클릭하여 해제"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 3) 피더 전원 ON/OFF -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="피더 전원" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="피더 전체 전원을 ON/OFF 합니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            
+                            <Button Command="{Binding ToggleFeederPowerCommand}" 
+                                    Height="50" FontSize="14" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                        <Setter Property="BorderBrush" Value="#f39c12"/>
+                                        <Setter Property="Foreground" Value="#f39c12"/>
+                                        <Setter Property="Content" Value="피더 전원 ON"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
+                                                <Setter Property="Background" Value="#e67e22"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#e67e22"/>
+                                                <Setter Property="Content" Value="✓ 피더 ON — 클릭하여 OFF"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 4) 램프/에러 인디케이터 플레이스홀더 (추후 구현) -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="상태 인디케이터" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- 램프 (TODO: #4) -->
+                                <Border Grid.Column="0" Background="#0f3460" CornerRadius="6" Padding="8" Margin="0,0,4,0">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="램프" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- 벨트 에러 (TODO: #6) -->
+                                <Border Grid.Column="1" Background="#0f3460" CornerRadius="6" Padding="8" Margin="2,0">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="벨트" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <!-- 비상 정지 (TODO: #6) -->
+                                <Border Grid.Column="2" Background="#0f3460" CornerRadius="6" Padding="8" Margin="4,0,0,0">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="비상" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
                 </StackPanel>
-            </materialDesign:Card>
+            </ScrollViewer>
         </Grid>
         
+        <!-- ═══════════════════════════════════════════════════ -->
         <!-- 하단: 상태 메시지 -->
-        <Border Grid.Row="2" Background="#16213e" Padding="16">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="14" HorizontalAlignment="Center"/>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="2" Background="#16213e" Padding="12,8">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="12" HorizontalAlignment="Center"/>
         </Border>
     </Grid>
 </UserControl>

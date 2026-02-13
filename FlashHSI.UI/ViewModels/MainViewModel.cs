@@ -158,6 +158,9 @@ namespace FlashHSI.UI.ViewModels
                 // AI가 수정함: 엔진에서 현재 적용된 임계값(MaskRule 포함)을 가져와 UI 설정
                 SettingVM.BackgroundThreshold = _hsiEngine.GetCurrentThreshold();
                 
+                // AI가 추가함: HomeView 모델 상태 갱신
+                HomeVM.NotifyModelLoaded(config.ModelType ?? "Unknown");
+                
                 StatusMessage = $"Model Loaded: {config.ModelType}";
             }
             catch(Exception ex)

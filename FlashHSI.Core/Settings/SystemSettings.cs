@@ -9,6 +9,9 @@ namespace FlashHSI.Core.Settings
         public string LastDarkRefPath { get; set; } = "";
         public string LastModelPath { get; set; } = "";
 
+        // AI가 추가함: 에어건으로 쳐낼 클래스 인덱스 목록
+        public List<int> SelectedSortClasses { get; set; } = new List<int>();
+
         public double TargetFps { get; set; } = 100.0;
         public double ConfidenceThreshold { get; set; } = 0.75;
         public double BackgroundThreshold { get; set; } = 0.0;
@@ -23,5 +26,32 @@ namespace FlashHSI.Core.Settings
         // AI가 추가함: 카메라 파라미터 설정
         public double CameraExposureTime { get; set; } = 1000.0;   // μs
         public double CameraFrameRate { get; set; } = 100.0;       // FPS
+        public int CameraSensorSize { get; set; } = 1024; // Default Sensor Width
+
+        // AI가 추가함: Ejection Logic Parameters
+        public int EjectionDelayMs { get; set; } = 300; // Legacy 'BlowDelay'
+        public int EjectionDurationMs { get; set; } = 10; // Legacy 'BlowTime'
+        public List<YCorrectionRule> YCorrectionRules { get; set; } = new List<YCorrectionRule>();
+        public int EjectionBlowMargin { get; set; } = 0;
+
+        // AI가 추가함: 센서→벨트→채널 매핑 설정 (레거시 SystemSetting 동등)
+        /// <summary>실제 시야폭 (mm). 센서가 보는 벨트 위 물리적 폭. 0이면 센서픽셀=채널 단순매핑</summary>
+        public int FieldOfView { get; set; } = 0;
+        /// <summary>채널 번호 반전 여부 (하드웨어 설치 방향에 따라)</summary>
+        public bool IsChannelReverse { get; set; } = false;
+
+        // AI가 추가함: 피더(Feeder) 설정
+        /// <summary>피더 개수 (0~9)</summary>
+        public int FeederCount { get; set; } = 0;
+        /// <summary>피더별 출력 값 목록 (각 1~99)</summary>
+        public List<int> FeederValues { get; set; } = new List<int>();
+        /// <summary>시리얼 통신에 사용할 COM 포트 이름</summary>
+        public string SelectedSerialPort { get; set; } = "";
+
+        // AI가 추가함: EtherCAT 연결 설정
+        /// <summary>EtherCAT 연결에 사용할 네트워크 인터페이스 이름</summary>
+        public string SelectedNetworkInterface { get; set; } = "";
+        /// <summary>EtherCAT 마스터 IO 갱신 주기 (Hz)</summary>
+        public uint EtherCATCycleFrequency { get; set; } = 500;
     }
 }

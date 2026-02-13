@@ -44,6 +44,9 @@ namespace FlashHSI.Core.Engine
         private int _cachedLineGap = 5;
         private int _cachedPixelGap = 10;
 
+        // AI가 추가함: 사출 타겟 클래스 캐싱 (모델 재로드 시 유지)
+        private HashSet<int>? _cachedEjectionTargets;
+
         // Live Statistics
         private EngineStats _liveStats;
         private long[] _liveClassCounts = Array.Empty<long>();
@@ -61,6 +64,11 @@ namespace FlashHSI.Core.Engine
 
         public bool IsSimulating => _isRunning;
         public bool IsMaskRuleActive => _maskMode == MaskMode.MaskRule;
+        
+        /// <summary>
+        /// AI: Expose Current FPS for Ejection Timing (Live Mode)
+        /// </summary>
+        public double CurrentFps => _runMode == RunMode.Live ? (_liveStats?.Fps ?? 0) : 0;
         
         // AI가 추가함: 현재 로드된 모델의 OriginalType (UI에서 Confidence 슬라이더 활성화 판단용)
         public string LoadedModelType { get; private set; } = "";
@@ -95,6 +103,8 @@ namespace FlashHSI.Core.Engine
 
                 _ejectionService = new EjectionService();
                 _ejectionService.OnEjectionSignal += (item) => EjectionOccurred?.Invoke(item);
+                // AI가 수정함: 모델 재로드 시 사출 타겟 유지
+                _ejectionService.SetTargetClasses(_cachedEjectionTargets);
 
                 // AI가 추가함: 모델의 MaskRules 자동 적용
                 _maskRule = MaskRuleParser.Parse(config.Preprocessing.MaskRules);
@@ -230,6 +240,16 @@ namespace FlashHSI.Core.Engine
         public void SetConfidenceThreshold(double threshold)
         {
             _pipeline?.SetThreshold(threshold);
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// 에어건 사출 타겟 클래스를 설정해요. null이면 모든 클래스를 사출해요.
+        /// </summary>
+        public void SetEjectionTargets(HashSet<int>? targets)
+        {
+            _cachedEjectionTargets = targets;
+            _ejectionService?.SetTargetClasses(targets);
         }
 
         /// <summary>

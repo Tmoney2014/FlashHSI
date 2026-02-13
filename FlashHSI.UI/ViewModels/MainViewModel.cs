@@ -94,19 +94,38 @@ namespace FlashHSI.UI.ViewModels
         {
              if(_hardwareService.IsConnected)
              {
-                 Application.Current.Dispatcher.InvokeAsync(async () =>
+                 // AI: User-Centric Ejection Logic (Delegated to EjectionService)
+                 // MainViewModel now acts as a simple bridge to Hardware.
+                 
+                 _ = Task.Run(async () => 
                  {
-                    double fps = _hsiEngine.IsSimulating ? SettingsService.Instance.Settings.TargetFps : 100.0;
-                    if (fps <= 0) fps = 100;
-                    
-                    int delayMs = (int)(log.Delay / fps * 1000.0);
-                    int pulseMs = 10; 
-                    
-                    _ = Task.Run(async () => 
-                    {
-                        if (delayMs > 0) await Task.Delay(delayMs);
-                        await _hardwareService.FireChannelAsync(log.ValveId, pulseMs);
-                    });
+                     try
+                     {
+                         // 1. Wait (Delay is already calculated in MS by EjectionService)
+                         int delayMs = log.Delay;
+                         if (delayMs > 0) await Task.Delay(delayMs);
+                         
+                         // 2. Fire (Duration is already calculated in MS)
+                         int durationMs = log.DurationMs;
+                         
+                         // Safety Caps
+                         if (durationMs < 5) durationMs = 5;       // Min 5ms
+                         if (durationMs > 1000) durationMs = 1000; // Max 1s safety
+                         
+                         // 3. Fire Channels
+                         if (log.ValveIds != null && log.ValveIds.Count > 0)
+                         {
+                             await _hardwareService.FireChannelsAsync(log.ValveIds, durationMs);
+                         }
+                         else
+                         {
+                             await _hardwareService.FireChannelAsync(log.ValveId, durationMs);
+                         }
+                     }
+                     catch (Exception ex)
+                     {
+                         // Log error silently
+                     }
                  });
              }
         }
@@ -132,6 +151,9 @@ namespace FlashHSI.UI.ViewModels
 
                 StatisticVM.InitializeStats(config);
                 _waterfallService.UpdateColorMap(config);
+                
+                // AI가 수정함: 모델 로드 시 SortClass 목록 생성
+                SettingVM.PopulateSortClasses(config);
                 
                 // AI가 수정함: 엔진에서 현재 적용된 임계값(MaskRule 포함)을 가져와 UI 설정
                 SettingVM.BackgroundThreshold = _hsiEngine.GetCurrentThreshold();

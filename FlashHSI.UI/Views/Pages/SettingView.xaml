@@ -4,125 +4,653 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16" MaxWidth="600" HorizontalAlignment="Left" MinWidth="400">
-            <materialDesign:Card Padding="16" Margin="0,0,0,16">
-                <StackPanel>
-                     <TextBlock Text="Model &amp; Data" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                     <Button Command="{Binding LoadModelCommand}" Content="Load Model JSON" Margin="0,0,0,8"/>
-                     <Button Command="{Binding SelectDataFileCommand}" Content="Select ENVI Header" Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                     <TextBlock Text="{Binding HeaderPath}" Margin="0,8,0,0" FontSize="10" Foreground="Gray"/>
-                </StackPanel>
-            </materialDesign:Card>
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+              xmlns:behaviors="clr-namespace:FlashHSI.UI.Behaviors"
+              xmlns:converters="clr-namespace:FlashHSI.UI.Converters"
+              mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="1000">
+    
+    <UserControl.Resources>
+        <system:Double x:Key="TabControlWidth">160</system:Double>
+        <converters:HexToColorBrushConverter x:Key="HexToColorBrushConverter"/>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource MaterialDesignPaper}">
+        <TabControl TabStripPlacement="Left"
+                    Style="{StaticResource MaterialDesignNavigationRailTabControl}"
+                    materialDesign:ColorZoneAssist.Mode="PrimaryMid"
+                    materialDesign:NavigationRailAssist.ShowSelectionBackground="True"
+                    materialDesign:NavigationRailAssist.SelectionCornerRadius="5">
             
-            <materialDesign:Card Padding="16" Margin="0,0,0,16">
-                <StackPanel>
-                     <TextBlock Text="References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                     <Grid>
-                        <Grid.ColumnDefinitions> <ColumnDefinition/> <ColumnDefinition/> </Grid.ColumnDefinitions>
+            <!-- 1. CAMERA TAB -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Camera" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Camera" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+                
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Camera Settings" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
                         
-                        <Button Grid.Column="0" Command="{Binding LoadWhiteRefCommand}" Content="White Ref" Margin="0,0,4,0">
-                             <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsWhiteRefLoaded}" Value="True">
-                                            <Setter Property="Background" Value="#4CAF50"/>
-                                            <Setter Property="BorderBrush" Value="#4CAF50"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <!-- Connection / Params -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Exposure Time (μs)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CameraExposureTime, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime}" TickFrequency="100" IsSnapToTickEnabled="False"/>
+                                </DockPanel>
+                                <DockPanel>
+                                    <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CameraFrameRate, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate}" TickFrequency="10" IsSnapToTickEnabled="False"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
                         
-                        <Button Grid.Column="1" Command="{Binding LoadDarkRefCommand}" Content="Dark Ref" Margin="4,0,0,0">
-                             <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsDarkRefLoaded}" Value="True">
-                                            <Setter Property="Background" Value="#4CAF50"/>
-                                            <Setter Property="BorderBrush" Value="#4CAF50"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                     </Grid>
-                </StackPanel>
-            </materialDesign:Card>
-            
-            <materialDesign:Card Padding="16">
-                 <StackPanel>
-                     <TextBlock Text="Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                     
-                     <DockPanel Margin="0,0,0,8">
-                         <TextBlock Text="Target FPS" Width="150"/>
-                         <TextBlock Text="{Binding TargetFps, StringFormat=N0}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="10" IsSnapToTickEnabled="True"/>
-                     </DockPanel>
-                     
-                     <DockPanel Margin="0,8,0,8" IsEnabled="{Binding IsConfidenceEnabled}">
-                         <TextBlock Text="Confidence Threshold" Width="150"/>
-                         <TextBlock Text="{Binding ConfidenceThreshold, StringFormat=P0}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="0.5" Maximum="0.99" Value="{Binding ConfidenceThreshold}" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
-                     </DockPanel>
-                     
-                     <DockPanel Margin="0,8,0,0">
-                         <StackPanel Width="150" Orientation="Horizontal">
-                             <TextBlock Text="Background Threshold"/>
-                             <TextBlock Text=" (Rule)" Foreground="{StaticResource PrimaryHueMidBrush}" 
-                                        Visibility="{Binding IsMaskRuleActive, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                         </StackPanel>
-                         <TextBlock Text="{Binding BackgroundThreshold, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold}" TickFrequency="100" IsSnapToTickEnabled="False"/>
-                     </DockPanel>
-                 </StackPanel>
-            </materialDesign:Card>
-            
-            <!-- AI가 추가함: 카메라 파라미터 설정 -->
-            <materialDesign:Card Padding="16" Margin="0,16,0,0">
-                 <StackPanel>
-                     <TextBlock Text="📷 Camera Settings" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                     
-                     <DockPanel Margin="0,0,0,8">
-                         <TextBlock Text="Exposure Time (μs)" Width="150"/>
-                         <TextBlock Text="{Binding CameraExposureTime, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime}" TickFrequency="100" IsSnapToTickEnabled="False"/>
-                     </DockPanel>
-                     
-                     <DockPanel Margin="0,8,0,0">
-                         <TextBlock Text="Frame Rate (FPS)" Width="150"/>
-                         <TextBlock Text="{Binding CameraFrameRate, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate}" TickFrequency="10" IsSnapToTickEnabled="False"/>
-                     </DockPanel>
-                 </StackPanel>
-            </materialDesign:Card>
-            
-            <!-- AI가 추가함: Blob 추적 파라미터 -->
-            <materialDesign:Card Padding="16" Margin="0,16,0,0">
-                 <StackPanel>
-                     <TextBlock Text="🔵 Object Tracking (Blob)" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                     
-                     <DockPanel Margin="0,0,0,8" ToolTip="최소 픽셀 수 (작은 노이즈 제거)">
-                         <TextBlock Text="Min Size (Pixels)" Width="150" VerticalAlignment="Center"/>
-                         <TextBlock Text="{Binding BlobMinPixels}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="1" Maximum="100" Value="{Binding BlobMinPixels}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                     </DockPanel>
-                     
-                     <DockPanel Margin="0,8,0,8" ToolTip="이 값만큼 라인이 비어도(배경) 같은 물체로 간주합니다. (0=즉시 끊김)">
-                         <TextBlock Text="Max Line Gap" Width="150" VerticalAlignment="Center"/>
-                         <TextBlock Text="{Binding BlobLineGap}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="0" Maximum="50" Value="{Binding BlobLineGap}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                     </DockPanel>
-                     
-                     <DockPanel Margin="0,8,0,0" ToolTip="이 값만큼 옆으로(X축) 이동해도 같은 물체로 간주합니다. (대각선 이동)">
-                         <TextBlock Text="Overlap Tolerance" Width="150" VerticalAlignment="Center"/>
-                         <TextBlock Text="{Binding BlobPixelGap}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
-                         <Slider Minimum="0" Maximum="50" Value="{Binding BlobPixelGap}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                     </DockPanel>
-                 </StackPanel>
-            </materialDesign:Card>
-        </StackPanel>
-    </ScrollViewer>
+                        <!-- References -->
+                        <materialDesign:Card Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Calibration References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions> <ColumnDefinition/> <ColumnDefinition/> </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Command="{Binding LoadWhiteRefCommand}" Content="Load White Ref" Margin="0,0,8,0">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWhiteRefLoaded}" Value="True">
+                                                        <Setter Property="Background" Value="#4CAF50"/>
+                                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Grid.Column="1" Command="{Binding LoadDarkRefCommand}" Content="Load Dark Ref" Margin="8,0,0,0">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDarkRefLoaded}" Value="True">
+                                                        <Setter Property="Background" Value="#4CAF50"/>
+                                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 2. AIR GUN TAB (Injection) -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AirFilter" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Air Gun" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Ejection &amp; Tracking" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
+                        
+                        <!-- AI가 추가함: EtherCAT 연결 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="EtherCAT 연결" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Network Interface" Width="180" VerticalAlignment="Center"/>
+                                    <Button Content="↻" Command="{Binding RefreshNetworkInterfacesCommand}" 
+                                            Style="{StaticResource MaterialDesignIconButton}" DockPanel.Dock="Right" Width="32" Height="32" ToolTip="새로고침"/>
+                                    <ComboBox ItemsSource="{Binding NetworkInterfaces}" SelectedItem="{Binding SelectedNetworkInterface}"/>
+                                </DockPanel>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Cycle Frequency (Hz)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding EtherCATCycleFrequency}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="100" Maximum="2000" Value="{Binding EtherCATCycleFrequency}" TickFrequency="100" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,10" ToolTip="카메라 시야폭(mm). 0이면 단순 픽셀→채널 매핑">
+                                    <TextBlock Text="Field of View (mm)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding FieldOfView}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="2000" Value="{Binding FieldOfView}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                
+                                <CheckBox Content="Channel Reverse (채널 반전)" IsChecked="{Binding IsChannelReverse}" Margin="0,0,0,10"/>
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Command="{Binding ConnectEtherCATCommand}" Content="Connect" Margin="0,0,8,0"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <Button Grid.Column="1" Command="{Binding DisconnectEtherCATCommand}" Content="Disconnect" Margin="8,0,0,0"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                                </Grid>
+                                
+                                <TextBlock Text="{Binding AirGunStatusText}" Margin="0,8,0,0" Foreground="Gray" FontSize="12"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- AI가 추가함: Master Control 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Master Control" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel>
+                                    <TextBlock Text="Master ON/OFF" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding IsMasterOn}" Command="{Binding ToggleMasterCommand}"
+                                                  Style="{StaticResource MaterialDesignSwitchToggleButton}" DockPanel.Dock="Right"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- AI가 추가함: Air Gun Test 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Air Gun Test" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Start Channel" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding TestStartChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="1" Maximum="128" Value="{Binding TestStartChannel}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Blow Time (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding TestBlowTime}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Delay Between (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding TestDelay}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay}" TickFrequency="50" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Command="{Binding TestAllChannelsCommand}" Content="Test All Channels" Margin="0,0,8,0"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <Button Grid.Column="1" Command="{Binding CancelTestAllChannelsCommand}" Content="Cancel Test" Margin="8,0,0,0"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                                </Grid>
+                                
+                                <Separator Margin="0,16"/>
+                                
+                                <TextBlock Text="Single Channel Test" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Channel" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding TestSingleChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="1" Maximum="128" Value="{Binding TestSingleChannel}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                <Button Command="{Binding TestSingleChannelCommand}" Content="Fire Single Channel"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- AI가 추가함: 비상 정지 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" Background="#B71C1C">
+                            <Button Command="{Binding EmergencyStopCommand}" 
+                                    Content="EMERGENCY STOP" 
+                                    FontSize="18" FontWeight="Bold"
+                                    Foreground="White" Background="#D32F2F" BorderBrush="#D32F2F"
+                                    Height="50"
+                                    HorizontalAlignment="Stretch"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                        </materialDesign:Card>
+
+                        <!-- Ejection Logic -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="🔫 Ejection Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                
+                                <DockPanel Margin="0,0,0,10" ToolTip="Detection to Fire Delay (Legacy BlowDelay)">
+                                    <TextBlock Text="Base Delay (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding EjectionDelayMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="500" Value="{Binding EjectionDelayMs}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                
+                                <!-- Y-Based Correction Rules -->
+                                <materialDesign:Card Margin="0,0,0,10" Padding="8">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock Text="Y-Correction Rules (Delay Offset)" VerticalAlignment="Center" FontWeight="Bold"/>
+                                            <Button Command="{Binding AddYCorrectionRuleCommand}" Content="Add Rule" 
+                                                    Style="{StaticResource MaterialDesignFlatButton}" 
+                                                    Foreground="White"
+                                                    Height="24" Padding="8,0" FontSize="10" 
+                                                    DockPanel.Dock="Right"/>
+                                        </DockPanel>
+                                        
+                                        <ItemsControl ItemsSource="{Binding YCorrectionRules}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <materialDesign:Card Margin="0,0,0,8" Padding="8">
+                                                        <StackPanel>
+                                                            <!-- Rule Header: Description or Index & Delete Button -->
+                                                            <DockPanel Margin="0,0,0,4">
+                                                                <TextBlock Text="Rule" VerticalAlignment="Center" Foreground="Gray" FontSize="10"/>
+                                                                <Button Command="{Binding DataContext.RemoveYCorrectionRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                                        CommandParameter="{Binding}"
+                                                                        Style="{StaticResource MaterialDesignIconForegroundButton}"
+                                                                        Width="20" Height="20"
+                                                                        HorizontalAlignment="Right"
+                                                                        DockPanel.Dock="Right"
+                                                                        ToolTip="Remove Rule">
+                                                                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16"/>
+                                                                </Button>
+                                                            </DockPanel>
+
+                                                            <DockPanel Margin="0,0,0,4">
+                                                                <TextBlock Text="Threshold Y (Px)" VerticalAlignment="Center" Width="100"/>
+                                                                <TextBlock Text="{Binding ThresholdY, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                                                
+                                                                <!-- Y Threshold Slider (0~1024px) -->
+                                                                <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY}" TickFrequency="10" IsSnapToTickEnabled="True">
+                                                                    <i:Interaction.Triggers>
+                                                                        <i:EventTrigger EventName="DragCompleted">
+                                                                            <i:InvokeCommandAction Command="{Binding DataContext.SaveYCorrectionRulesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                                        </i:EventTrigger>
+                                                                    </i:Interaction.Triggers>
+                                                                </Slider>
+                                                            </DockPanel>
+
+                                                            <DockPanel>
+                                                                <TextBlock Text="Correction (ms)" VerticalAlignment="Center" Width="100"/>
+                                                                <TextBlock Text="{Binding CorrectionMs, StringFormat=N0}" Width="60" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                                                
+                                                                <!-- Correction Ms Slider (-20 ~ 20ms) -->
+                                                                <Slider Minimum="-20" Maximum="20" Value="{Binding CorrectionMs}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                                                    <i:Interaction.Triggers>
+                                                                        <i:EventTrigger EventName="DragCompleted">
+                                                                            <i:InvokeCommandAction Command="{Binding DataContext.SaveYCorrectionRulesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                                        </i:EventTrigger>
+                                                                    </i:Interaction.Triggers>
+                                                                </Slider>
+                                                            </DockPanel>
+                                                        </StackPanel>
+                                                    </materialDesign:Card>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </materialDesign:Card>
+                                
+                                <DockPanel Margin="0,0,0,10" ToolTip="Valve Open Duration (Fixed)">
+                                    <TextBlock Text="Duration (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding EjectionDurationMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="5" Maximum="200" Value="{Binding EjectionDurationMs}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                                
+                                <DockPanel Margin="0,0,0,0" ToolTip="Number of extra valves to fire around center (0 = Center only)">
+                                    <TextBlock Text="Blow Margin (Valves)" Width="180" VerticalAlignment="Center" Foreground="White"/>
+                                    <TextBox Text="{Binding EjectionBlowMargin}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="5" Value="{Binding EjectionBlowMargin}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Blob Tracking -->
+                        <materialDesign:Card Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="🔵 Object Tracking (Blob)" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Min Size (Pixels)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding BlobMinPixels}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="1" Maximum="100" Value="{Binding BlobMinPixels}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Max Line Gap" Width="180" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding BlobLineGap}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="50" Value="{Binding BlobLineGap}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,0">
+                                    <TextBlock Text="Pixel Gap (X)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding BlobPixelGap}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="50" Value="{Binding BlobPixelGap}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 3. FEEDER TAB -->
+            <!-- AI가 작성함: 피더 제어 탭 전체 구현 -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Factory" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Feeder" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Feeder Control" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
+
+                        <!-- 시리얼 포트 연결 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Serial Port 연결" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Serial Port" Width="180" VerticalAlignment="Center"/>
+                                    <Button Content="↻" Command="{Binding RefreshSerialPortsCommand}" 
+                                            Style="{StaticResource MaterialDesignIconButton}" DockPanel.Dock="Right" Width="32" Height="32" ToolTip="새로고침"/>
+                                    <ComboBox ItemsSource="{Binding AvailableSerialPorts}" SelectedItem="{Binding SelectedSerialPort}"/>
+                                </DockPanel>
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Command="{Binding ConnectSerialPortCommand}" Content="Connect" Margin="0,0,8,0"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <!-- Disconnect는 ShutDown 메서드가 필요하나 현재 UI에서 필요 시 추가 가능 -->
+                                    <TextBlock Grid.Column="1" Text="{Binding FeederStatusText}" VerticalAlignment="Center" Foreground="Gray" FontSize="12" Margin="8,0,0,0"/>
+                                </Grid>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 피더 개수 설정 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Feeder Count" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel>
+                                    <TextBlock Text="피더 개수 (0~9)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding FeederCount}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="0" Maximum="9" Value="{Binding FeederCount}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 피더 리스트 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- 제목 -->
+                                <TextBlock Grid.Row="0" Text="Feeder Output" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+
+                                <!-- 구분선 -->
+                                <Border Grid.Row="1" Height="1" Background="{DynamicResource MaterialDesign.Brush.Divider}" Margin="0,0,0,16"/>
+
+                                <!-- 개별 피더 리스트 -->
+                                <ItemsControl Grid.Row="2" ItemsSource="{Binding FeederList}" Margin="0,0,0,16">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <materialDesign:Card Margin="0,0,0,8" Padding="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="100"/>
+                                                        <ColumnDefinition Width="32"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="32"/>
+                                                        <ColumnDefinition Width="50"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- 피더 번호 -->
+                                                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="14" FontWeight="Medium">
+                                                        <Run Text="{Binding DisplayNumber, Mode=OneWay}"/>
+                                                        <Run Text="번 피더"/>
+                                                    </TextBlock>
+
+                                                    <!-- 감소 버튼 -->
+                                                    <Button Grid.Column="1"
+                                                            Command="{Binding DataContext.DecreaseFeederValueCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconButton}"
+                                                            Width="28" Height="28" VerticalAlignment="Center">
+                                                        <materialDesign:PackIcon Kind="Minus" Width="16" Height="16"/>
+                                                    </Button>
+
+                                                    <!-- 슬라이더 -->
+                                                    <Slider Grid.Column="2" Margin="8,0"
+                                                            Minimum="1" Maximum="99"
+                                                            Value="{Binding FeederValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                            TickFrequency="10" TickPlacement="None" IsSnapToTickEnabled="False"
+                                                            VerticalAlignment="Center">
+                                                        <i:Interaction.Behaviors>
+                                                            <behaviors:SliderDragCompletedBehavior
+                                                                Command="{Binding DataContext.FeederSliderDragCompletedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"/>
+                                                        </i:Interaction.Behaviors>
+                                                    </Slider>
+
+                                                    <!-- 증가 버튼 -->
+                                                    <Button Grid.Column="3"
+                                                            Command="{Binding DataContext.IncreaseFeederValueCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconButton}"
+                                                            Width="28" Height="28" VerticalAlignment="Center">
+                                                        <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"/>
+                                                    </Button>
+
+                                                    <!-- 값 배지 -->
+                                                    <Border Grid.Column="4"
+                                                            Background="{DynamicResource MaterialDesign.Brush.Primary}"
+                                                            CornerRadius="12" Padding="8,4"
+                                                            VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <TextBlock Text="{Binding FeederValue, StringFormat='{}{0}'}"
+                                                                   FontSize="14" FontWeight="Bold" Foreground="White"
+                                                                   HorizontalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                            </materialDesign:Card>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 전체 제어 행 -->
+                                <materialDesign:Card Grid.Row="3" Padding="12"
+                                                     Background="{DynamicResource MaterialDesign.Brush.Secondary.Light}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="32"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="32"/>
+                                            <ColumnDefinition Width="50"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="전체 제어" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+
+                                        <Button Grid.Column="1" Command="{Binding DecreaseAllFeederValueCommand}"
+                                                Style="{StaticResource MaterialDesignIconButton}"
+                                                Width="28" Height="28" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon Kind="Minus" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <Slider Grid.Column="2" Margin="8,0"
+                                                Minimum="1" Maximum="99"
+                                                Value="{Binding AllFeederValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                TickFrequency="10" TickPlacement="None" IsSnapToTickEnabled="False"
+                                                VerticalAlignment="Center">
+                                            <i:Interaction.Behaviors>
+                                                <behaviors:SliderDragCompletedBehavior
+                                                    Command="{Binding FeederSliderDragCompletedCommand}"
+                                                    CommandParameter="AllFeederValue"/>
+                                            </i:Interaction.Behaviors>
+                                        </Slider>
+
+                                        <Button Grid.Column="3" Command="{Binding IncreaseAllFeederValueCommand}"
+                                                Style="{StaticResource MaterialDesignIconButton}"
+                                                Width="28" Height="28" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"/>
+                                        </Button>
+
+                                        <Border Grid.Column="4"
+                                                Background="{DynamicResource MaterialDesign.Brush.Primary}"
+                                                CornerRadius="12" Padding="8,4"
+                                                VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding AllFeederValue, StringFormat='{}{0}'}"
+                                                       FontSize="14" FontWeight="Bold" Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                </materialDesign:Card>
+                            </Grid>
+                        </materialDesign:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 4. RECIPE TAB -->
+            <!-- AI가 작성함: 분류 클래스 선택 (에어건 타겟) 탭 -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FormatListBulletedSquare" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Recipe" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Sort Class Selection" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
+
+                        <!-- 에어건 타겟 클래스 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="에어건 타겟 클래스" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+
+                                <!-- 전체 선택/해제 버튼 -->
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Command="{Binding SelectAllSortClassesCommand}" Content="전체 선택" Margin="0,0,8,0"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <Button Grid.Column="1" Command="{Binding DeselectAllSortClassesCommand}" Content="전체 해제" Margin="8,0,0,0"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                                </Grid>
+
+                                <!-- 클래스 리스트 -->
+                                <ItemsControl ItemsSource="{Binding SortClasses}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <materialDesign:Card Margin="0,0,0,8" Padding="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- 클래스 색상 표시 -->
+                                                    <Border Grid.Column="0" Width="8" CornerRadius="4"
+                                                            Background="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"
+                                                            VerticalAlignment="Stretch"/>
+
+                                                    <!-- 클래스 이름 -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock FontSize="14" FontWeight="Medium">
+                                                            <Run Text="{Binding Name, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="Gray">
+                                                            <Run Text="Class"/>
+                                                            <Run Text="{Binding Index, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <!-- 선택 토글 -->
+                                                    <ToggleButton Grid.Column="3"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                                                  VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </materialDesign:Card>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- 모델 미로드 안내 -->
+                                <TextBlock Text="모델을 먼저 로드해주세요." 
+                                           Foreground="Gray" FontSize="14" 
+                                           HorizontalAlignment="Center" Margin="0,20,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SortClasses.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 5. FILE PATH TAB -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Folder" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="File Path" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                    <StackPanel MaxWidth="1200" HorizontalAlignment="Left">
+                        <TextBlock Text="Paths &amp; Models" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
+                        
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="HSI Model" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <Button Command="{Binding LoadModelCommand}" Content="Load Model JSON" Margin="0,0,0,8" HorizontalAlignment="Left"/>
+                                
+                                <Separator Margin="0,16"/>
+                                
+                                <TextBlock Text="Simulation Data" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <Button Command="{Binding SelectDataFileCommand}" Content="Select ENVI Header (*.hdr)" Style="{StaticResource MaterialDesignOutlinedButton}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding HeaderPath}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="Gray"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+                        
+                        <materialDesign:Card Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="Target FPS (Sim Only)" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel>
+                                    <TextBlock Text="Target FPS" Width="180"/>
+                                    <TextBlock Text="{Binding TargetFps, StringFormat=N0}" Width="40" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 6. LANGUAGE TAB -->
+            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Translate" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="Language" VerticalAlignment="Center" FontSize="14"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <TextBlock Text="Language Settings (Coming Soon)" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="20"/>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+    </Grid>
 </UserControl>

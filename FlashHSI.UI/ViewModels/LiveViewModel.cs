@@ -89,11 +89,19 @@ namespace FlashHSI.UI.ViewModels
             {
                 if (IsCameraConnected)
                 {
+                    StatusMessage = "카메라 연결 해제 중...";
                     await _cameraService.DisconnectAsync();
                     IsCameraConnected = false;
                     CameraName = "연결 필요";
                     StatusMessage = "카메라 연결 해제됨";
                     Log.Information("카메라 연결 해제");
+                    
+                    // AI: Ensure Live is also stopped if camera disconnects
+                    if (IsLive)
+                    {
+                        IsLive = false;
+                        _hsiEngine.Stop();
+                    }
                 }
                 else
                 {
@@ -109,6 +117,7 @@ namespace FlashHSI.UI.ViewModels
                     }
                     else
                     {
+                        IsCameraConnected = false;
                         StatusMessage = "카메라 연결 실패";
                         Log.Warning("카메라 연결 실패");
                     }

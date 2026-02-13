@@ -153,13 +153,15 @@
                                 
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Cycle Frequency (Hz)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding EtherCATCycleFrequency}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding EtherCATCycleFrequency}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="100" Maximum="2000" Value="{Binding EtherCATCycleFrequency}" TickFrequency="100" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <DockPanel Margin="0,0,0,10" ToolTip="카메라 시야폭(mm). 0이면 단순 픽셀→채널 매핑">
                                     <TextBlock Text="Field of View (mm)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding FieldOfView}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding FieldOfView}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="0" Maximum="2000" Value="{Binding FieldOfView}" TickFrequency="10" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 
@@ -196,17 +198,20 @@
                                 
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Start Channel" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding TestStartChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding TestStartChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="1" Maximum="128" Value="{Binding TestStartChannel}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Blow Time (ms)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding TestBlowTime}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding TestBlowTime}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime}" TickFrequency="10" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Delay Between (ms)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding TestDelay}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding TestDelay}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay}" TickFrequency="50" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 
@@ -223,7 +228,8 @@
                                 <TextBlock Text="Single Channel Test" FontWeight="Bold" Margin="0,0,0,10"/>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Channel" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding TestSingleChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding TestSingleChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="1" Maximum="128" Value="{Binding TestSingleChannel}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 <Button Command="{Binding TestSingleChannelCommand}" Content="Fire Single Channel"
@@ -249,7 +255,8 @@
                                 
                                 <DockPanel Margin="0,0,0,10" ToolTip="Detection to Fire Delay (Legacy BlowDelay)">
                                     <TextBlock Text="Base Delay (ms)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding EjectionDelayMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding EjectionDelayMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="0" Maximum="500" Value="{Binding EjectionDelayMs}" TickFrequency="10" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 
@@ -321,13 +328,15 @@
                                 
                                 <DockPanel Margin="0,0,0,10" ToolTip="Valve Open Duration (Fixed)">
                                     <TextBlock Text="Duration (ms)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding EjectionDurationMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding EjectionDurationMs}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="5" Maximum="200" Value="{Binding EjectionDurationMs}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                                 
                                 <DockPanel Margin="0,0,0,0" ToolTip="Number of extra valves to fire around center (0 = Center only)">
                                     <TextBlock Text="Blow Margin (Valves)" Width="180" VerticalAlignment="Center" Foreground="White"/>
-                                    <TextBox Text="{Binding EjectionBlowMargin}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding EjectionBlowMargin}" Width="50" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="0" Maximum="5" Value="{Binding EjectionBlowMargin}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                             </StackPanel>
@@ -403,7 +412,8 @@
                                 <TextBlock Text="Feeder Count" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel>
                                     <TextBlock Text="피더 개수 (0~9)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding FeederCount}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"/>
+                                    <TextBox Text="{Binding FeederCount}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="0" Maximum="9" Value="{Binding FeederCount}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                             </StackPanel>

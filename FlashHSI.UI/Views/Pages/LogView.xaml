@@ -13,12 +13,10 @@
              <RowDefinition Height="16"/>
              <RowDefinition Height="Auto"/>
              <RowDefinition Height="1*"/>
+             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-             <Button Command="{Binding ClearLogsCommand}" Content="CLEAR LOGS" Style="{StaticResource MaterialDesignOutlinedButton}"/>
-             <TextBlock Text="EJECTION LOGS" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="Bold" Opacity="0.5"/>
-        </StackPanel>
+        <TextBlock Text="EJECTION LOGS" VerticalAlignment="Center" Margin="0,0,0,8" FontWeight="Bold" Opacity="0.5"/>
         
         <DataGrid Grid.Row="1" ItemsSource="{Binding Logs}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
                   AlternatingRowBackground="#1A1A1A" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
@@ -41,5 +39,24 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
+        
+        <!-- AI가 추가함: 로그 내보내기/삭제 버튼 영역 (레거시 스타일 참조) -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Command="{Binding ClearLogsCommand}" 
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="로그 삭제" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding SaveLogToFileCommand}" 
+                    Style="{StaticResource MaterialDesignFlatMidBgButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="파일 저장" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
     </Grid>
 </UserControl>

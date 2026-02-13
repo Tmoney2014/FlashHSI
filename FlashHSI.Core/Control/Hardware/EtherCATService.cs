@@ -27,9 +27,15 @@ namespace FlashHSI.Core.Control.Hardware
         private int _totalChannels;
         
         private volatile bool _isConnected;
+        private volatile bool _isMasterOn; // AI가 추가함: 마스터 ON/OFF 플래그
+        private CancellationTokenSource? _ctsAllChannelTest; // AI가 추가함: 전체 채널 테스트 취소용
         private int _cycleFrequency;
 
         public bool IsConnected => _isConnected;
+        /// <ai>AI가 작성함</ai>
+        public bool IsMasterOn => _isMasterOn;
+        /// <ai>AI가 작성함</ai>
+        public int TotalChannels => _totalChannels;
         public event Action<string>? LogMessage;
 
         public void Connect(string interfaceName, int cycleFreq = 500)
@@ -76,6 +82,7 @@ namespace FlashHSI.Core.Control.Hardware
                 InitializeChannelMap();
                 
                 _isConnected = true;
+                _isMasterOn = true; // AI가 추가함: 연결 시 마스터 ON 상태로 설정
                 Log($"EtherCAT Connected. Total Channels: {_totalChannels}");
 
                 // Start RealTime Thread
@@ -118,7 +125,8 @@ namespace FlashHSI.Core.Control.Hardware
 
             while (!_ctsConnection.IsCancellationRequested)
             {
-                if (_isConnected && _master != null)
+                // AI가 수정함: _isMasterOn 체크 추가 — 마스터 OFF 시 IO 갱신 중지
+                if (_isConnected && _isMasterOn && _master != null)
                 {
                     lock (_ioLock)
                     {
@@ -160,34 +168,102 @@ namespace FlashHSI.Core.Control.Hardware
                 var (pdoIdx, pdoCh) = _channelMap[channel - 1];
                 var dOut = _digitalOuts![pdoIdx];
 
-                // ON
-                dOut.SetChannel(pdoCh, true); 
-                // Note: RealTimeLoop will pick this up on next cycle, usually < 2ms.
-                // For instant IO, we could call UpdateIO here inside lock, but RT loop handles it consistentlly.
-                // Legacy code called SafeUpdateIO() directly here for immediacy.
-                // Let's replicate SafeUpdateIO behavior if critical.
-                lock(_ioLock) _master?.UpdateIO(DateTime.UtcNow);
+                lock (_ioLock)
+                {
+                    dOut.SetChannel(pdoCh, true);
+                    _master?.UpdateIO(DateTime.UtcNow);
+                }
 
-                // WAIT
                 await PrecisionTimer.WaitAsync(durationMs, cts.Token);
 
-                // OFF
                 if (!cts.IsCancellationRequested)
                 {
-                     dOut.SetChannel(pdoCh, false);
-                     lock(_ioLock) _master?.UpdateIO(DateTime.UtcNow);
+                    lock (_ioLock)
+                    {
+                        dOut.SetChannel(pdoCh, false);
+                        _master?.UpdateIO(DateTime.UtcNow);
+                    }
                 }
             }
             catch (TaskCanceledException) { }
             finally
             {
-                _activeChannels.TryRemove(channel, out _);
+                if (_activeChannels.TryGetValue(channel, out var currentCts) && currentCts == cts)
+                {
+                    _activeChannels.TryRemove(channel, out _);
+                }
                 cts.Dispose();
             }
         }
 
+        public async Task FireChannelsAsync(IEnumerable<int> channels, int durationMs)
+        {
+            if (!_isConnected) return;
+            var targetChannels = channels.Where(c => c >= 1 && c <= _totalChannels).ToList();
+            if (targetChannels.Count == 0) return;
+
+            // 1. Cancel existing tasks
+            foreach (var ch in targetChannels)
+            {
+                if (_activeChannels.TryRemove(ch, out var oldCts))
+                {
+                    oldCts.Cancel();
+                    oldCts.Dispose();
+                }
+            }
+
+            var cts = new CancellationTokenSource();
+            foreach (var ch in targetChannels) _activeChannels[ch] = cts;
+
+            try
+            {
+                // 2. Set ON Batch
+                lock (_ioLock)
+                {
+                    foreach (var ch in targetChannels)
+                    {
+                        var (pdoIdx, pdoCh) = _channelMap[ch - 1];
+                        _digitalOuts![pdoIdx].SetChannel(pdoCh, true); 
+                    }
+                    _master?.UpdateIO(DateTime.UtcNow);
+                }
+
+                // 3. Wait
+                await PrecisionTimer.WaitAsync(durationMs, cts.Token);
+
+                // 4. Set OFF Batch
+                if (!cts.IsCancellationRequested)
+                {
+                    lock (_ioLock)
+                    {
+                         foreach (var ch in targetChannels)
+                        {
+                            var (pdoIdx, pdoCh) = _channelMap[ch - 1];
+                            _digitalOuts![pdoIdx].SetChannel(pdoCh, false);
+                        }
+                        _master?.UpdateIO(DateTime.UtcNow);
+                    }
+                }
+            }
+            catch (TaskCanceledException) { }
+            finally
+            {
+                foreach (var ch in targetChannels)
+                {
+                    if (_activeChannels.TryGetValue(ch, out var currentCts) && currentCts == cts)
+                    {
+                        _activeChannels.TryRemove(ch, out _);
+                    }
+                }
+                cts.Dispose();
+            }
+        }
+
+        // AI가 수정함: 연결 해제 전 CancelAllAsync 호출하여 안전한 종료 보장
         public async Task DisconnectAsync()
         {
+            await CancelAllAsync();
+            
             _ctsConnection.Cancel();
             _isConnected = false;
             
@@ -206,6 +282,84 @@ namespace FlashHSI.Core.Control.Hardware
             await DisconnectAsync();
             await Task.Delay(1000);
             // Reconnect logic would depend on caller
+        }
+
+        /// <ai>AI가 작성함: 마스터 ON/OFF 상태 변경</ai>
+        public void SetMasterOn(bool value)
+        {
+            _isMasterOn = value;
+            Log($"Master {(value ? "ON" : "OFF")}");
+        }
+
+        /// <ai>AI가 작성함: 전체 채널 순차 테스트 (레거시 TestAllChannelAsync 동등)</ai>
+        public async Task TestAllChannelAsync(int startChannel, int blowTime, int delayBetween, CancellationToken ct)
+        {
+            if (!_isConnected || !_isMasterOn) return;
+
+            _ctsAllChannelTest = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var token = _ctsAllChannelTest.Token;
+
+            await Task.Run(async () =>
+            {
+                for (var ch = startChannel; ch <= _totalChannels; ch++)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        Log("TestAllChannel 취소됨");
+                        return;
+                    }
+
+                    await Task.Delay(delayBetween, token);
+                    await FireChannelAsync(ch, blowTime);
+                    Log($"Test Channel: {ch} 완료");
+                }
+            }, token).ConfigureAwait(false);
+        }
+
+        /// <ai>AI가 작성함: 전체 채널 테스트 취소</ai>
+        public void CancelTestAllChannel()
+        {
+            _ctsAllChannelTest?.Cancel();
+        }
+
+        /// <ai>AI가 작성함: 모든 채널 강제 OFF</ai>
+        public async Task OffAllChannelAsync()
+        {
+            if (_digitalOuts == null || _channelMap.Count == 0) return;
+
+            await Task.Run(() =>
+            {
+                lock (_ioLock)
+                {
+                    for (var i = 0; i < _channelMap.Count; i++)
+                    {
+                        var (pdoIdx, pdoCh) = _channelMap[i];
+                        _digitalOuts[pdoIdx].SetChannel(pdoCh, false);
+                    }
+                    _master?.UpdateIO(DateTime.UtcNow);
+                }
+            });
+            Log("모든 채널 OFF 완료");
+        }
+
+        /// <ai>AI가 작성함: 마스터 OFF + 모든 토큰 취소 + 전체 채널 OFF</ai>
+        public async Task CancelAllAsync()
+        {
+            SetMasterOn(false);
+
+            // 테스트 CTS 취소
+            _ctsAllChannelTest?.Cancel();
+
+            // 활성 채널 CTS 전부 취소
+            foreach (var cts in _activeChannels.Values)
+            {
+                cts.Cancel();
+            }
+            _activeChannels.Clear();
+
+            await Task.Delay(100);
+            await OffAllChannelAsync();
+            Log("CancelAll 완료 — 모든 작업 중지됨");
         }
 
         private void Log(string msg)

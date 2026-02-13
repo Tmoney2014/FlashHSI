@@ -99,7 +99,7 @@
                     
                     <!-- AI가 추가함: 분류 시작/정지 버튼 -->
                     <Button Command="{Binding TogglePredictionCommand}"
-                            Width="120" Height="40"
+                            Width="120" Height="40" Margin="0,0,10,0"
                             BorderThickness="0" Cursor="Hand">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -110,6 +110,25 @@
                                     <DataTrigger Binding="{Binding IsPredicting}" Value="True">
                                         <Setter Property="Content" Value="⏸ 분류 중지"/>
                                         <Setter Property="Background" Value="#e74c3c"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- AI가 추가함: 캡처(프레임 저장) 시작/중지 버튼 -->
+                    <Button Command="{Binding ToggleCaptureCommand}"
+                            Width="140" Height="40"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Content" Value="📹 캡처 시작"/>
+                                <Setter Property="Background" Value="#0984e3"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                        <Setter Property="Content" Value="⏹ 캡처 중지 (저장)"/>
+                                        <Setter Property="Background" Value="#d63031"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -157,9 +176,18 @@
         
         <!-- 하단: 정보 바 -->
         <Border Grid.Row="2" Background="#16213e" Padding="16,8">
-            <TextBlock Text="💡 카메라를 연결한 후 '라이브' 버튼을 눌러 스트리밍을 시작하세요." 
-                       Foreground="#7f8fa6" FontSize="12"
-                       HorizontalAlignment="Center"/>
+            <DockPanel>
+                <TextBlock Text="💡 카메라를 연결한 후 '라이브' 버튼을 눌러 스트리밍을 시작하세요." 
+                           Foreground="#7f8fa6" FontSize="12"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                
+                <!-- AI가 추가함: 캡처 중 프레임 카운터 -->
+                <TextBlock DockPanel.Dock="Right" FontSize="12" Margin="16,0,0,0"
+                           Foreground="#74b9ff" VerticalAlignment="Center"
+                           Visibility="{Binding IsCapturing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Run Text="📹 캡처 프레임: "/><Run Text="{Binding CapturedFrameCount, Mode=OneWay}"/>
+                </TextBlock>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>

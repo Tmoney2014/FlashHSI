@@ -1,22 +1,36 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using FlashHSI.Core.Analysis;
+using FlashHSI.Core.Settings;
 
 namespace FlashHSI.Core.Control
 {
     /// <summary>
     /// <ai>AI가 작성함</ai>
     /// Logical controller for calculating ejection timing and mapping pixels to valves.
-    /// Note: Actual Hardware IO is outside the scope of this class (just Logging).
+    /// User-Centric Design: System provides Coordinates, User controls Timing/Duration/Range.
     /// </summary>
     public class EjectionService
     {
-        // Settings (should be injected via SettingsService, but simplified here)
-        public int PixelsPerValve { get; set; } = 10; 
-        public int DistanceLines { get; set; } = 500; // Camera to Gun distance in Lines
-        public int MaxBlobLength { get; set; } = 200; // Threshold for Long Object (Head Hit)
+        // AI가 추가함: 사출 대상 클래스 필터 (null이면 전체 사출)
+        private HashSet<int>? _targetClasses;
 
         public event Action<EjectionLogItem>? OnEjectionSignal;
 
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// 에어건 타겟 클래스를 설정해요. null이면 모든 클래스를 사출해요.
+        /// </summary>
+        public void SetTargetClasses(HashSet<int>? targets)
+        {
+            _targetClasses = targets;
+        }
+
+        /// <summary>
+        /// Process a blob and generate ejection command based on User Settings.
+        /// </summary>
+        /// <param name="blob">The active blob to eject.</param>
         public void Process(ActiveBlob blob)
         {
             if (blob == null) return;
@@ -24,78 +38,112 @@ namespace FlashHSI.Core.Control
             int bestClass = blob.GetBestClass();
             if (bestClass < 0) return; // Background or Invalid
 
-            // 1. Spatial Mapping
-            // Center X -> Valve ID
+            // AI가 수정함: 선택된 클래스만 사출 (타겟 필터링, O(1) HashSet 조회)
+            if (_targetClasses != null && !_targetClasses.Contains(bestClass)) return;
+
+            var settings = SettingsService.Instance.Settings;
+            double currentFps = settings.CameraFrameRate; // Use Configured FPS
+
+            // 1. Spatial Mapping (Where to hit)
+            // User Setting: EjectionBlowMargin
+            // System Data: Centroid X
             double centerX = blob.CenterX;
-            int valveId = (int)(centerX / PixelsPerValve);
+            
+            // AI가 수정함: 레거시 매핑 공식 적용 (FOV 기반 + 채널 반전)
+            // 레거시: mappedX = x / sensorSize * fov; channel = mappedX / (fov / chCount);
+            int sensorWidth = (int)settings.CameraSensorSize;
+            if (sensorWidth == 0) sensorWidth = 1024; // Default fallback
 
-            // 2. Temporal Calculation (Delay)
-            int delayLines;
-            string hitType;
+            int channelCount = settings.AirGunChannelCount;
+            if (channelCount <= 0) channelCount = 32;
 
-            // Strategy: Hybrid
-            if (blob.Length > MaxBlobLength)
+            int fov = settings.FieldOfView;
+            int centerChannel;
+
+            if (fov > 0)
             {
-                // Long Object -> Head Hit (Immediate / Low Delay)
-                // We want to hit the HEAD, so we calculate delay relative to StartLine.
-                // However, 'blob' is already CLOSED, meaning Tail has passed.
-                // So Head passed (Length) lines ago.
-                // Distance to Head = DistanceLines - (CurrentLine - StartLine?? No, blob tracks globally)
-                
-                // Let's simplify: 
-                // We are at CurrentLine (approx EndLine).
-                // Gun is at DistanceLines ahead of Camera.
-                // The object Head is at (EndLine - Length).
-                // If we want to hit Head: Delay = DistanceLines - Length.
-                // If Length > DistanceLines, we missed the head! (Should have triggered earlier).
-                // For now, assume simple Immediate Fire if Long.
-                
-                delayLines = Math.Max(0, DistanceLines - blob.Length);
-                hitType = "HEAD";
+                // FOV 설정됨: 센서 픽셀 → 물리 위치(mm) → 채널
+                float mappedX = (float)(centerX / sensorWidth * fov);
+                float channelFloat = mappedX / ((float)fov / channelCount);
+                centerChannel = (int)MathF.Round(channelFloat);
             }
             else
             {
-                // Normal Object -> Center Hit
-                // We are at EndLine (Tail).
-                // Center is at Length/2 behind Tail.
-                // We need to wait until Center reaches Distance.
-                // Current Pos of Center = 0 (Camera) - Length/2 (Passed) -> this is confusing.
-                
-                // Relative to "NOW" (Tail at Camera):
-                // Center is at -Length/2 (upstream). 
-                // We want Center to reach DistanceLines (downstream).
-                // Total Travel = DistanceLines + Length/2? NO.
-                
-                // Correct Logic:
-                // Tail is at Camera (Pos 0). Center is at Camera - Length/2.
-                // AirGun is at Pos +Distance.
-                // Distance to travel for Center = Distance - (-Length/2) = Distance + Length/2 ??
-                // Wait. 
-                // StartLine passed Camera at T_start. EndLine passed at T_end (Now).
-                // Center passed Camera at T_center = Now - Length/2.
-                // So Center is ALREADY at Pos = (Length/2) * Speed downstream.
-                // Dist Remaining to Gun = Distance - (Length/2).
-                
-                delayLines = Math.Max(0, DistanceLines - (blob.Length / 2));
-                hitType = "CENTER";
+                // FOV 미설정: 단순 선형 매핑 (센서 픽셀 = 채널)
+                double pixelsPerValve = (double)sensorWidth / channelCount;
+                centerChannel = (int)(centerX / pixelsPerValve);
             }
 
-            // Output
-            // Output
-            var log = new EjectionLogItem 
+            // 채널 반전 (하드웨어 설치 방향에 따라)
+            if (settings.IsChannelReverse)
+                centerChannel = channelCount - centerChannel + 1;
+
+            // Channel Margin Calculation
+            var channels = MarginBlowCalculator(centerChannel, settings.EjectionBlowMargin, channelCount);
+
+            // 2. Temporal Calculation (When to hit)
+            // System Data: Centroid Y (blob.CenterY), Current Line (blob.EndLine)
+            // User Setting: EjectionDelayMs, EjectionDelayOffsetMs
+            
+            double linesSinceCentroid = blob.EndLine - blob.CenterY;
+            double msPerLine = 1000.0 / Math.Max(1.0, currentFps);
+            double timeSinceCentroidPassed = linesSinceCentroid * msPerLine;
+
+            // Final Delay = (User Base Delay + Y-Correction) - (Time Already Passed)
+            int yCorrection = 0;
+            if (settings.YCorrectionRules != null)
+            {
+                // Find matching rule with highest threshold
+                var rule = settings.YCorrectionRules
+                    .Where(r => blob.CenterY >= r.ThresholdY)
+                    .OrderByDescending(r => r.ThresholdY)
+                    .FirstOrDefault();
+
+                if (rule != null)
+                {
+                    yCorrection = rule.CorrectionMs;
+                }
+            }
+
+            int totalUserDelay = settings.EjectionDelayMs + yCorrection;
+            int finalDelayMs = (int)(totalUserDelay - timeSinceCentroidPassed);
+
+            if (finalDelayMs < 0) finalDelayMs = 0; // Fire immediately if late
+
+            // 3. Duration Calculation (How long to hit)
+            // User Setting: EjectionDurationMs (Fixed)
+            int durationMs = settings.EjectionDurationMs;
+
+            // Log & Event
+            var log = new EjectionLogItem
             {
                 Timestamp = DateTime.Now,
                 BlobId = blob.Id,
                 ClassId = bestClass,
-                ValveId = valveId,
-                Delay = delayLines,
-                HitType = hitType
+                ValveId =  centerChannel, // Main channel for logging
+                ValveIds = channels,      // All channels
+                Delay = finalDelayMs,     // In MS now
+                DurationMs = durationMs,  // In MS
+                HitType = "User-Centric"
             };
-            
+
             OnEjectionSignal?.Invoke(log);
-            
-            // Console Debug
-            // System.Diagnostics.Debug.WriteLine(msg);
+        }
+
+        /// <summary>
+        /// Calculates the list of channels to fire based on center and margin.
+        /// </summary>
+        public List<int> MarginBlowCalculator(int centerChannel, int margin, int maxChannels)
+        {
+            var list = new List<int>();
+            int start = Math.Max(1, centerChannel - margin);
+            int end = Math.Min(maxChannels, centerChannel + margin);
+
+            for (int i = start; i <= end; i++)
+            {
+                list.Add(i);
+            }
+            return list;
         }
     }
 }

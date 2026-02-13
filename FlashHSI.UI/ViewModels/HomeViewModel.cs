@@ -30,6 +30,10 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: 피더 전원 상태 (HomeView 퀵 버튼용)
         [ObservableProperty] private bool _isFeederOn;
         
+        // AI가 추가함: 벨트/램프 ON/OFF 상태
+        [ObservableProperty] private bool _isBeltOn;
+        [ObservableProperty] private bool _isLampOn;
+        
         /// <ai>AI가 추가함: SettingVM 참조 — HomeView에서 SortClasses 등 운영 데이터 바인딩용</ai>
         public SettingViewModel Settings { get; }
 
@@ -105,6 +109,56 @@ namespace FlashHSI.UI.ViewModels
             catch (System.Exception ex)
             {
                 StatusMessage = $"피더 제어 실패: {ex.Message}";
+            }
+        }
+        
+        /// <ai>AI가 작성함: 벨트 ON/OFF 토글 (홈 화면 퀵 버튼)</ai>
+        [RelayCommand]
+        private async Task ToggleBelt()
+        {
+            try
+            {
+                if (IsBeltOn)
+                {
+                    await _serialService.BeltOffCommandAsync();
+                    IsBeltOn = false;
+                    StatusMessage = "벨트 OFF";
+                }
+                else
+                {
+                    await _serialService.BeltOnCommandAsync();
+                    IsBeltOn = true;
+                    StatusMessage = "벨트 ON";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                StatusMessage = $"벨트 제어 실패: {ex.Message}";
+            }
+        }
+        
+        /// <ai>AI가 작성함: 램프 ON/OFF 토글 (홈 화면 퀵 버튼)</ai>
+        [RelayCommand]
+        private async Task ToggleLamp()
+        {
+            try
+            {
+                if (IsLampOn)
+                {
+                    await _serialService.LampOffCommandAsync();
+                    IsLampOn = false;
+                    StatusMessage = "램프 OFF";
+                }
+                else
+                {
+                    await _serialService.LampOnCommandAsync();
+                    IsLampOn = true;
+                    StatusMessage = "램프 ON";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                StatusMessage = $"램프 제어 실패: {ex.Message}";
             }
         }
     }

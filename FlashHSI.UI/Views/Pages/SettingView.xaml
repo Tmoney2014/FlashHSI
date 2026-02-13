@@ -54,36 +54,72 @@
                         </materialDesign:Card>
                         
                         <!-- References -->
+                        <!-- AI가 수정함: 레퍼런스 경로 표시 및 상태 아이콘 추가 -->
                         <materialDesign:Card Padding="16">
                             <StackPanel>
                                 <TextBlock Text="Calibration References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions> <ColumnDefinition/> <ColumnDefinition/> </Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" Command="{Binding LoadWhiteRefCommand}" Content="Load White Ref" Margin="0,0,8,0">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                
+                                <!-- White Reference -->
+                                <TextBlock Text="White Reference" FontWeight="Medium" Margin="0,0,0,6"/>
+                                <DockPanel Margin="0,0,0,4">
+                                    <!-- 상태 아이콘 -->
+                                    <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Kind" Value="CloseCircle"/>
+                                                <Setter Property="Foreground" Value="#F44336"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsWhiteRefLoaded}" Value="True">
-                                                        <Setter Property="Background" Value="#4CAF50"/>
-                                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                                        <Setter Property="Kind" Value="CheckCircle"/>
+                                                        <Setter Property="Foreground" Value="#4CAF50"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </Button.Style>
-                                    </Button>
-                                    <Button Grid.Column="1" Command="{Binding LoadDarkRefCommand}" Content="Load Dark Ref" Margin="8,0,0,0">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+                                    <!-- 로드 버튼 -->
+                                    <Button DockPanel.Dock="Right" Command="{Binding LoadWhiteRefCommand}" Content="Load" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" 
+                                            Height="30" Padding="12,0" Margin="8,0,0,0"/>
+                                    <!-- 파일 경로 표시 -->
+                                    <TextBox Text="{Binding WhiteRefPath, Mode=OneWay}" IsReadOnly="True" 
+                                             VerticalAlignment="Center"
+                                             materialDesign:HintAssist.Hint="파일을 선택해주세요"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             FontSize="12" Height="30" Padding="4,4"/>
+                                </DockPanel>
+                                
+                                <Separator Margin="0,12"/>
+                                
+                                <!-- Dark Reference -->
+                                <TextBlock Text="Dark Reference" FontWeight="Medium" Margin="0,12,0,6"/>
+                                <DockPanel Margin="0,0,0,0">
+                                    <!-- 상태 아이콘 -->
+                                    <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Kind" Value="CloseCircle"/>
+                                                <Setter Property="Foreground" Value="#F44336"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsDarkRefLoaded}" Value="True">
-                                                        <Setter Property="Background" Value="#4CAF50"/>
-                                                        <Setter Property="BorderBrush" Value="#4CAF50"/>
+                                                        <Setter Property="Kind" Value="CheckCircle"/>
+                                                        <Setter Property="Foreground" Value="#4CAF50"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </Button.Style>
-                                    </Button>
-                                </Grid>
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+                                    <!-- 로드 버튼 -->
+                                    <Button DockPanel.Dock="Right" Command="{Binding LoadDarkRefCommand}" Content="Load" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" 
+                                            Height="30" Padding="12,0" Margin="8,0,0,0"/>
+                                    <!-- 파일 경로 표시 -->
+                                    <TextBox Text="{Binding DarkRefPath, Mode=OneWay}" IsReadOnly="True" 
+                                             VerticalAlignment="Center"
+                                             materialDesign:HintAssist.Hint="파일을 선택해주세요"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             FontSize="12" Height="30" Padding="4,4"/>
+                                </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>
                     </StackPanel>

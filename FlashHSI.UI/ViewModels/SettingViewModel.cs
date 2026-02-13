@@ -40,6 +40,10 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private bool _isWhiteRefLoaded;
         [ObservableProperty] private bool _isDarkRefLoaded;
         
+        // AI가 추가함: 레퍼런스 파일 경로 표시용 바인딩 프로퍼티
+        [ObservableProperty] private string _whiteRefPath = "";
+        [ObservableProperty] private string _darkRefPath = "";
+        
         // AI가 추가함: SVM 모델 시 Confidence 슬라이더 비활성화
         [ObservableProperty] private bool _isConfidenceEnabled = true;
         
@@ -101,6 +105,9 @@ namespace FlashHSI.UI.ViewModels
             
             _isWhiteRefLoaded = !string.IsNullOrEmpty(s.LastWhiteRefPath);
             _isDarkRefLoaded = !string.IsNullOrEmpty(s.LastDarkRefPath);
+            // AI가 추가함: 저장된 레퍼런스 경로 복원
+            _whiteRefPath = s.LastWhiteRefPath;
+            _darkRefPath = s.LastDarkRefPath;
             
             // 카메라 설정 로드
             _cameraExposureTime = s.CameraExposureTime > 0 ? s.CameraExposureTime : 1000.0;
@@ -176,6 +183,7 @@ namespace FlashHSI.UI.ViewModels
              }
         }
         
+        /// <ai>AI가 수정함: 경로 프로퍼티(WhiteRefPath) 업데이트 추가</ai>
         [RelayCommand]
         public void LoadWhiteRef()
         {
@@ -183,12 +191,14 @@ namespace FlashHSI.UI.ViewModels
              if (dlg.ShowDialog() == true)
              {
                  _hsiEngine.LoadReference(dlg.FileName, false);
+                 WhiteRefPath = dlg.FileName; // AI가 수정함: UI 바인딩용 경로 업데이트
                  SettingsService.Instance.Settings.LastWhiteRefPath = dlg.FileName;
                  SettingsService.Instance.Save();
                  IsWhiteRefLoaded = true;
              }
         }
 
+        /// <ai>AI가 수정함: 경로 프로퍼티(DarkRefPath) 업데이트 추가</ai>
         [RelayCommand]
         public void LoadDarkRef()
         {
@@ -196,6 +206,7 @@ namespace FlashHSI.UI.ViewModels
              if (dlg.ShowDialog() == true)
              {
                  _hsiEngine.LoadReference(dlg.FileName, true);
+                 DarkRefPath = dlg.FileName; // AI가 수정함: UI 바인딩용 경로 업데이트
                  SettingsService.Instance.Settings.LastDarkRefPath = dlg.FileName;
                  SettingsService.Instance.Save();
                  IsDarkRefLoaded = true;

@@ -387,7 +387,66 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- 4) 램프/에러 인디케이터 플레이스홀더 (추후 구현) -->
+                    <!-- AI가 추가함: 4) 벨트 ON/OFF -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="벨트" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="컨베이어 벨트를 ON/OFF 합니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            
+                            <Button Command="{Binding ToggleBeltCommand}" 
+                                    Height="50" FontSize="14" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                        <Setter Property="BorderBrush" Value="#1abc9c"/>
+                                        <Setter Property="Foreground" Value="#1abc9c"/>
+                                        <Setter Property="Content" Value="벨트 ON"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
+                                                <Setter Property="Background" Value="#16a085"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#16a085"/>
+                                                <Setter Property="Content" Value="✓ 벨트 ON — 클릭하여 OFF"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- AI가 추가함: 5) 램프 ON/OFF -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="램프" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock Text="조명 램프를 ON/OFF 합니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            
+                            <Button Command="{Binding ToggleLampCommand}" 
+                                    Height="50" FontSize="14" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                        <Setter Property="BorderBrush" Value="#f1c40f"/>
+                                        <Setter Property="Foreground" Value="#f1c40f"/>
+                                        <Setter Property="Content" Value="램프 ON"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLampOn}" Value="True">
+                                                <Setter Property="Background" Value="#f39c12"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#f39c12"/>
+                                                <Setter Property="Content" Value="✓ 램프 ON — 클릭하여 OFF"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 4) 램프/에러 인디케이터 -->
+                    <!-- AI가 수정함: 벨트/램프 상태를 실제 바인딩으로 연결 -->
                     <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="상태 인디케이터" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -398,18 +457,40 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 
-                                <!-- 램프 (TODO: #4) -->
+                                <!-- 램프 -->
                                 <Border Grid.Column="0" Background="#0f3460" CornerRadius="6" Padding="8" Margin="0,0,4,0">
                                     <StackPanel HorizontalAlignment="Center">
-                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <Ellipse Width="20" Height="20" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#57606f"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsLampOn}" Value="True">
+                                                            <Setter Property="Fill" Value="#f1c40f"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
                                         <TextBlock Text="램프" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
                                 
-                                <!-- 벨트 에러 (TODO: #6) -->
+                                <!-- 벨트 -->
                                 <Border Grid.Column="1" Background="#0f3460" CornerRadius="6" Padding="8" Margin="2,0">
                                     <StackPanel HorizontalAlignment="Center">
-                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <Ellipse Width="20" Height="20" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#57606f"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
+                                                            <Setter Property="Fill" Value="#1abc9c"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
                                         <TextBlock Text="벨트" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>

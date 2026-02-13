@@ -6,14 +6,15 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:FlashHSI.UI.Converters"
              mc:Ignorable="d" 
-             d:DesignHeight="700" d:DesignWidth="1200">
+             d:DesignHeight="800" d:DesignWidth="1280">
     
-    <!-- AI가 수정함: 운영 대시보드 UI 전면 재설계 — 레거시 HomePage 구조 반영 -->
+    <!-- AI가 수정함: 홈 화면 UI 재설계 — 하단 컨트롤바 + 풀컬러 클래스 토글 -->
     <UserControl.Resources>
         <converters:HexToColorBrushConverter x:Key="HexToColorBrushConverter"/>
         <converters:LampStatusToColorConverter x:Key="LampStatusToColorConverter"/>
         <converters:PercentageWidthConverter x:Key="PercentageWidthConverter"/>
         <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
     
     <Grid Background="#1a1a2e">
@@ -21,10 +22,11 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- 상단: 시스템 상태 인디케이터 4개 -->
+        <!-- Row 0: 상단 시스템 상태 인디케이터 (변경 없음) -->
         <!-- ═══════════════════════════════════════════════════ -->
         <Border Grid.Row="0" Background="#16213e" Padding="12,8">
             <UniformGrid Rows="1" Columns="4">
@@ -164,262 +166,329 @@
         </Border>
         
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- 중앙: 2-column 운영 대시보드 -->
+        <!-- Row 1: 메인 콘텐츠 (모델 카드 + 타겟 클래스) -->
         <!-- ═══════════════════════════════════════════════════ -->
         <Grid Grid.Row="1" Margin="12,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="300"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="350"/>
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             
-            <!-- ════════════════════════════════════════ -->
-            <!-- 좌측: 모델 정보 + SortClass 목록 -->
-            <!-- ════════════════════════════════════════ -->
-            <Grid Grid.Column="0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                
-                <!-- AI가 수정함: 모델 카드 기반 선택 UI (디렉터리 스캔 → 수평 카드 리스트) -->
-                <Border Grid.Row="0" Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                    <StackPanel>
-                        <!-- 제목 + 디렉터리 선택/리프레시 버튼 -->
-                        <DockPanel Margin="0,0,0,8">
-                            <StackPanel>
-                                <TextBlock Text="워크플로우 / 모델" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,4"/>
-                                <TextBlock Foreground="#7f8fa6" FontSize="12">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="모델 디렉터리를 선택해주세요."/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
-                                                    <Setter Property="Text" Value="{Binding LoadedModelName, StringFormat='현재 모델: {0}'}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Command="{Binding RefreshModelCardsCommand}" 
-                                        ToolTip="새로고침"
-                                        Style="{StaticResource MaterialDesignIconButton}"
-                                        Foreground="#5dade2" Width="32" Height="32">
-                                    <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18"/>
-                                </Button>
-                                <Button Command="{Binding BrowseModelDirectoryCommand}" 
-                                        Content="폴더 선택"
-                                        Style="{StaticResource MaterialDesignOutlinedButton}"
-                                        Foreground="#5dade2" BorderBrush="#5dade2"
-                                        Padding="12,6" Height="32" FontSize="12" Margin="4,0,0,0"/>
-                            </StackPanel>
-                        </DockPanel>
-                        
-                        <!-- 모델 디렉터리 경로 표시 (비어있으면 숨김) -->
-                        <TextBlock Text="{Binding ModelDirectory}" Foreground="#57606f" FontSize="10" 
-                                   TextTrimming="CharacterEllipsis" Margin="0,0,0,8">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ModelDirectory}" Value="">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        
-                        <!-- 수평 스크롤 모델 카드 리스트 -->
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                                      PreviewMouseWheel="ModelCardScroll_PreviewMouseWheel">
-                            <ItemsControl ItemsSource="{Binding ModelCards}">
+            <!-- 1. 워크플로우 / 모델 카드 영역 -->
+            <Border Grid.Row="0" Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <!-- 제목 + 디렉터리 선택/리프레시 버튼 -->
+                    <DockPanel Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="워크플로우 / 모델" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBlock Foreground="#7f8fa6" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="모델 디렉터리를 선택해주세요."/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsModelLoaded}" Value="True">
+                                                <Setter Property="Text" Value="{Binding LoadedModelName, StringFormat='현재 모델: {0}'}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Command="{Binding RefreshModelCardsCommand}" 
+                                    ToolTip="새로고침"
+                                    Style="{StaticResource MaterialDesignIconButton}"
+                                    Foreground="#5dade2" Width="32" Height="32">
+                                <materialDesign:PackIcon Kind="Refresh" Width="18" Height="18"/>
+                            </Button>
+                            <Button Command="{Binding BrowseModelDirectoryCommand}" 
+                                    Content="폴더 선택"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Foreground="#5dade2" BorderBrush="#5dade2"
+                                    Padding="12,6" Height="32" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                    
+                    <!-- 모델 디렉터리 경로 표시 (비어있으면 숨김) -->
+                    <TextBlock Text="{Binding ModelDirectory}" Foreground="#57606f" FontSize="10" 
+                               TextTrimming="CharacterEllipsis" Margin="0,0,0,8">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModelDirectory}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    
+                    <!-- 수평 스크롤 모델 카드 리스트 -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  PreviewMouseWheel="ModelCardScroll_PreviewMouseWheel">
+                        <ItemsControl ItemsSource="{Binding ModelCards}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="140" Margin="0,0,8,0" CornerRadius="8" Padding="12" Cursor="Hand"
+                                            MouseLeftButtonDown="ModelCard_MouseLeftButtonDown">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#0f3460"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="#5dade2"/>
+                                                        <Setter Property="Background" Value="#1a3a6b"/>
+                                                    </DataTrigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#163d70"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="FileDocument" Width="28" Height="28" 
+                                                                     Foreground="#5dade2" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" FontWeight="SemiBold"
+                                                       TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxHeight="36"
+                                                       TextWrapping="Wrap"/>
+                                            <!-- 선택 마크 -->
+                                            <TextBlock Text="✓ 로드됨" Foreground="#2ed573" FontSize="10" FontWeight="Bold"
+                                                       TextAlignment="Center" Margin="0,6,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    
+                    <!-- 카드 없을 때 안내 -->
+                    <TextBlock Text="모델 디렉터리를 선택하면 JSON 모델 파일이 카드로 표시됩니다." 
+                               Foreground="#57606f" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModelCards.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            
+            <!-- 2. 에어건 타겟 클래스 선택 영역 (Redesign: WrapPanel + Toggle Button) -->
+            <Border Grid.Row="1" Background="#16213e" CornerRadius="8" Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- 헤더 영역 -->
+                    <DockPanel Grid.Row="0" Margin="4,0,4,8">
+                        <StackPanel>
+                            <TextBlock Text="에어건 타겟 클래스" Foreground="White" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="선택된 클래스만 에어건이 동작합니다." Foreground="#7f8fa6" FontSize="11" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Top">
+                            <Button Content="전체" Command="{Binding Settings.SelectAllSortClassesCommand}" 
+                                    Style="{StaticResource MaterialDesignFlatButton}" 
+                                    Foreground="#5dade2" Padding="8,4" Height="28" FontSize="11"/>
+                            <Button Content="리버스" Command="{Binding Settings.ReverseSortClassesCommand}" 
+                                    Style="{StaticResource MaterialDesignFlatButton}" 
+                                    Foreground="#f39c12" Padding="8,4" Height="28" FontSize="11"/>
+                            <Button Content="해제" Command="{Binding Settings.DeselectAllSortClassesCommand}" 
+                                    Style="{StaticResource MaterialDesignFlatButton}" 
+                                    Foreground="#aaa" Padding="8,4" Height="28" FontSize="11"/>
+                        </StackPanel>
+                    </DockPanel>
+                    
+                    <!-- 선택된 타겟 요약 (Summary Area) -->
+                    <Border Grid.Row="1" Background="#0f3460" CornerRadius="6" Padding="8" Margin="0,0,0,12">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="선택된 타겟" Foreground="#a0a0a0" FontSize="11" 
+                                       VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                            
+                            <!-- 선택된 아이템들 나열 -->
+                            <ItemsControl ItemsSource="{Binding Settings.SortClasses}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
+                                        <WrapPanel Orientation="Horizontal"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="140" Margin="0,0,8,0" CornerRadius="8" Padding="12" Cursor="Hand"
-                                                MouseLeftButtonDown="ModelCard_MouseLeftButtonDown">
+                                        <Border CornerRadius="12" Padding="8,3" Margin="2">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="#0f3460"/>
-                                                    <Setter Property="BorderThickness" Value="2"/>
-                                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Setter Property="Background" Value="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"/>
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                            <Setter Property="BorderBrush" Value="#5dade2"/>
-                                                            <Setter Property="Background" Value="#1a3a6b"/>
+                                                            <Setter Property="Visibility" Value="Visible"/>
                                                         </DataTrigger>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Background" Value="#163d70"/>
-                                                        </Trigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="FileDocument" Width="28" Height="28" 
-                                                                         Foreground="#5dade2" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                                                <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" FontWeight="SemiBold"
-                                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxHeight="36"
-                                                           TextWrapping="Wrap"/>
-                                                <!-- 선택 마크 -->
-                                                <TextBlock Text="✓ 로드됨" Foreground="#2ed573" FontSize="10" FontWeight="Bold"
-                                                           TextAlignment="Center" Margin="0,6,0,0">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </StackPanel>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" FontSize="10" FontWeight="Bold"/>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </ScrollViewer>
-                        
-                        <!-- 카드 없을 때 안내 -->
-                        <TextBlock Text="모델 디렉터리를 선택하면 JSON 모델 파일이 카드로 표시됩니다." 
-                                   Foreground="#57606f" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ModelCards.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-                
-                <!-- SortClass 목록 (에어건 타겟 선택) -->
-                <Border Grid.Row="1" Background="#16213e" CornerRadius="8" Padding="12">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- 제목 -->
-                        <DockPanel Grid.Row="0" Margin="4,0,4,8">
-                            <TextBlock Text="에어건 타겟 클래스" Foreground="White" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                                <Button Content="전체" Command="{Binding Settings.SelectAllSortClassesCommand}" 
-                                        Style="{StaticResource MaterialDesignFlatButton}" 
-                                        Foreground="#5dade2" Padding="8,4" Height="28" FontSize="11"/>
-                                <Button Content="리버스" Command="{Binding Settings.ReverseSortClassesCommand}" 
-                                        Style="{StaticResource MaterialDesignFlatButton}" 
-                                        Foreground="#f39c12" Padding="8,4" Height="28" FontSize="11"/>
-                                <Button Content="해제" Command="{Binding Settings.DeselectAllSortClassesCommand}" 
-                                        Style="{StaticResource MaterialDesignFlatButton}" 
-                                        Foreground="#aaa" Padding="8,4" Height="28" FontSize="11"/>
-                            </StackPanel>
-                        </DockPanel>
-                        
-                        <Border Grid.Row="1" Height="1" Background="#2c3e6b" Margin="0,0,0,8"/>
-                        
-                        <!-- 클래스 리스트 스크롤 -->
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Settings.SortClasses}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="#0f3460" CornerRadius="6" Margin="0,0,0,4" Padding="10,8">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="6"/>
-                                                    <ColumnDefinition Width="8"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                
-                                                <!-- 클래스 색상 바 -->
-                                                <Border Grid.Column="0" Width="4" CornerRadius="2"
-                                                        Background="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"
-                                                        VerticalAlignment="Stretch"/>
-                                                
-                                                <!-- 클래스 이름 -->
-                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                    <TextBlock Foreground="White" FontSize="13" FontWeight="Medium"
-                                                               Text="{Binding Name, Mode=OneWay}"/>
-                                                    <TextBlock Foreground="#7f8fa6" FontSize="10">
-                                                        <Run Text="Class"/>
-                                                        <Run Text="{Binding Index, Mode=OneWay}"/>
-                                                    </TextBlock>
-                                                </StackPanel>
-                                                
-                                                <!-- 선택 토글 -->
-                                                <ToggleButton Grid.Column="3"
-                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                              Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                                                              VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                        
-                        <!-- 모델 미로드 안내 -->
-                        <TextBlock Grid.Row="2" Text="모델을 먼저 로드해주세요." 
-                                   Foreground="#57606f" FontSize="14" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Settings.SortClasses.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Grid>
-                </Border>
-            </Grid>
-            
-            <!-- 구분선 -->
-            <Border Grid.Column="1" Width="1" Background="#2c3e6b" Margin="8,0"/>
-            
-            <!-- ════════════════════════════════════════ -->
-            <!-- 우측: 운영 컨트롤 (Start/Stop, HW, Feeder) -->
-            <!-- ════════════════════════════════════════ -->
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    
-                    <!-- 1) 시뮬레이션 Start/Stop -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock Text="시뮬레이션 모드" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="저장된 HSI 데이터로 분류를 테스트합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
                             
-                            <Button Command="{Binding ToggleSimulationCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
+                            <!-- AI가 수정함: 존재하지 않는 SelectedSortClassesCount 바인딩 제거, 힌트는 항상 Collapsed (선택된 타겟 헤더로 충분) -->
+                        </DockPanel>
+                    </Border>
+                    
+                    <!-- 클래스 토글 버튼 그리드 -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Settings.SortClasses}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- ToggleButton 스타일 커스텀 -->
+                                    <!-- AI가 수정함: ControlTemplate Trigger에서 {Binding} 사용 불가 → 두 개의 Border 오버레이 방식으로 변경 -->
+                                    <ToggleButton IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  Width="Auto" MinWidth="110" Height="70"
+                                                  Margin="4" Cursor="Hand">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Grid x:Name="rootGrid">
+                                                    <!-- 비선택 상태 배경 (항상 존재) -->
+                                                    <Border x:Name="unselectedBorder" CornerRadius="10" BorderThickness="2" 
+                                                            BorderBrush="Transparent" Background="#0f3460" Padding="12,8">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid Grid.Row="0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Ellipse Width="12" Height="12" HorizontalAlignment="Left"
+                                                                         Fill="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"/>
+                                                                <TextBlock Grid.Column="1" Text="✓" Foreground="White" FontSize="12" FontWeight="Bold" Visibility="Hidden"/>
+                                                            </Grid>
+                                                            <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,4,0,0">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#a0a0a0" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Index, StringFormat='Class {0}'}" Foreground="#57606f" FontSize="10"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                    
+                                                    <!-- 선택 상태 배경 (IsSelected=True일 때만 보임) — Binding 사용 가능 -->
+                                                    <Border x:Name="selectedBorder" CornerRadius="10" BorderThickness="2" 
+                                                            BorderBrush="White" Padding="12,8"
+                                                            Background="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"
+                                                            Visibility="{Binding IsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid Grid.Row="0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Ellipse Width="12" Height="12" HorizontalAlignment="Left"
+                                                                         Fill="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"/>
+                                                                <TextBlock Grid.Column="1" Text="✓" Foreground="White" FontSize="12" FontWeight="Bold" Visibility="Visible"/>
+                                                            </Grid>
+                                                            <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,4,0,0">
+                                                                <TextBlock Text="{Binding Name}" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding Index, StringFormat='Class {0}'}" Foreground="#e0e0e0" FontSize="10"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                                
+                                                <ControlTemplate.Triggers>
+                                                    <!-- 마우스 오버 효과 -->
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="rootGrid" Property="Opacity" Value="0.9"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    
+                    <!-- 모델 미로드 안내 -->
+                    <TextBlock Grid.Row="2" Text="모델을 먼저 로드해주세요." 
+                               Foreground="#57606f" FontSize="14" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Settings.SortClasses.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </Grid>
+        
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- Row 2: 하단 컨트롤 바 (New Layout) -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="2" Background="#16213e" Padding="8,6" Margin="0,0,0,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal">
+                    
+                    <!-- 1) 시뮬레이션 카드 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0" MinWidth="100">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <materialDesign:PackIcon Kind="PlayCircleOutline" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="시뮬레이션" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ToggleSimulationCommand}" Height="36" FontSize="12" Margin="0,2,0,0" Padding="8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
                                         <Setter Property="Background" Value="#2ed573"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="Content" Value="▶  시뮬레이션 시작"/>
+                                        <Setter Property="BorderBrush" Value="#2ed573"/>
+                                        <Setter Property="Content" Value="START"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsSimulating}" Value="True">
                                                 <Setter Property="Background" Value="#ff4757"/>
-                                                <Setter Property="Content" Value="⏹  시뮬레이션 중지"/>
+                                                <Setter Property="BorderBrush" Value="#ff4757"/>
+                                                <Setter Property="Content" Value="STOP"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -428,27 +497,25 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- 2) 하드웨어(EtherCAT) 연결 -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                    <!-- 2) HW 연결 카드 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0" MinWidth="100">
                         <StackPanel>
-                            <TextBlock Text="하드웨어 연결" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="EtherCAT 마스터를 통해 에어건을 제어합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ConnectHardwareCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <materialDesign:PackIcon Kind="LanConnect" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="HW 연결" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ConnectHardwareCommand}" Height="36" FontSize="12" Margin="0,2,0,0" Padding="8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                        <Setter Property="BorderBrush" Value="#3742fa"/>
                                         <Setter Property="Foreground" Value="#3742fa"/>
-                                        <Setter Property="Content" Value="하드웨어 연결"/>
+                                        <Setter Property="BorderBrush" Value="#3742fa"/>
+                                        <Setter Property="Content" Value="연결"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsHardwareConnected}" Value="True">
                                                 <Setter Property="Background" Value="#388E3C"/>
                                                 <Setter Property="Foreground" Value="White"/>
                                                 <Setter Property="BorderBrush" Value="#388E3C"/>
-                                                <Setter Property="Content" Value="✓ 연결됨 — 클릭하여 해제"/>
+                                                <Setter Property="Content" Value="해제"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -457,27 +524,25 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- 3) 피더 전원 ON/OFF -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                    <!-- 3) 피더 카드 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0" MinWidth="90">
                         <StackPanel>
-                            <TextBlock Text="피더 전원" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="피더 전체 전원을 ON/OFF 합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ToggleFeederPowerCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <materialDesign:PackIcon Kind="PowerPlug" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="피더" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ToggleFeederPowerCommand}" Height="36" FontSize="12" Margin="0,2,0,0" Padding="8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                        <Setter Property="BorderBrush" Value="#f39c12"/>
                                         <Setter Property="Foreground" Value="#f39c12"/>
-                                        <Setter Property="Content" Value="피더 전원 ON"/>
+                                        <Setter Property="BorderBrush" Value="#f39c12"/>
+                                        <Setter Property="Content" Value="ON"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
                                                 <Setter Property="Background" Value="#e67e22"/>
                                                 <Setter Property="Foreground" Value="White"/>
                                                 <Setter Property="BorderBrush" Value="#e67e22"/>
-                                                <Setter Property="Content" Value="✓ 피더 ON — 클릭하여 OFF"/>
+                                                <Setter Property="Content" Value="OFF"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -486,27 +551,26 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- AI가 추가함: 4) 벨트 ON/OFF -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                    <!-- 4) 벨트 카드 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0" MinWidth="90">
                         <StackPanel>
-                            <TextBlock Text="벨트" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="컨베이어 벨트를 ON/OFF 합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ToggleBeltCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <!-- AI가 수정함: ConveyorBelt은 MaterialDesignThemes 4.9.0에 없음 → RotateRight로 대체 -->
+                                <materialDesign:PackIcon Kind="RotateRight" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="벨트" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ToggleBeltCommand}" Height="36" FontSize="12" Margin="0,2,0,0" Padding="8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                        <Setter Property="BorderBrush" Value="#1abc9c"/>
                                         <Setter Property="Foreground" Value="#1abc9c"/>
-                                        <Setter Property="Content" Value="벨트 ON"/>
+                                        <Setter Property="BorderBrush" Value="#1abc9c"/>
+                                        <Setter Property="Content" Value="ON"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
                                                 <Setter Property="Background" Value="#16a085"/>
                                                 <Setter Property="Foreground" Value="White"/>
                                                 <Setter Property="BorderBrush" Value="#16a085"/>
-                                                <Setter Property="Content" Value="✓ 벨트 ON — 클릭하여 OFF"/>
+                                                <Setter Property="Content" Value="OFF"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -515,27 +579,25 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- AI가 추가함: 5) 램프 ON/OFF -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                    <!-- 5) 램프 카드 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0" MinWidth="90">
                         <StackPanel>
-                            <TextBlock Text="램프" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="조명 램프를 ON/OFF 합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ToggleLampCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <materialDesign:PackIcon Kind="LightbulbOutline" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="램프" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ToggleLampCommand}" Height="36" FontSize="12" Margin="0,2,0,0" Padding="8,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                        <Setter Property="BorderBrush" Value="#f1c40f"/>
                                         <Setter Property="Foreground" Value="#f1c40f"/>
-                                        <Setter Property="Content" Value="램프 ON"/>
+                                        <Setter Property="BorderBrush" Value="#f1c40f"/>
+                                        <Setter Property="Content" Value="ON"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsLampOn}" Value="True">
                                                 <Setter Property="Background" Value="#f39c12"/>
                                                 <Setter Property="Foreground" Value="White"/>
                                                 <Setter Property="BorderBrush" Value="#f39c12"/>
-                                                <Setter Property="Content" Value="✓ 램프 ON — 클릭하여 OFF"/>
+                                                <Setter Property="Content" Value="OFF"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -544,75 +606,18 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- 4) 램프 온도 인디케이터 + 벨트/비상 상태 -->
-                    <!-- AI가 수정함: 단순 Ellipse에서 프로그레스 바 기반 5단계 색상 인디케이터로 교체 -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock Text="상태 인디케이터" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            
-                            <!-- 램프 온도 인디케이터 (프로그레스 바 스타일) -->
-                            <Border x:Name="LampIndicatorRoot"
-                                    CornerRadius="12"
-                                    Margin="0,0,0,8"
-                                    Padding="0"
-                                    MinWidth="200"
-                                    MinHeight="44">
-                                <Grid>
-                                    <!-- 배경: 상태에 따라 전체 채우기 (경고/에러/준비) 또는 흰색 -->
-                                    <Border CornerRadius="12">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="#1a2744"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="2">
-                                                        <Setter Property="Background" Value="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}, ConverterParameter=0.3}"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="3">
-                                                        <Setter Property="Background" Value="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}, ConverterParameter=0.3}"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="4">
-                                                        <Setter Property="Background" Value="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}, ConverterParameter=0.3}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                    </Border>
-                                    
-                                    <!-- 프로그레스 바: 가열 중(0,1)일 때만 표시 -->
-                                    <Border HorizontalAlignment="Left"
-                                            CornerRadius="12"
-                                            Background="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}, ConverterParameter=0.3}">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="2">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="3">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="4">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                    <!-- 가열 중일 때 깜빡임 -->
-                                                    <DataTrigger Binding="{Binding LampColorStatus}" Value="1">
-                                                        <DataTrigger.EnterActions>
-                                                            <BeginStoryboard Name="LampBlinkAnim">
-                                                                <Storyboard RepeatBehavior="Forever">
-                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                                     From="1.0" To="0.4" Duration="0:0:0.6"
-                                                                                     AutoReverse="True"/>
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </DataTrigger.EnterActions>
-                                                        <DataTrigger.ExitActions>
-                                                            <StopStoryboard BeginStoryboardName="LampBlinkAnim"/>
-                                                        </DataTrigger.ExitActions>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
+                    <!-- 6) 통합 상태 카드 (램프 온도 + 에러) -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,4" Margin="4,0" VerticalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <!-- 램프 온도 상태 -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <Border x:Name="LampIndicatorRoot" Width="140" Height="8" CornerRadius="4" Background="#1a2744" VerticalAlignment="Center">
+                                    <Border HorizontalAlignment="Left" CornerRadius="4" Background="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}}">
                                         <Border.Width>
                                             <MultiBinding Converter="{StaticResource PercentageWidthConverter}">
                                                 <Binding Path="LampTemperaturePercent"/>
@@ -620,187 +625,68 @@
                                             </MultiBinding>
                                         </Border.Width>
                                     </Border>
-                                    
-                                    <!-- 컨텐츠 오버레이 -->
-                                    <Border Padding="12,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="24"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="20"/>
-                                            </Grid.ColumnDefinitions>
-                                            
-                                            <!-- 전구 아이콘 (MaterialDesign PackIcon 대신 텍스트 아이콘) -->
-                                            <TextBlock Grid.Column="0" Text="💡" FontSize="14" 
-                                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                            
-                                            <!-- 상태 텍스트 -->
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                                <TextBlock Text="램프" Foreground="White" FontSize="13" FontWeight="Bold"/>
-                                                <TextBlock Text=" — " Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding LampIndicatorStatusText}" Foreground="#a0a0a0" FontSize="11" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding LampTemperaturePercentText}" Foreground="#a0a0a0" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                            </StackPanel>
-                                            
-                                            <!-- 상태 도트 -->
-                                            <Ellipse Grid.Column="3" Width="12" Height="12"
-                                                     Fill="{Binding LampColorStatus, Converter={StaticResource LampStatusToColorConverter}}"
-                                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                            
-                            <!-- AI가 수정함: #6 에러 인디케이터 (레거시 ErrorIndicatorUserControl 동등) -->
-                            <!-- 왼쪽 벨트 에러 -->
-                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
-                                <Border Background="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
-                                        CornerRadius="8" Padding="10,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="16"/>
-                                        </Grid.ColumnDefinitions>
-                                        <materialDesign:PackIcon Grid.Column="0" Kind="AlertCircleOutline" Width="16" Height="16"
-                                                                 Foreground="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}}"
-                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="왼쪽 벨트" Foreground="White" FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" Margin="8,0"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10"
-                                                 Fill="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}}"
-                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    </Grid>
                                 </Border>
-                            </Border>
+                                
+                                <TextBlock Grid.Column="1" Text="{Binding LampTemperaturePercentText}" Foreground="#a0a0a0" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
                             
-                            <!-- 오른쪽 벨트 에러 -->
-                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
-                                <Border Background="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
-                                        CornerRadius="8" Padding="10,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="16"/>
-                                        </Grid.ColumnDefinitions>
-                                        <materialDesign:PackIcon Grid.Column="0" Kind="AlertCircleOutline" Width="16" Height="16"
-                                                                 Foreground="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}}"
-                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="오른쪽 벨트" Foreground="White" FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" Margin="8,0"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10"
-                                                 Fill="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}}"
-                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    </Grid>
-                                </Border>
-                            </Border>
-                            
-                            <!-- 긴급 정지 -->
-                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
-                                <Border Background="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
-                                        CornerRadius="8" Padding="10,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="16"/>
-                                        </Grid.ColumnDefinitions>
-                                        <materialDesign:PackIcon Grid.Column="0" Kind="StopCircleOutline" Width="16" Height="16"
-                                                                 Foreground="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}}"
-                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="긴급 정지" Foreground="White" FontSize="12" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" Margin="8,0"/>
-                                        <Ellipse Grid.Column="2" Width="10" Height="10"
-                                                 Fill="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}}"
-                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    </Grid>
-                                </Border>
-                            </Border>
-                            
-                            <!-- 에러 클리어 버튼 -->
-                            <Button Command="{Binding ErrorClearCommand}" Content="에러 클리어"
+                            <!-- 에러 인디케이터 (작은 아이콘 나열) -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <!-- 왼쪽 벨트 -->
+                                <materialDesign:PackIcon Kind="AlertCircle" Width="14" Height="14" Margin="2"
+                                                         Foreground="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                         ToolTip="왼쪽 벨트 상태"/>
+                                <!-- 오른쪽 벨트 -->
+                                <materialDesign:PackIcon Kind="AlertCircle" Width="14" Height="14" Margin="2"
+                                                         Foreground="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                         ToolTip="오른쪽 벨트 상태"/>
+                                <!-- 긴급 정지 -->
+                                <materialDesign:PackIcon Kind="StopCircle" Width="14" Height="14" Margin="2"
+                                                         Foreground="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}}"
+                                                         ToolTip="긴급 정지 상태"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 7) 에러 클리어 -->
+                    <Border Background="#0f3460" CornerRadius="8" Padding="12,8" Margin="4,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                <materialDesign:PackIcon Kind="Broom" Foreground="#7f8fa6" Margin="0,0,4,0"/>
+                                <TextBlock Text="에러" Foreground="#7f8fa6" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Command="{Binding ErrorClearCommand}" Content="클리어"
                                     Style="{StaticResource MaterialDesignOutlinedButton}"
                                     Foreground="#ff6b6b" BorderBrush="#ff6b6b"
-                                    HorizontalAlignment="Stretch" Margin="0,4,0,0"
-                                    Height="32" FontSize="11"/>
+                                    Height="36" FontSize="11" Padding="8,0"/>
                         </StackPanel>
                     </Border>
                     
-                    <!-- AI가 추가함: 7) 시작 타이머 (카메라 재시도 카운트다운) -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8"
-                            BorderBrush="OrangeRed" BorderThickness="2"
+                    <!-- 8) 타이머 상태 카드 (조건부 표시) -->
+                     <Border Background="#16213e" CornerRadius="8" Padding="12,4" Margin="12,0,0,0"
+                            BorderBrush="OrangeRed" BorderThickness="1"
                             Visibility="{Binding IsTimerRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="장비 준비 중" Foreground="#ff6348" FontSize="14" FontWeight="SemiBold"
-                                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                            
-                            <!-- 카운트다운 시간 표시 -->
-                            <TextBlock Text="{Binding RemainingTimeString}" 
-                                       Foreground="White" FontSize="48" FontWeight="Bold"
-                                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                            
-                            <TextBlock Text="카메라 초기화 재시도까지 대기 중입니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap"
-                                       HorizontalAlignment="Center" Margin="0,0,0,12"/>
-                            
-                            <!-- 램프/벨트 ON/OFF 퀵 버튼 -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
-                                <Button Command="{Binding ToggleLampCommand}" 
-                                        Width="120" Height="36" FontSize="11" Margin="4,0"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                            <Setter Property="Background" Value="#f1c40f"/>
-                                            <Setter Property="Foreground" Value="#1a1a2e"/>
-                                            <Setter Property="Content" Value="램프 ON"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsLampOn}" Value="True">
-                                                    <Setter Property="Background" Value="#e67e22"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                    <Setter Property="Content" Value="램프 OFF"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                                <Button Command="{Binding ToggleBeltCommand}" 
-                                        Width="120" Height="36" FontSize="11" Margin="4,0"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                            <Setter Property="Background" Value="#1abc9c"/>
-                                            <Setter Property="Foreground" Value="White"/>
-                                            <Setter Property="Content" Value="벨트 ON"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
-                                                    <Setter Property="Background" Value="#16a085"/>
-                                                    <Setter Property="Content" Value="벨트 OFF"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </StackPanel>
-                            
-                            <!-- 타이머 중지 버튼 -->
-                            <Button Command="{Binding StopTimerCommand}" Content="타이머 중지"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}"
-                                    Foreground="#ff6348" BorderBrush="#ff6348"
-                                    HorizontalAlignment="Center" Width="160" Height="36" FontSize="12"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                             <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                <TextBlock Text="준비 중" Foreground="#ff6348" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding RemainingTimeString}" Foreground="White" FontSize="18" FontWeight="Bold"/>
+                             </StackPanel>
+                             <Button Command="{Binding StopTimerCommand}" Content="중지"
+                                     Style="{StaticResource MaterialDesignFlatButton}"
+                                     Foreground="#ff6348" Height="30" FontSize="11" Padding="8,0"/>
                         </StackPanel>
                     </Border>
-                    
+
                 </StackPanel>
             </ScrollViewer>
-        </Grid>
+        </Border>
         
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- 하단: 상태 메시지 -->
+        <!-- Row 3: 하단 상태 메시지 (변경 없음) -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <Border Grid.Row="2" Background="#16213e" Padding="12,8">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="12" HorizontalAlignment="Center"/>
+        <Border Grid.Row="3" Background="#16213e" Padding="12,4">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center"/>
         </Border>
+        
     </Grid>
 </UserControl>

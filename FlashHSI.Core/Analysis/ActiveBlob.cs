@@ -35,6 +35,10 @@ namespace FlashHSI.Core.Analysis
         public long[] ClassVotes { get; private set; }
         public int TotalPixels { get; set; }
 
+        // AI: Centroid Calculation (Moment Accumulation)
+        public long MomentX { get; private set; }
+        public long MomentY { get; private set; } 
+
         public struct BlobSegment
         {
             public int Start;
@@ -88,6 +92,21 @@ namespace FlashHSI.Core.Analysis
             // Next add will be count 1. So it resets naturally.
             // But what if no segments added? Then Current bounds are stale.
             // That's fine, inactive blob? No, blob is removed if inactive.
+        }
+
+        // AI: Overload for Moment Calculation
+        public void AddSegment(int start, int end, int lineIndex)
+        {
+            AddSegment(start, end);
+            
+            // AI: Accumulate Moments
+            // Segment has (endX - startX + 1) pixels.
+            // Sum of X for range [S, E] = (S + E) * Count / 2.0
+            int count = end - start + 1;
+            long sumX = (long)(start + end) * count / 2;
+            
+            MomentX += sumX;
+            MomentY += (long)lineIndex * count; // Y moment is LineIndex * PixelCount
         }
 
         public void AddSegment(int start, int end)
@@ -146,17 +165,17 @@ namespace FlashHSI.Core.Analysis
                 }
             }
             TotalPixels += other.TotalPixels;
+
+            // AI: Merge Moments
+            MomentX += other.MomentX;
+            MomentY += other.MomentY;
             
-            // Note: Merging segments is tricky because 'other' might be from a parallel segment processing
-            // Assuming MergeFrom happens when we find multiple blobs overlap the SAME segment map?
-            // Actually, in ProcessLine, we merge existing blobs.
-            // If 'other' has CurrentSegments, we should take them.
-            
+            // Merge Segments
             foreach(var seg in other.CurrentSegments)
             {
                 CurrentSegments.Add(seg);
             }
-             foreach(var seg in other.PrevSegments)
+            foreach(var seg in other.PrevSegments)
             {
                 PrevSegments.Add(seg);
             }
@@ -207,7 +226,8 @@ namespace FlashHSI.Core.Analysis
             return new BlobSnapshot(this);
         }
 
-        public double CenterX => (StartX + EndX) / 2.0;
+        public double CenterX => TotalPixels > 0 ? (double)MomentX / TotalPixels : (StartX + EndX) / 2.0;
+        public double CenterY => TotalPixels > 0 ? (double)MomentY / TotalPixels : (StartLine + EndLine) / 2.0;
         public int Length => EndLine - StartLine + 1;
 
         public static void ResetCounter() => _globalIdCounter = 0;

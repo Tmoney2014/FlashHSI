@@ -78,7 +78,7 @@ namespace FlashHSI.Core.Analysis
                     // Merge everything into the first blob (primary)
                     var primaryBlob = matchedBlobs[0];
                     primaryBlob.UpdateBounds(seg.StartX, seg.EndX, lineIndex);
-                    primaryBlob.AddSegment(seg.StartX, seg.EndX); // AI: Add detailed segment info
+                    primaryBlob.AddSegment(seg.StartX, seg.EndX, lineIndex); // AI: Pass LineIndex for Moment
                     primaryBlob.AddVote(seg.ClassIndex, seg.Count);
 
                     // If multiple blobs matched, merge them into primaryBlob

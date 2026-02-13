@@ -53,5 +53,15 @@ namespace FlashHSI.Core.Settings
         public string SelectedNetworkInterface { get; set; } = "";
         /// <summary>EtherCAT 마스터 IO 갱신 주기 (Hz)</summary>
         public uint EtherCATCycleFrequency { get; set; } = 500;
+
+        // AI가 추가함: 램프 온도 모니터링 설정
+        /// <summary>램프 온도 퍼센트 (0~100, 앱 종료 시 저장하여 다음 시작 시 복원)</summary>
+        public double LampTemperaturePercent { get; set; } = 0.0;
+        /// <summary>램프 온도 마지막 업데이트 시간 (가열/냉각 경과 계산용)</summary>
+        public DateTime? LampLastUpdateTime { get; set; }
+        /// <summary>램프 가열 소요 시간 (분, 0→100%까지)</summary>
+        public double LampHeatUpTimeMinutes { get; set; } = 10.0;
+        /// <summary>램프 냉각 소요 시간 (분, 100%→0%까지)</summary>
+        public double LampCoolDownTimeMinutes { get; set; } = 5.0;
     }
 }

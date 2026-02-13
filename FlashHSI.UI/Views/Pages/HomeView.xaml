@@ -496,144 +496,13 @@
             <Border Grid.Column="1" Width="1" Background="#2c3e6b" Margin="8,0"/>
             
             <!-- ════════════════════════════════════════ -->
-            <!-- 우측 Column 2: 운영 컨트롤 + 상태 인디케이터 + 타이머 -->
-            <!-- AI가 수정함: 하단 바에서 원래 우측 컬럼 위치로 복원 -->
+            <!-- 우측 Column 2: 상태 인디케이터 + 타이머만 (운영 버튼은 하단 Row 2로 이동) -->
+            <!-- AI가 수정함: 운영 버튼(시뮬레이션/HW/피더/벨트/램프)을 하단으로 이동, 상태+타이머만 유지 -->
             <!-- ════════════════════════════════════════ -->
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     
-                    <!-- 1) 시뮬레이션 Start/Stop -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock Text="시뮬레이션 모드" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="저장된 HSI 데이터로 분류를 테스트합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ToggleSimulationCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                        <Setter Property="Background" Value="#2ed573"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="Content" Value="▶  시뮬레이션 시작"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSimulating}" Value="True">
-                                                <Setter Property="Background" Value="#ff4757"/>
-                                                <Setter Property="Content" Value="⏹  시뮬레이션 중지"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- 2) 하드웨어(EtherCAT) 연결 -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
-                        <StackPanel>
-                            <TextBlock Text="하드웨어 연결" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                            <TextBlock Text="EtherCAT 마스터를 통해 에어건을 제어합니다." 
-                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            
-                            <Button Command="{Binding ConnectHardwareCommand}" 
-                                    Height="50" FontSize="14" Cursor="Hand"
-                                    materialDesign:ButtonAssist.CornerRadius="8">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                        <Setter Property="BorderBrush" Value="#3742fa"/>
-                                        <Setter Property="Foreground" Value="#3742fa"/>
-                                        <Setter Property="Content" Value="하드웨어 연결"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsHardwareConnected}" Value="True">
-                                                <Setter Property="Background" Value="#388E3C"/>
-                                                <Setter Property="Foreground" Value="White"/>
-                                                <Setter Property="BorderBrush" Value="#388E3C"/>
-                                                <Setter Property="Content" Value="✓ 연결됨 — 클릭하여 해제"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- 3) 피더 / 벨트 / 램프 — 가로 3열 컴팩트 버튼 -->
-                    <Border Background="#16213e" CornerRadius="8" Padding="12" Margin="0,0,0,8">
-                        <UniformGrid Rows="1" Columns="3">
-                            <!-- 피더 -->
-                            <StackPanel Margin="2">
-                                <TextBlock Text="피더" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                <Button Command="{Binding ToggleFeederPowerCommand}" 
-                                        Height="40" FontSize="12" Cursor="Hand"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                            <Setter Property="BorderBrush" Value="#f39c12"/>
-                                            <Setter Property="Foreground" Value="#f39c12"/>
-                                            <Setter Property="Content" Value="ON"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
-                                                    <Setter Property="Background" Value="#e67e22"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                    <Setter Property="BorderBrush" Value="#e67e22"/>
-                                                    <Setter Property="Content" Value="OFF"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </StackPanel>
-                            <!-- 벨트 -->
-                            <StackPanel Margin="2">
-                                <TextBlock Text="벨트" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                <Button Command="{Binding ToggleBeltCommand}" 
-                                        Height="40" FontSize="12" Cursor="Hand"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                            <Setter Property="BorderBrush" Value="#1abc9c"/>
-                                            <Setter Property="Foreground" Value="#1abc9c"/>
-                                            <Setter Property="Content" Value="ON"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
-                                                    <Setter Property="Background" Value="#16a085"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                    <Setter Property="BorderBrush" Value="#16a085"/>
-                                                    <Setter Property="Content" Value="OFF"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </StackPanel>
-                            <!-- 램프 -->
-                            <StackPanel Margin="2">
-                                <TextBlock Text="램프" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                <Button Command="{Binding ToggleLampCommand}" 
-                                        Height="40" FontSize="12" Cursor="Hand"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                            <Setter Property="BorderBrush" Value="#f1c40f"/>
-                                            <Setter Property="Foreground" Value="#f1c40f"/>
-                                            <Setter Property="Content" Value="ON"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsLampOn}" Value="True">
-                                                    <Setter Property="Background" Value="#f39c12"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                    <Setter Property="BorderBrush" Value="#f39c12"/>
-                                                    <Setter Property="Content" Value="OFF"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </StackPanel>
-                        </UniformGrid>
-                    </Border>
-                    
-                    <!-- 4) 상태 인디케이터 (램프 온도 + 에러) — 원본(895c671) 복원 -->
+                    <!-- 상태 인디케이터 (램프 온도 + 에러) — 원본(895c671) 복원 -->
                     <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="상태 인디케이터" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -812,7 +681,7 @@
                         </StackPanel>
                     </Border>
                     
-                    <!-- 5) 시작 타이머 (카메라 재시도 카운트다운) — 원본(895c671) 복원 -->
+                    <!-- 시작 타이머 (카메라 재시도 카운트다운) — 원본(895c671) 복원 -->
                     <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8"
                             BorderBrush="OrangeRed" BorderThickness="2"
                             Visibility="{Binding IsTimerRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -881,10 +750,122 @@
         </Grid>
         
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 2: 하단 상태 메시지 -->
+        <!-- Row 2: 하단 운영 컨트롤 바 (시뮬레이션/HW/피더/벨트/램프) + 상태 메시지 -->
+        <!-- AI가 수정함: 우측 컬럼에서 하단 가로 배치로 이동 -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <Border Grid.Row="2" Background="#16213e" Padding="12,4">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center"/>
+        <Border Grid.Row="2" Background="#16213e" Padding="8,6">
+            <StackPanel>
+                <!-- 운영 버튼 5개 가로 배치 -->
+                <UniformGrid Rows="1" Columns="5" Margin="0,0,0,4">
+                    
+                    <!-- 1) 시뮬레이션 시작/중지 -->
+                    <Button Command="{Binding ToggleSimulationCommand}" 
+                            Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
+                            materialDesign:ButtonAssist.CornerRadius="8">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                <Setter Property="Background" Value="#2ed573"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Content" Value="▶ 시뮬레이션"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSimulating}" Value="True">
+                                        <Setter Property="Background" Value="#ff4757"/>
+                                        <Setter Property="Content" Value="⏹ 시뮬레이션"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- 2) 하드웨어(EtherCAT) 연결 -->
+                    <Button Command="{Binding ConnectHardwareCommand}" 
+                            Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
+                            materialDesign:ButtonAssist.CornerRadius="8">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                <Setter Property="BorderBrush" Value="#3742fa"/>
+                                <Setter Property="Foreground" Value="#3742fa"/>
+                                <Setter Property="Content" Value="HW 연결"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsHardwareConnected}" Value="True">
+                                        <Setter Property="Background" Value="#388E3C"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="#388E3C"/>
+                                        <Setter Property="Content" Value="✓ HW 연결됨"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- 3) 피더 ON/OFF -->
+                    <Button Command="{Binding ToggleFeederPowerCommand}" 
+                            Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
+                            materialDesign:ButtonAssist.CornerRadius="8">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                <Setter Property="BorderBrush" Value="#f39c12"/>
+                                <Setter Property="Foreground" Value="#f39c12"/>
+                                <Setter Property="Content" Value="피더 ON"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFeederOn}" Value="True">
+                                        <Setter Property="Background" Value="#e67e22"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="#e67e22"/>
+                                        <Setter Property="Content" Value="피더 OFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- 4) 벨트 ON/OFF -->
+                    <Button Command="{Binding ToggleBeltCommand}" 
+                            Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
+                            materialDesign:ButtonAssist.CornerRadius="8">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                <Setter Property="BorderBrush" Value="#1abc9c"/>
+                                <Setter Property="Foreground" Value="#1abc9c"/>
+                                <Setter Property="Content" Value="벨트 ON"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
+                                        <Setter Property="Background" Value="#16a085"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="#16a085"/>
+                                        <Setter Property="Content" Value="벨트 OFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- 5) 램프 ON/OFF -->
+                    <Button Command="{Binding ToggleLampCommand}" 
+                            Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
+                            materialDesign:ButtonAssist.CornerRadius="8">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                <Setter Property="BorderBrush" Value="#f1c40f"/>
+                                <Setter Property="Foreground" Value="#f1c40f"/>
+                                <Setter Property="Content" Value="램프 ON"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLampOn}" Value="True">
+                                        <Setter Property="Background" Value="#f39c12"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderBrush" Value="#f39c12"/>
+                                        <Setter Property="Content" Value="램프 OFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                </UniformGrid>
+                
+                <!-- 상태 메시지 -->
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+            </StackPanel>
         </Border>
         
     </Grid>

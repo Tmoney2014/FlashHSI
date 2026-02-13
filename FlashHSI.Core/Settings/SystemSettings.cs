@@ -63,5 +63,9 @@ namespace FlashHSI.Core.Settings
         public double LampHeatUpTimeMinutes { get; set; } = 10.0;
         /// <summary>램프 냉각 소요 시간 (분, 100%→0%까지)</summary>
         public double LampCoolDownTimeMinutes { get; set; } = 5.0;
+        
+        // AI가 추가함: 카메라 재시도 타이머 설정
+        /// <summary>카메라 재시도 타이머 (분, 앱 시작 시 카운트다운 후 카메라 초기화 재시도)</summary>
+        public int CameraRetryTimerMinutes { get; set; } = 5;
     }
 }

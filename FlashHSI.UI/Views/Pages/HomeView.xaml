@@ -13,6 +13,7 @@
         <converters:HexToColorBrushConverter x:Key="HexToColorBrushConverter"/>
         <converters:LampStatusToColorConverter x:Key="LampStatusToColorConverter"/>
         <converters:PercentageWidthConverter x:Key="PercentageWidthConverter"/>
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
     </UserControl.Resources>
     
     <Grid Background="#1a1a2e">
@@ -555,40 +556,143 @@
                                 </Grid>
                             </Border>
                             
-                            <!-- 벨트 / 비상 인디케이터 (기존 유지) -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <!-- 벨트 -->
-                                <Border Grid.Column="0" Background="#0f3460" CornerRadius="6" Padding="8" Margin="0,0,4,0">
-                                    <StackPanel HorizontalAlignment="Center">
-                                        <Ellipse Width="20" Height="20" HorizontalAlignment="Center" Margin="0,0,0,4">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="#57606f"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
-                                                            <Setter Property="Fill" Value="#1abc9c"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                        <TextBlock Text="벨트" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
-                                    </StackPanel>
+                            <!-- AI가 수정함: #6 에러 인디케이터 (레거시 ErrorIndicatorUserControl 동등) -->
+                            <!-- 왼쪽 벨트 에러 -->
+                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
+                                <Border Background="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
+                                        CornerRadius="8" Padding="10,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="16"/>
+                                        </Grid.ColumnDefinitions>
+                                        <materialDesign:PackIcon Grid.Column="0" Kind="AlertCircleOutline" Width="16" Height="16"
+                                                                 Foreground="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="왼쪽 벨트" Foreground="White" FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Margin="8,0"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10"
+                                                 Fill="{Binding LeftBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Grid>
                                 </Border>
-                                
-                                <!-- 비상 정지 (TODO: #6) -->
-                                <Border Grid.Column="1" Background="#0f3460" CornerRadius="6" Padding="8" Margin="4,0,0,0">
-                                    <StackPanel HorizontalAlignment="Center">
-                                        <Ellipse Width="20" Height="20" Fill="#57606f" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                        <TextBlock Text="비상" Foreground="#7f8fa6" FontSize="10" HorizontalAlignment="Center"/>
-                                    </StackPanel>
+                            </Border>
+                            
+                            <!-- 오른쪽 벨트 에러 -->
+                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
+                                <Border Background="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
+                                        CornerRadius="8" Padding="10,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="16"/>
+                                        </Grid.ColumnDefinitions>
+                                        <materialDesign:PackIcon Grid.Column="0" Kind="AlertCircleOutline" Width="16" Height="16"
+                                                                 Foreground="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="오른쪽 벨트" Foreground="White" FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Margin="8,0"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10"
+                                                 Fill="{Binding RightBeltError, Converter={StaticResource StatusToColorConverter}}"
+                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Grid>
                                 </Border>
-                            </Grid>
+                            </Border>
+                            
+                            <!-- 긴급 정지 -->
+                            <Border CornerRadius="8" Margin="0,0,0,4" Padding="0">
+                                <Border Background="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}, ConverterParameter=0.15}"
+                                        CornerRadius="8" Padding="10,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="16"/>
+                                        </Grid.ColumnDefinitions>
+                                        <materialDesign:PackIcon Grid.Column="0" Kind="StopCircleOutline" Width="16" Height="16"
+                                                                 Foreground="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}}"
+                                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="긴급 정지" Foreground="White" FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Margin="8,0"/>
+                                        <Ellipse Grid.Column="2" Width="10" Height="10"
+                                                 Fill="{Binding EmergencyStop, Converter={StaticResource StatusToColorConverter}}"
+                                                 VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </Border>
+                            
+                            <!-- 에러 클리어 버튼 -->
+                            <Button Command="{Binding ErrorClearCommand}" Content="에러 클리어"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Foreground="#ff6b6b" BorderBrush="#ff6b6b"
+                                    HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                    Height="32" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- AI가 추가함: 7) 시작 타이머 (카메라 재시도 카운트다운) -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8"
+                            BorderBrush="OrangeRed" BorderThickness="2"
+                            Visibility="{Binding IsTimerRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="장비 준비 중" Foreground="#ff6348" FontSize="14" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            
+                            <!-- 카운트다운 시간 표시 -->
+                            <TextBlock Text="{Binding RemainingTimeString}" 
+                                       Foreground="White" FontSize="48" FontWeight="Bold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="카메라 초기화 재시도까지 대기 중입니다." 
+                                       Foreground="#7f8fa6" FontSize="11" TextWrapping="Wrap"
+                                       HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                            
+                            <!-- 램프/벨트 ON/OFF 퀵 버튼 -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+                                <Button Command="{Binding ToggleLampCommand}" 
+                                        Width="120" Height="36" FontSize="11" Margin="4,0"
+                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                            <Setter Property="Background" Value="#f1c40f"/>
+                                            <Setter Property="Foreground" Value="#1a1a2e"/>
+                                            <Setter Property="Content" Value="램프 ON"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsLampOn}" Value="True">
+                                                    <Setter Property="Background" Value="#e67e22"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                    <Setter Property="Content" Value="램프 OFF"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Command="{Binding ToggleBeltCommand}" 
+                                        Width="120" Height="36" FontSize="11" Margin="4,0"
+                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                            <Setter Property="Background" Value="#1abc9c"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="Content" Value="벨트 ON"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsBeltOn}" Value="True">
+                                                    <Setter Property="Background" Value="#16a085"/>
+                                                    <Setter Property="Content" Value="벨트 OFF"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                            
+                            <!-- 타이머 중지 버튼 -->
+                            <Button Command="{Binding StopTimerCommand}" Content="타이머 중지"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Foreground="#ff6348" BorderBrush="#ff6348"
+                                    HorizontalAlignment="Center" Width="160" Height="36" FontSize="12"/>
                         </StackPanel>
                     </Border>
                     

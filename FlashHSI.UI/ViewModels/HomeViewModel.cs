@@ -7,6 +7,7 @@ using FlashHSI.Core.Control.Serial; // AI가 추가함: 피더 전원 제어
 using FlashHSI.Core.Messages; // AI가 추가함: HardwareStatusMessage 수신
 using FlashHSI.Core.Settings;
 using Serilog; // AI가 추가함: 램프 온도 로깅
+using System.Windows.Threading; // AI가 추가함: 시작 타이머용
 
 namespace FlashHSI.UI.ViewModels
 {
@@ -35,6 +36,25 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: 벨트/램프 ON/OFF 상태
         [ObservableProperty] private bool _isBeltOn;
         [ObservableProperty] private bool _isLampOn;
+        
+        // AI가 추가함: 에러 상태 (ErrorStatusMessage에서 수신)
+        /// <ai>AI가 작성함</ai>
+        [ObservableProperty] private int _leftBeltError = 2; // 기본값 2=경고(데이터 미수신)
+        [ObservableProperty] private int _rightBeltError = 2;
+        [ObservableProperty] private int _emergencyStop = 2;
+        
+        // AI가 추가함: 시작 타이머 (카메라 재시도 카운트다운)
+        /// <ai>AI가 작성함</ai>
+        private DispatcherTimer? _timer;
+        private TimeSpan _remainingTime;
+        
+        /// <summary>타이머 남은 시간 문자열 (mm:ss 형식, UI 바인딩용)</summary>
+        /// <ai>AI가 작성함</ai>
+        [ObservableProperty] private string _remainingTimeString = "";
+        
+        /// <summary>타이머 실행 중 여부 (타이머 오버레이 표시 제어용)</summary>
+        /// <ai>AI가 작성함</ai>
+        [ObservableProperty] private bool _isTimerRunning;
         
         // AI가 추가함: 램프 온도 모니터링 (레거시 LampIndicatorUserControl 동등)
         /// <summary>램프 온도 퍼센트 (0~100, 프로그레스 바 너비 결정)</summary>
@@ -94,8 +114,23 @@ namespace FlashHSI.UI.ViewModels
                 UpdateLampIndicator();
             });
             
+            // AI가 추가함: ErrorStatusMessage 수신 → 에러 인디케이터 업데이트
+            _messenger.Register<ErrorStatusMessage>(this, (r, m) =>
+            {
+                var err = m.Value;
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    LeftBeltError = err.LeftBeltError;
+                    RightBeltError = err.RightBeltError;
+                    EmergencyStop = err.EmergencyStop;
+                });
+            });
+            
             // AI가 추가함: 앱 시작 시 저장된 램프 온도 상태 복원
             RestoreLampIndicatorFromSavedState();
+            
+            // AI가 추가함: 카메라 재시도 카운트다운 타이머 시작
+            StartTimer();
         }
         
         /// <ai>AI가 작성함: 모델 로드 완료 시 HomeView 상태 갱신용</ai>
@@ -210,6 +245,100 @@ namespace FlashHSI.UI.ViewModels
                 StatusMessage = $"램프 제어 실패: {ex.Message}";
             }
         }
+        
+        /// <ai>AI가 작성함: 에러 클리어 커맨드 (비상정지 해제 등)</ai>
+        [RelayCommand]
+        private async Task ErrorClear()
+        {
+            try
+            {
+                await _serialService.ErrorClearCommandAsync();
+                StatusMessage = "에러 클리어 완료";
+            }
+            catch (System.Exception ex)
+            {
+                StatusMessage = $"에러 클리어 실패: {ex.Message}";
+            }
+        }
+        
+        #region 시작 타이머 (카메라 재시도, 레거시 StartTimerUserControl 동등)
+        
+        /// <summary>
+        /// 카메라 재시도 카운트다운 타이머를 시작합니다.
+        /// 설정된 CameraRetryTimerMinutes 후 카메라 초기화를 재시도합니다.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        private void StartTimer()
+        {
+            var timerMinutes = SettingsService.Instance.Settings.CameraRetryTimerMinutes;
+            if (timerMinutes <= 0)
+            {
+                Log.Information("카메라 재시도 타이머: 0분 설정 — 타이머 생략");
+                return;
+            }
+            
+            _remainingTime = TimeSpan.FromMinutes(timerMinutes);
+            RemainingTimeString = _remainingTime.ToString(@"mm\:ss");
+            IsTimerRunning = true;
+            
+            Log.Information("카메라 재시도 타이머 시작: {Minutes}분", timerMinutes);
+            
+            _timer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _timer.Tick += OnTimerTick;
+            _timer.Start();
+        }
+        
+        /// <summary>
+        /// 1초마다 호출되어 남은 시간을 감소시킵니다.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        private void OnTimerTick(object? sender, EventArgs e)
+        {
+            if (_remainingTime.TotalSeconds > 0)
+            {
+                _remainingTime = _remainingTime.Subtract(TimeSpan.FromSeconds(1));
+                RemainingTimeString = _remainingTime.ToString(@"mm\:ss");
+            }
+            else
+            {
+                _timer?.Stop();
+                RemainingTimeString = "타이머 완료!";
+                OnTimerCompleted();
+            }
+        }
+        
+        /// <summary>
+        /// 타이머 완료 시 카메라 초기화 재시도를 수행합니다.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        private void OnTimerCompleted()
+        {
+            Log.Information("카메라 재시도 타이머 완료 — 카메라 초기화 재시도 시작");
+            IsTimerRunning = false;
+            StatusMessage = "카메라 재시도 타이머 완료";
+            
+            // TODO: CameraService 구현 후 여기서 카메라 초기화 재시도 호출
+            // _ = RetryCameraInitAsync();
+        }
+        
+        /// <summary>
+        /// 타이머를 수동으로 중지합니다.
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        [RelayCommand]
+        private void StopTimer()
+        {
+            _timer?.Stop();
+            IsTimerRunning = false;
+            RemainingTimeString = "타이머 중지됨";
+            Log.Information("카메라 재시도 타이머 수동 중지");
+            StatusMessage = "카메라 재시도 타이머 중지됨";
+        }
+        
+        #endregion
         
         #region 램프 온도 모니터링 (레거시 MainViewModel 동등 구현)
         

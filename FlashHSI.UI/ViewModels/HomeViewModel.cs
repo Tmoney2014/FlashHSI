@@ -65,7 +65,11 @@ namespace FlashHSI.UI.ViewModels
         /// <ai>AI가 작성함</ai>
         [ObservableProperty] private bool _isTimerRunning;
         
-        // AI가 추가함: 램프 온도 모니터링 (레거시 LampIndicatorUserControl 동등)
+        // AI가 수정함: 상태 메시지를 Messenger로 MainViewModel에 전송
+        private void SendStatus(string message)
+        {
+            _messenger.Send(new SystemMessage(message));
+        }
         /// <summary>램프 온도 퍼센트 (0~100, 프로그레스 바 너비 결정)</summary>
         [ObservableProperty] private double _lampTemperaturePercent;
         
@@ -185,7 +189,7 @@ namespace FlashHSI.UI.ViewModels
             {
                 _hardwareService.DisconnectAsync();
                 IsHardwareConnected = false;
-                StatusMessage = "Hardware Disconnected";
+                SendStatus("Hardware Disconnected");
             }
             else
             {
@@ -193,7 +197,7 @@ namespace FlashHSI.UI.ViewModels
                 if(_hardwareService.IsConnected)
                 {
                     IsHardwareConnected = true;
-                    StatusMessage = "Hardware Connected";
+                    SendStatus("Hardware Connected");
                 }
             }
         }
@@ -208,18 +212,18 @@ namespace FlashHSI.UI.ViewModels
                 {
                     await _serialService.FeederPowerOffCommandAsync();
                     IsFeederOn = false;
-                    StatusMessage = "피더 전원 OFF";
+                    SendStatus("피더 전원 OFF");
                 }
                 else
                 {
                     await _serialService.FeederPowerOnCommandAsync();
                     IsFeederOn = true;
-                    StatusMessage = "피더 전원 ON";
+                    SendStatus("피더 전원 ON");
                 }
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"피더 제어 실패: {ex.Message}";
+                SendStatus($"피더 제어 실패: {ex.Message}");
             }
         }
         
@@ -233,18 +237,18 @@ namespace FlashHSI.UI.ViewModels
                 {
                     await _serialService.BeltOffCommandAsync();
                     IsBeltOn = false;
-                    StatusMessage = "벨트 OFF";
+                    SendStatus("벨트 OFF");
                 }
                 else
                 {
                     await _serialService.BeltOnCommandAsync();
                     IsBeltOn = true;
-                    StatusMessage = "벨트 ON";
+                    SendStatus("벨트 ON");
                 }
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"벨트 제어 실패: {ex.Message}";
+                SendStatus($"벨트 제어 실패: {ex.Message}");
             }
         }
         
@@ -258,18 +262,18 @@ namespace FlashHSI.UI.ViewModels
                 {
                     await _serialService.LampOffCommandAsync();
                     IsLampOn = false;
-                    StatusMessage = "램프 OFF";
+                    SendStatus("램프 OFF");
                 }
                 else
                 {
                     await _serialService.LampOnCommandAsync();
                     IsLampOn = true;
-                    StatusMessage = "램프 ON";
+                    SendStatus("램프 ON");
                 }
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"램프 제어 실패: {ex.Message}";
+                SendStatus($"램프 제어 실패: {ex.Message}");
             }
         }
         
@@ -281,36 +285,36 @@ namespace FlashHSI.UI.ViewModels
             {
                 if (IsCameraConnected)
                 {
-                    StatusMessage = "카메라 연결 해제 중...";
+                    SendStatus("카메라 연결 해제 중...");
                     await _cameraService.DisconnectAsync();
                     IsCameraConnected = false;
                     CameraName = "연결 필요";
-                    StatusMessage = "카메라 연결 해제됨";
+                    SendStatus("카메라 연결 해제됨");
                     Log.Information("카메라 연결 해제 (홈)");
                 }
                 else
                 {
-                    StatusMessage = "카메라 연결 중...";
+                    SendStatus("카메라 연결 중...");
                     bool connected = await _cameraService.ConnectAsync();
                     
                     if (connected)
                     {
                         IsCameraConnected = true;
                         CameraName = "FX50 Connected"; // TODO: 실제 카메라 이름 조회
-                        StatusMessage = "카메라 연결 성공";
+                        SendStatus("카메라 연결 성공");
                         Log.Information("카메라 연결 성공 (홈)");
                     }
                     else
                     {
                         IsCameraConnected = false;
-                        StatusMessage = "카메라 연결 실패";
+                        SendStatus("카메라 연결 실패");
                         Log.Warning("카메라 연결 실패 (홈)");
                     }
                 }
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"연결 오류: {ex.Message}";
+                SendStatus($"연결 오류: {ex.Message}");
                 Log.Error(ex, "카메라 연결 오류 (홈)");
             }
         }
@@ -322,11 +326,11 @@ namespace FlashHSI.UI.ViewModels
             try
             {
                 await _serialService.ErrorClearCommandAsync();
-                StatusMessage = "에러 클리어 완료";
+                SendStatus("에러 클리어 완료");
             }
             catch (System.Exception ex)
             {
-                StatusMessage = $"에러 클리어 실패: {ex.Message}";
+                SendStatus($"에러 클리어 실패: {ex.Message}");
             }
         }
         
@@ -478,7 +482,7 @@ namespace FlashHSI.UI.ViewModels
         {
             Log.Information("카메라 재시도 타이머 완료 — 카메라 초기화 재시도 시작");
             IsTimerRunning = false;
-            StatusMessage = "카메라 재시도 타이머 완료";
+            SendStatus("카메라 재시도 타이머 완료");
             
             // TODO: CameraService 구현 후 여기서 카메라 초기화 재시도 호출
             // _ = RetryCameraInitAsync();
@@ -495,7 +499,7 @@ namespace FlashHSI.UI.ViewModels
             IsTimerRunning = false;
             RemainingTimeString = "타이머 중지됨";
             Log.Information("카메라 재시도 타이머 수동 중지");
-            StatusMessage = "카메라 재시도 타이머 중지됨";
+            SendStatus("카메라 재시도 타이머 중지됨");
         }
         
         #endregion

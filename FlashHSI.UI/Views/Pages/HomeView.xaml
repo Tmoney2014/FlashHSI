@@ -907,9 +907,6 @@
                     </Button>
                     
                 </UniformGrid>
-                
-                <!-- 상태 메시지 -->
-                <TextBlock Text="{Binding StatusMessage}" Foreground="#7f8fa6" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             </StackPanel>
         </Border>
         

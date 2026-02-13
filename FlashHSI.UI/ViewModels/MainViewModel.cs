@@ -106,6 +106,15 @@ namespace FlashHSI.UI.ViewModels
                 Application.Current?.Dispatcher.InvokeAsync(() => OnBusyMessage(m));
             });
             
+            // AI가 추가함: SystemMessage 수신 → 하단 상태바 업데이트 (HomeViewModel 등에서 전송)
+            _messenger.Register<Core.Messages.SystemMessage>(this, (r, m) =>
+            {
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    StatusMessage = m.Value;
+                });
+            });
+            
             // 4. Load Initial Settings
              var s = SettingsService.Instance.Settings;
             if(!string.IsNullOrEmpty(s.LastHeaderPath))

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Engine;
+using FlashHSI.Core.Control.Camera; // AI가 추가함: 카메라 서비스
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial; // AI가 추가함: 피더 전원 제어
 using FlashHSI.Core.Messages; // AI가 추가함: HardwareStatusMessage 수신
@@ -24,6 +25,7 @@ namespace FlashHSI.UI.ViewModels
         private readonly IEtherCATService _hardwareService;
         private readonly SerialCommandService _serialService; // AI가 추가함
         private readonly IMessenger _messenger;
+        private readonly ICameraService _cameraService; // AI가 추가함: 카메라 서비스
         
         [ObservableProperty] private bool _isSimulating;
         [ObservableProperty] private bool _isHardwareConnected;
@@ -39,6 +41,10 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: 벨트/램프 ON/OFF 상태
         [ObservableProperty] private bool _isBeltOn;
         [ObservableProperty] private bool _isLampOn;
+        
+        // AI가 추가함: 카메라 연결 상태 (홈 화면에서 카메라 제어)
+        [ObservableProperty] private bool _isCameraConnected;
+        [ObservableProperty] private string _cameraName = "연결 필요";
         
         // AI가 추가함: 에러 상태 (ErrorStatusMessage에서 수신)
         /// <ai>AI가 작성함</ai>
@@ -108,12 +114,13 @@ namespace FlashHSI.UI.ViewModels
         /// <ai>AI가 작성함</ai>
         [ObservableProperty] private string _modelDirectory = "";
 
-        /// <ai>AI가 수정함: DI 주입 확장 — SettingVM, SerialCommandService 추가</ai>
-        public HomeViewModel(HsiEngine engine, IEtherCATService hardware, IMessenger messenger, SettingViewModel settingVM, SerialCommandService serialService)
+        /// <ai>AI가 수정함: DI 주입 확장 — SettingVM, SerialCommandService, CameraService 추가</ai>
+        public HomeViewModel(HsiEngine engine, IEtherCATService hardware, IMessenger messenger, SettingViewModel settingVM, SerialCommandService serialService, ICameraService cameraService)
         {
             _hsiEngine = engine;
             _hardwareService = hardware;
             _serialService = serialService;
+            _cameraService = cameraService; // AI가 추가함
             _messenger = messenger;
             Settings = settingVM;
             
@@ -263,6 +270,48 @@ namespace FlashHSI.UI.ViewModels
             catch (System.Exception ex)
             {
                 StatusMessage = $"램프 제어 실패: {ex.Message}";
+            }
+        }
+        
+        /// <ai>AI가 작성함: 카메라 연결/해제 토글 (홈 화면에서 카메라 제어)</ai>
+        [RelayCommand]
+        private async Task ToggleCamera()
+        {
+            try
+            {
+                if (IsCameraConnected)
+                {
+                    StatusMessage = "카메라 연결 해제 중...";
+                    await _cameraService.DisconnectAsync();
+                    IsCameraConnected = false;
+                    CameraName = "연결 필요";
+                    StatusMessage = "카메라 연결 해제됨";
+                    Log.Information("카메라 연결 해제 (홈)");
+                }
+                else
+                {
+                    StatusMessage = "카메라 연결 중...";
+                    bool connected = await _cameraService.ConnectAsync();
+                    
+                    if (connected)
+                    {
+                        IsCameraConnected = true;
+                        CameraName = "FX50 Connected"; // TODO: 실제 카메라 이름 조회
+                        StatusMessage = "카메라 연결 성공";
+                        Log.Information("카메라 연결 성공 (홈)");
+                    }
+                    else
+                    {
+                        IsCameraConnected = false;
+                        StatusMessage = "카메라 연결 실패";
+                        Log.Warning("카메라 연결 실패 (홈)");
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                StatusMessage = $"연결 오류: {ex.Message}";
+                Log.Error(ex, "카메라 연결 오류 (홈)");
             }
         }
         

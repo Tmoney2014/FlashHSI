@@ -60,24 +60,6 @@
                 
                 <!-- 제어 버튼 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <!-- 카메라 연결 버튼 -->
-                    <Button Command="{Binding ToggleCameraCommand}"
-                            Width="120" Height="40" Margin="0,0,10,0"
-                            Background="#3742fa" Foreground="White" 
-                            BorderThickness="0" Cursor="Hand">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Content" Value="🔌 연결"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
-                                        <Setter Property="Content" Value="❌ 연결 해제"/>
-                                        <Setter Property="Background" Value="#57606f"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    
                     <!-- 라이브 시작/중지 버튼 -->
                     <Button Command="{Binding ToggleLiveCommand}"
                             Width="120" Height="40" Margin="0,0,10,0"

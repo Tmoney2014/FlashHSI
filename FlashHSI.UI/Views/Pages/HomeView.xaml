@@ -681,6 +681,51 @@
                         </StackPanel>
                     </Border>
                     
+                    <!-- 카메라 연결 (홈 화면에서 카메라 제어) -->
+                    <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="카메라 연결" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            
+                            <!-- 카메라 상태 표시 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <Ellipse Width="12" Height="12" Margin="0,0,8,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="#ff4757"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
+                                                    <Setter Property="Fill" Value="#2ed573"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Text="{Binding CameraName}" Foreground="#7f8fa6" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- 카메라 연결 버튼 -->
+                            <Button Command="{Binding ToggleCameraCommand}" 
+                                    Height="44" FontSize="13" Cursor="Hand"
+                                    materialDesign:ButtonAssist.CornerRadius="8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                        <Setter Property="BorderBrush" Value="#3742fa"/>
+                                        <Setter Property="Foreground" Value="#3742fa"/>
+                                        <Setter Property="Content" Value="🔌 카메라 연결"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCameraConnected}" Value="True">
+                                                <Setter Property="Background" Value="#57606f"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="BorderBrush" Value="#57606f"/>
+                                                <Setter Property="Content" Value="❌ 연결 해제"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    
                     <!-- 시작 타이머 (카메라 재시도 카운트다운) — 원본(895c671) 복원 -->
                     <Border Background="#16213e" CornerRadius="8" Padding="16" Margin="0,0,0,8"
                             BorderBrush="OrangeRed" BorderThickness="2"

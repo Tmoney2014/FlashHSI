@@ -14,7 +14,8 @@ namespace FlashHSI.Core.Control.Hardware
 {
     public class EtherCATService : IEtherCATService
     {
-        private readonly ConcurrentDictionary<int, CancellationTokenSource> _activeChannels = new();
+        // Legacy 패턴: 상태 머신 기반 채널 추적 (CAS 사용)
+        private readonly ConcurrentDictionary<int, ChannelState> _channelStates = new();
         private readonly object _ioLock = new();
         
         private EcMaster? _master;
@@ -37,6 +38,14 @@ namespace FlashHSI.Core.Control.Hardware
         /// <ai>AI가 작성함</ai>
         public int TotalChannels => _totalChannels;
         public event Action<string>? LogMessage;
+
+        /// <summary>
+        /// 로깅辅助 메서드
+        /// </summary>
+        private void Log(string message)
+        {
+            LogMessage?.Invoke(message);
+        }
 
         public void Connect(string interfaceName, int cycleFreq = 500)
         {
@@ -149,114 +158,93 @@ namespace FlashHSI.Core.Control.Hardware
             }
         }
 
+        /// <summary>
+        /// 채널을 발사합니다 (Legacy OnAndOffChannelAsyncV2 패턴 - CAS 상태 머신 사용)
+        /// </summary>
         public async Task FireChannelAsync(int channel, int durationMs)
         {
-            if (!_isConnected || channel < 1 || channel > _totalChannels) return;
+            // 가드: 연결 안 됐거나 마스터 꺼져있으면 무시
+            if (!_isConnected || !_isMasterOn || channel < 1 || channel > _totalChannels) return;
 
-            // Cancel existing fire on this channel
-            if (_activeChannels.TryRemove(channel, out var oldCts))
+            var (pdoIdx, pdoCh) = _channelMap[channel - 1];
+            var now = Stopwatch.GetTimestamp();
+            var newExpiry = now + (long)(Stopwatch.Frequency * (durationMs / 1000.0));
+
+            // 채널 상태 가져오기 또는 생성
+            var state = _channelStates.GetOrAdd(channel, _ => new ChannelState());
+
+            // Lock-free 상태 처리 - CAS 기반 상태 전환 (최대 10회 재시도)
+            var handled = false;
+            var maxRetries = 10;
+
+            for (var retryIndex = 0; retryIndex < maxRetries && !handled; retryIndex++)
             {
-                oldCts.Cancel();
-                oldCts.Dispose();
+                var currentPhase = (ChannelPhase)Volatile.Read(ref state.Phase);
+
+                switch (currentPhase)
+                {
+                    case ChannelPhase.Idle:
+                        // Idle에서 TurningOn으로 CAS 시도
+                        if (Interlocked.CompareExchange(ref state.Phase, (int)ChannelPhase.TurningOn,
+                                (int)ChannelPhase.Idle) == (int)ChannelPhase.Idle)
+                        {
+                            Interlocked.Exchange(ref state.ExpiryTicks, newExpiry);
+                            state.Cts = new CancellationTokenSource();
+                            _ = RunChannelWithState(channel, state, pdoIdx, pdoCh);
+                            handled = true;
+                        }
+                        break;
+
+                    case ChannelPhase.TurningOn:
+                    case ChannelPhase.On:
+                        // 동일 채널에 새 요청이 오면 기존 작업을 취소하고 새 작업으로 교체
+                        try { state.Cts.Cancel(); } catch { /* ignore */ }
+
+                        Interlocked.Exchange(ref state.ExpiryTicks, newExpiry);
+                        state.Cts = new CancellationTokenSource();
+                        Volatile.Write(ref state.Phase, (int)ChannelPhase.TurningOn);
+                        _ = RunChannelWithState(channel, state, pdoIdx, pdoCh);
+                        handled = true;
+                        break;
+
+                    case ChannelPhase.TurningOff:
+                        // 꺼지는 중에서 TurningOn으로 CAS 시도
+                        if (Interlocked.CompareExchange(ref state.Phase, (int)ChannelPhase.TurningOn,
+                                (int)ChannelPhase.TurningOff) == (int)ChannelPhase.TurningOff)
+                        {
+                            state.Cts.Cancel();
+                            Interlocked.Exchange(ref state.ExpiryTicks, newExpiry);
+                            state.Cts = new CancellationTokenSource();
+                            _ = RunChannelWithState(channel, state, pdoIdx, pdoCh);
+                            handled = true;
+                        }
+                        break;
+                }
+
+                // 재시도 간 딜레이
+                if (!handled && retryIndex < maxRetries - 1)
+                {
+                    await Task.Delay(1);
+                }
             }
 
-            var cts = new CancellationTokenSource();
-            _activeChannels[channel] = cts;
-
-            try
+            if (!handled)
             {
-                var (pdoIdx, pdoCh) = _channelMap[channel - 1];
-                var dOut = _digitalOuts![pdoIdx];
-
-                lock (_ioLock)
-                {
-                    dOut.SetChannel(pdoCh, true);
-                    _master?.UpdateIO(DateTime.UtcNow);
-                }
-
-                await PrecisionTimer.WaitAsync(durationMs, cts.Token);
-
-                if (!cts.IsCancellationRequested)
-                {
-                    lock (_ioLock)
-                    {
-                        dOut.SetChannel(pdoCh, false);
-                        _master?.UpdateIO(DateTime.UtcNow);
-                    }
-                }
-            }
-            catch (TaskCanceledException) { }
-            finally
-            {
-                if (_activeChannels.TryGetValue(channel, out var currentCts) && currentCts == cts)
-                {
-                    _activeChannels.TryRemove(channel, out _);
-                }
-                cts.Dispose();
+                Log($"채널 {channel} 상태 업데이트 실패 - 최대 재시도 횟수 초과");
             }
         }
-
+        /// <summary>
+        /// 여러 채널을 발사합니다 (개별 FireChannelAsync 호출로 위임)
+        /// </summary>
         public async Task FireChannelsAsync(IEnumerable<int> channels, int durationMs)
         {
             if (!_isConnected) return;
             var targetChannels = channels.Where(c => c >= 1 && c <= _totalChannels).ToList();
             if (targetChannels.Count == 0) return;
 
-            // 1. Cancel existing tasks
-            foreach (var ch in targetChannels)
-            {
-                if (_activeChannels.TryRemove(ch, out var oldCts))
-                {
-                    oldCts.Cancel();
-                    oldCts.Dispose();
-                }
-            }
-
-            var cts = new CancellationTokenSource();
-            foreach (var ch in targetChannels) _activeChannels[ch] = cts;
-
-            try
-            {
-                // 2. Set ON Batch
-                lock (_ioLock)
-                {
-                    foreach (var ch in targetChannels)
-                    {
-                        var (pdoIdx, pdoCh) = _channelMap[ch - 1];
-                        _digitalOuts![pdoIdx].SetChannel(pdoCh, true); 
-                    }
-                    _master?.UpdateIO(DateTime.UtcNow);
-                }
-
-                // 3. Wait
-                await PrecisionTimer.WaitAsync(durationMs, cts.Token);
-
-                // 4. Set OFF Batch
-                if (!cts.IsCancellationRequested)
-                {
-                    lock (_ioLock)
-                    {
-                         foreach (var ch in targetChannels)
-                        {
-                            var (pdoIdx, pdoCh) = _channelMap[ch - 1];
-                            _digitalOuts![pdoIdx].SetChannel(pdoCh, false);
-                        }
-                        _master?.UpdateIO(DateTime.UtcNow);
-                    }
-                }
-            }
-            catch (TaskCanceledException) { }
-            finally
-            {
-                foreach (var ch in targetChannels)
-                {
-                    if (_activeChannels.TryGetValue(ch, out var currentCts) && currentCts == cts)
-                    {
-                        _activeChannels.TryRemove(ch, out _);
-                    }
-                }
-                cts.Dispose();
-            }
+            // 각 채널을 개별적으로 fire (상태 머신 사용)
+            var tasks = targetChannels.Select(ch => FireChannelAsync(ch, durationMs));
+            await Task.WhenAll(tasks);
         }
 
         // AI가 수정함: 연결 해제 전 CancelAllAsync 호출하여 안전한 종료 보장
@@ -342,7 +330,9 @@ namespace FlashHSI.Core.Control.Hardware
             Log("모든 채널 OFF 완료");
         }
 
-        /// <ai>AI가 작성함: 마스터 OFF + 모든 토큰 취소 + 전체 채널 OFF</ai>
+        /// <summary>
+        /// 모든 채널 작업을 취소하고 마스터를 끕니다 (Legacy CancelAll 패턴)
+        /// </summary>
         public async Task CancelAllAsync()
         {
             SetMasterOn(false);
@@ -350,21 +340,164 @@ namespace FlashHSI.Core.Control.Hardware
             // 테스트 CTS 취소
             _ctsAllChannelTest?.Cancel();
 
-            // 활성 채널 CTS 전부 취소
-            foreach (var cts in _activeChannels.Values)
+            // Legacy 패턴: 모든 채널 상태 취소 + Phase를 Idle로 설정
+            foreach (var kv in _channelStates)
             {
-                cts.Cancel();
+                try
+                {
+                    kv.Value.Cts.Cancel();
+                    Volatile.Write(ref kv.Value.Phase, (int)ChannelPhase.Idle);
+                }
+                catch { /* ignore */ }
             }
-            _activeChannels.Clear();
+            _channelStates.Clear();
 
-            await Task.Delay(100);
+            await Task.Delay(200);
             await OffAllChannelAsync();
             Log("CancelAll 완료 — 모든 작업 중지됨");
         }
 
-        private void Log(string msg)
+        // === Legacy 패턴: 채널 상태 머신 ===
+
+        /// <summary>
+        /// 채널의 상태를 나타내는 열거형 (Legacy EtherCATMasterService 패턴)
+        /// </summary>
+        private static void SpinWaitForMs(int milliseconds, CancellationToken token = default)
         {
-            LogMessage?.Invoke($"[EtherCAT] {msg}");
+            if (milliseconds <= 0 || token.IsCancellationRequested) return;
+            
+            var endTicks = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * milliseconds / 1000.0);
+            while (!token.IsCancellationRequested && Stopwatch.GetTimestamp() < endTicks)
+            {
+                Thread.SpinWait(10);
+            }
+        }
+        private enum ChannelPhase
+        {
+            Idle,       // 채널 비활성 상태
+            TurningOn,  // 채널 켜기 중
+            On,         // 채널 ON 상태 유지 중
+            TurningOff  // 채널 끄기 중
+        }
+
+        /// <summary>
+        /// 채널 상태를 저장하는 클래스 - Lock-free 설계 (Legacy 패턴)
+        /// </summary>
+        private class ChannelState
+        {
+            public volatile CancellationTokenSource Cts = new();
+            public long ExpiryTicks; // Stopwatch 기준 만료 시간 (Interlocked 접근)
+            public int Phase = (int)ChannelPhase.Idle; // atomic int로 관리
+        }
+
+        /// <summary>
+        /// 채널을 켜고 끄는 실제 작업을 수행 (Legacy RunChannelWithState 패턴)
+        /// </summary>
+        private async Task RunChannelWithState(int channel, ChannelState state, int pdoIdx, int pdoCh)
+        {
+            // 소유권 캡처 - 이후 새 요청이 와도 내 소유권을 유지
+            var myCts = state.Cts;
+
+            try
+            {
+                // 1. 켜기 단계
+                Volatile.Write(ref state.Phase, (int)ChannelPhase.TurningOn);
+
+                while (!myCts.IsCancellationRequested)
+                {
+                    if (_digitalOuts![pdoIdx].GetChannelBit(pdoCh)) break; // 이미 켜짐
+
+                    lock (_ioLock)
+                    {
+                        _digitalOuts[pdoIdx].SetChannel(pdoCh, true);
+                        _master?.UpdateIO(DateTime.UtcNow);
+                    }
+                    await Task.Delay(1, myCts.Token);
+                }
+
+                if (myCts.IsCancellationRequested) return;
+
+                // 2. 유지 단계
+                Volatile.Write(ref state.Phase, (int)ChannelPhase.On);
+
+                while (!myCts.IsCancellationRequested)
+                {
+                    var nowTicks = Stopwatch.GetTimestamp();
+                    if (nowTicks >= Volatile.Read(ref state.ExpiryTicks)) break;
+
+                    // 꺼졌으면 다시 켜기
+                    if (!_digitalOuts![pdoIdx].GetChannelBit(pdoCh))
+                    {
+                        lock (_ioLock)
+                        {
+                            _digitalOuts[pdoIdx].SetChannel(pdoCh, true);
+                            _master?.UpdateIO(DateTime.UtcNow);
+                        }
+                    }
+
+                    await Task.Delay(1, myCts.Token);
+                }
+
+                if (myCts.IsCancellationRequested) return;
+
+                // 3. 끄기 단계
+                Volatile.Write(ref state.Phase, (int)ChannelPhase.TurningOff);
+
+                var turnOffStartTime = Stopwatch.GetTimestamp();
+                while (!myCts.IsCancellationRequested)
+                {
+                    lock (_ioLock)
+                    {
+                        _digitalOuts![pdoIdx].SetChannel(pdoCh, false);
+                        _master?.UpdateIO(DateTime.UtcNow);
+                    }
+
+                    // 안전을 위한 타임아웃 - 끄기 시작 후 최대 500ms
+                    var nowTicks = Stopwatch.GetTimestamp();
+                    var elapsedMs = (nowTicks - turnOffStartTime) * 1000.0 / Stopwatch.Frequency;
+                    if (elapsedMs > 500) break;
+
+                    await Task.Delay(1, myCts.Token);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // 작업 취소됨
+            }
+            finally
+            {
+                // Legacy 핵심: 소유권 체크 - 내 소유일 때만 강제 OFF
+                var isOwner = ReferenceEquals(state.Cts, myCts);
+                if (isOwner)
+                {
+                    // 최종적으로 OFF 상태 확인 및 보장
+                    if (_digitalOuts![pdoIdx].GetChannelBit(pdoCh))
+                    {
+                        var forcedOffStartTicks = Stopwatch.GetTimestamp();
+                        var forcedOffAttempts = 0;
+
+                        while (_digitalOuts[pdoIdx].GetChannelBit(pdoCh))
+                        {
+                            lock (_ioLock)
+                            {
+                                _digitalOuts[pdoIdx].SetChannel(pdoCh, false);
+                                _master?.UpdateIO(DateTime.UtcNow);
+                            }
+
+                            var elapsed = (Stopwatch.GetTimestamp() - forcedOffStartTicks) * 1000.0 / Stopwatch.Frequency;
+                            if (elapsed > 500 || forcedOffAttempts > 500) break;
+
+                            forcedOffAttempts++;
+                            try { await Task.Delay(1, myCts.Token); }
+                            catch (TaskCanceledException) { break; }
+                        }
+                    }
+
+                    // Phase를 Idle로 되돌림 (새 작업이 시작되지 않은 경우에만)
+                    Volatile.Write(ref state.Phase, (int)ChannelPhase.Idle);
+                }
+            }
         }
     }
 }
+

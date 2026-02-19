@@ -115,12 +115,13 @@ namespace FlashHSI.Core.Control
             int durationMs = settings.EjectionDurationMs;
 
             // Log & Event
+            // AI 수정: margin이 설정된 경우 ValveId = 0으로 설정하여 HomeViewModel에서 각 채널 개별 fire하도록 함
             var log = new EjectionLogItem
             {
                 Timestamp = DateTime.Now,
                 BlobId = blob.Id,
                 ClassId = bestClass,
-                ValveId =  centerChannel, // Main channel for logging
+                ValveId = settings.EjectionBlowMargin > 0 ? 0 : centerChannel, // margin 사용 시 0으로 설정하여 ValveIds 경로로 유도
                 ValveIds = channels,      // All channels
                 Delay = finalDelayMs,     // In MS now
                 DurationMs = durationMs,  // In MS

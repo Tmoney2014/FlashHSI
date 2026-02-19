@@ -420,6 +420,9 @@ namespace FlashHSI.Core.Engine
         // AI가 추가함: 라이브 모드에서 라인 인덱스 추적
         private int _globalLineIndex = 0;
 
+        /// <summary>
+        /// AI가 수정함: 라이브 모드 시작 - ProcessCameraFrame()은 카메라 콜백에서 호출되므로 별도 스레드 불필요
+        /// </summary>
         public void StartLive()
         {
             if (_isRunning) return;
@@ -430,22 +433,21 @@ namespace FlashHSI.Core.Engine
                 if (_liveStats == null) _liveStats = new EngineStats();
                 _liveStats.ClassCounts = new long[_currentConfig.Weights.Count];
             }
+            
+            // AI가 수정함: 라인 인덱스 초기화 (카메라에서 프레임이 올라올 때마다 증가)
+            _globalLineIndex = 0;
+            
             _liveUiTimer.Restart();
             _liveFpsTimer.Restart();
             _liveFrameCount = 0;
             if (_liveStats == null) _liveStats = new EngineStats(); // Ensure non-null
             
             _runMode = RunMode.Live;
-             _isRunning = true;
+            _isRunning = true;
             SimulationStateChanged?.Invoke(true);
-
-            _simThread = new Thread(RunLoop)
-            {
-                IsBackground = true,
-                Priority = ThreadPriority.Highest, // Critical for Live
-                Name = "HsiEngineLiveLoop"
-            };
-            _simThread.Start();
+            
+            // 참고: ProcessCameraFrame()은 PleoraCameraService.AcquisitionLoop() 콜백에서 호출됨
+            // 별도 스레드 필요 없음
         }
 
         public void StartSimulation(string headerPath)

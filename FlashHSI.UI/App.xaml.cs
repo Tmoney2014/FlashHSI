@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,8 +40,8 @@ namespace FlashHSI.UI
             SetupExceptionHandling();
 
             // 5. Initialize Memory Monitoring
-            var memoryService = Services.GetRequiredService<MemoryMonitoringService>();
-            memoryService.Start();
+            var memoryService = Services.GetRequiredService<FlashHSI.Core.Services.MemoryMonitoringService>();
+            memoryService.StartMonitoring();
 
             // 6. Show Main Window
             var mainWindow = new MainWindow { DataContext = Services.GetRequiredService<MainViewModel>() };

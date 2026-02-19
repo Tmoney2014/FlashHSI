@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Engine;
+using FlashHSI.Core.Control; // AI가 추가함: EjectionLogItem
 using FlashHSI.Core.Control.Camera; // AI가 추가함: 카메라 서비스
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial; // AI가 추가함: 피더 전원 제어
@@ -130,6 +131,9 @@ namespace FlashHSI.UI.ViewModels
             
             _hsiEngine.SimulationStateChanged += s => IsSimulating = s;
             
+            // AI가 추가함: 사출 신호 → 실제 에어건 발사
+            _hsiEngine.EjectionOccurred += OnEjectionOccurred;
+            
             // AI가 추가함: HardwareStatusMessage 수신 → 램프 온도 인디케이터 업데이트
             _messenger.Register<HardwareStatusMessage>(this, (r, m) =>
             {
@@ -161,6 +165,36 @@ namespace FlashHSI.UI.ViewModels
             {
                 _modelDirectory = savedModelDir;
                 ScanModelDirectory();
+            }
+        }
+        
+        /// <summary>
+        /// AI가 추가함: 사출 신호 → 실제 에어건 발사
+        /// </summary>
+        private async void OnEjectionOccurred(EjectionLogItem item)
+        {
+            try
+            {
+                if (item.DurationMs > 0)
+                {
+                    // 단일 채널 발사
+                    if (item.ValveId > 0)
+                    {
+                        await _hardwareService.FireChannelAsync(item.ValveId, item.DurationMs);
+                    }
+                    // 다중 채널 발사 (margin 적용) - 각 채널 개별 fire (legacy fire-and-forget 방식)
+                    else if (item.ValveIds.Count > 0)
+                    {
+                        foreach (var ch in item.ValveIds)
+                        {
+                            _ = _hardwareService.FireChannelAsync(ch, item.DurationMs);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "에어건 발사 실패: Channel={Channel}, Duration={Duration}ms", item.ValveId, item.DurationMs);
             }
         }
         

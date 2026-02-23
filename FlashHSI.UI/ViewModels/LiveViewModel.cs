@@ -7,6 +7,7 @@ using FlashHSI.Core.Messages;
 using FlashHSI.UI.Services;
 using Serilog;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -39,10 +40,11 @@ namespace FlashHSI.UI.ViewModels
         // Waterfall 이미지 (MainViewModel에서 이동)
         [ObservableProperty] private ImageSource? _waterfallImage;
         
-        // AI가 추가함: 캡처 프레임 버퍼
+        // AI가 추가함: 캡처 프레임 버퍼 (GC 최적화: ArrayPool 사용)
         private readonly List<ushort[]> _captureBuffer = new();
         private int _captureWidth;
         private int _captureHeight;
+        private static readonly ArrayPool<ushort> _ushortPool = ArrayPool<ushort>.Shared;
 
         /// <ai>AI가 작성함: DI 생성자</ai>
         public LiveViewModel(

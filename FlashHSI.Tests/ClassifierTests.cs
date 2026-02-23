@@ -31,14 +31,14 @@ namespace FlashHSI.Tests
             var classifier = new FlashHSI.Core.Classifiers.LinearClassifier();
             classifier.Load(config);
 
-            // Input (Simulated Features)
-            double[] input = new double[1] { -0.693 };
+            // Input (Simulated Features) - 2 bands, so 2 features required
+            double[] input = new double[2] { -0.693, -0.693 };
 
             // Act
             int result = -1;
             fixed (double* p = input)
             {
-                result = classifier.Predict(p, 1);
+                result = classifier.Predict(p, 2);
             }
 
             // Assert

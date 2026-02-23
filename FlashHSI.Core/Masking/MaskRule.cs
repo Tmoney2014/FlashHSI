@@ -25,13 +25,14 @@ namespace FlashHSI.Core.Masking
         public readonly bool IsLess; // true if operator is '<' or '<='
         public readonly bool IncludeEqual; // true if operator includes equality
 
-        public Condition(int bandIndex, char op, double threshold)
+        public Condition(int bandIndex, char op, double threshold, bool includeEqual = false)
         {
             BandIndex = bandIndex;
             Operator = op;
             Threshold = threshold;
             IsLess = op == '<';
-            IncludeEqual = op == '<' || op == '>' ? false : true; // for "<=" or ">="
+            // Fix: IncludeEqual is now passed as parameter
+            IncludeEqual = includeEqual;
         }
 
         /// <summary>
@@ -178,14 +179,8 @@ namespace FlashHSI.Core.Masking
                 // Normalize operator to single char and equality flag
                 char op = opStr[0]; // '<' or '>'
                 bool includeEqual = opStr.Length == 2; // "<=" or ">="
-                // Store as Condition (operator char indicates direction, IncludeEqual stored separately)
-                var cond = new Condition(band, op, thr);
-                // Adjust IncludeEqual via reflection (since struct is readonly, we recreate with flag)
-                // Simpler: store IncludeEqual in a separate dictionary; but for speed we embed it in Condition via operator char.
-                // Here we treat "<=" as '<' with IncludeEqual = true, same for ">=".
-                // We'll encode IncludeEqual by setting Operator to '<' or '>' and using the IncludeEqual flag inside Condition.
-                // To keep struct immutable, we recompute:
-                conditions.Add(new Condition(band, op, thr) { /* IncludeEqual handled inside Evaluate */ });
+                // Store as Condition with IncludeEqual flag
+                conditions.Add(new Condition(band, op, thr, includeEqual));
             }
 
             // 2️⃣ Replace each condition in the original rule with a token like COND_0, COND_1 ...

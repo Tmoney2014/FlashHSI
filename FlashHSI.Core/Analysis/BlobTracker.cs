@@ -1,6 +1,8 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace FlashHSI.Core.Analysis
 {
@@ -11,6 +13,36 @@ namespace FlashHSI.Core.Analysis
     /// </summary>
     public class BlobTracker
     {
+        // 간단한 ObjectPool 구현 (GC 할당 최소화)
+        private class SimpleObjectPool<T> where T : class
+        {
+            private readonly Func<T> _factory;
+            private readonly Stack<T> _stack = new Stack<T>();
+            private readonly int _maxSize;
+
+            public SimpleObjectPool(Func<T> factory, int maxSize = 64)
+            {
+                _factory = factory;
+                _maxSize = maxSize;
+            }
+
+            public T Rent()
+            {
+                lock (_stack)
+                {
+                    return _stack.Count > 0 ? _stack.Pop() : _factory();
+                }
+            }
+
+            public void Return(T item)
+            {
+                lock (_stack)
+                {
+                    if (_stack.Count < _maxSize)
+                        _stack.Push(item);
+                }
+            }
+        }
         // Configuration Properties (Runtime Tunable)
         public int MinPixels { get; set; } = 5;       // Noise Filter
         public int MaxLineGap { get; set; } = 5;      // Vertical Gap Tolerance
@@ -19,15 +51,23 @@ namespace FlashHSI.Core.Analysis
         public bool MergeDifferentClasses { get; set; } = true; // Always true by design (voting)
 
         private List<ActiveBlob> _activeBlobs = new List<ActiveBlob>();
+        private List<ActiveBlob> _closedBlobs = new List<ActiveBlob>();  // GC 최적화: 프레임마다 재사용
+        private List<ActiveBlob> _matchedBlobs = new List<ActiveBlob>();  // GC 최적화: 프레임마다 재사용
         private readonly int _classCount;
+        
+        // GC 최적화: ActiveBlob 풀링
+        private readonly SimpleObjectPool<ActiveBlob> _blobPool;
 
         public BlobTracker(int classCount)
         {
             _classCount = classCount;
             ActiveBlob.ResetCounter();
+            
+            // GC 최적화: ObjectPool 초기화
+            _blobPool = new SimpleObjectPool<ActiveBlob>(() => new ActiveBlob(0, 0, 0, classCount));
         }
 
-        public IReadOnlyList<ActiveBlob> GetActiveBlobs() => _activeBlobs;
+        public IReadOnlyList<ActiveBlob> GetActiveBlobs() => _activeBlobs.ToList(); // Return snapshot for thread safety
 
         // Buffer for segments to avoid allocation
         private Segment[] _segmentBuffer = Array.Empty<Segment>();
@@ -38,7 +78,8 @@ namespace FlashHSI.Core.Analysis
         /// </summary>
         public List<ActiveBlob> ProcessLine(int lineIndex, int[] pxClasses)
         {
-            var closedBlobs = new List<ActiveBlob>();
+            // GC 최적화: 리스트 재사용
+            _closedBlobs.Clear();
             
             // 1. Prepare Blobs for potentially new line data (visualization support)
             foreach (var blob in _activeBlobs)
@@ -61,7 +102,8 @@ namespace FlashHSI.Core.Analysis
             for (int i = 0; i < segmentCount; i++)
             {
                 ref var seg = ref _segmentBuffer[i];
-                var matchedBlobs = new List<ActiveBlob>();
+                // GC 최적화: 리스트 재사용 ( 루프마다 클리어)
+                _matchedBlobs.Clear();
 
                 // Find all overlapping blobs
                 foreach (var blob in _activeBlobs)
@@ -69,35 +111,38 @@ namespace FlashHSI.Core.Analysis
                     // Overlap Check with Tolerance
                     if (blob.StartX - MaxPixelGap <= seg.EndX && seg.StartX <= blob.EndX + MaxPixelGap)
                     {
-                        matchedBlobs.Add(blob);
+                        _matchedBlobs.Add(blob);
                     }
                 }
 
-                if (matchedBlobs.Count > 0)
+                if (_matchedBlobs.Count > 0)
                 {
                     // Merge everything into the first blob (primary)
-                    var primaryBlob = matchedBlobs[0];
+                    var primaryBlob = _matchedBlobs[0];
                     primaryBlob.UpdateBounds(seg.StartX, seg.EndX, lineIndex);
                     primaryBlob.AddSegment(seg.StartX, seg.EndX, lineIndex); // AI: Pass LineIndex for Moment
                     primaryBlob.AddVote(seg.ClassIndex, seg.Count);
 
                     // If multiple blobs matched, merge them into primaryBlob
-                    if (matchedBlobs.Count > 1)
+                    if (_matchedBlobs.Count > 1)
                     {
-                        for (int k = 1; k < matchedBlobs.Count; k++)
+                        for (int k = 1; k < _matchedBlobs.Count; k++)
                         {
-                            var targetBlob = matchedBlobs[k];
+                            var targetBlob = _matchedBlobs[k];
                             // Merge target into primary
                             primaryBlob.MergeFrom(targetBlob);
-                            // Remove target from active list
+                            // Remove target from active list (single removal)
                             _activeBlobs.Remove(targetBlob);
+                            // GC 최적화: 병합된 블롭은 Pool 반환
+                            _blobPool.Return(targetBlob);
                         }
                     }
                 }
                 else
                 {
-                    // No match -> New Blob
-                    var newBlob = new ActiveBlob(seg.StartX, seg.EndX, lineIndex, _classCount);
+                    // No match -> New Blob (GC 최적화: ObjectPool 사용)
+                    var newBlob = _blobPool.Rent();
+                    newBlob.Reset(seg.StartX, seg.EndX, lineIndex, _classCount);
                     newBlob.AddVote(seg.ClassIndex, seg.Count);
                     _activeBlobs.Add(newBlob);
                 }
@@ -118,12 +163,31 @@ namespace FlashHSI.Core.Analysis
                     // Filter Noise (Too small)
                     if (blob.TotalPixels >= MinPixels)
                     {
-                        closedBlobs.Add(blob);
+                        _closedBlobs.Add(blob);
+                    }
+                    else
+                    {
+                        // GC 최적화: 노이즈 블롭은 pool에 즉시 반환
+                        _blobPool.Return(blob);
                     }
                 }
             }
 
-            return closedBlobs;
+            // GC 최적화: 매 프레임마다 새 리스트 할당 대신 직접 반환
+            // Note: 호출자가 foreach로 읽기만 하므로安全问题. ReleaseClosedBlobs 호출 후 다음 프레임에서 Clear됨.
+            return _closedBlobs;
+        }
+
+        /// <summary>
+        /// GC 최적화: 호출자가 closed blobs 처리完后 pool에 반환
+        /// </summary>
+        public void ReleaseClosedBlobs(IEnumerable<ActiveBlob> blobs)
+        {
+            foreach (var blob in blobs)
+            {
+                _blobPool.Return(blob);
+            }
+            // _closedBlobs.Clear() 제거 - ProcessLine 시작 시Clear() 호출함
         }
 
         private struct Segment

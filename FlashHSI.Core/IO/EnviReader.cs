@@ -21,6 +21,10 @@ namespace FlashHSI.Core.IO
         private BinaryReader? _reader;
         private string _dataPath;
 
+        // GC 최적화: field-level 버퍼 재사용 (LOH 할당 방지)
+        private byte[]? _rawBytesBuffer;
+        private int _lastBufferSize;
+
         public void Load(string headerPath)
         {
             Close(); // Clean up previous resources if any
@@ -95,6 +99,9 @@ namespace FlashHSI.Core.IO
             _reader = null;
             _fileStream?.Close();
             _fileStream = null;
+            
+            // GC 최적화: 버퍼 정리
+            _rawBytesBuffer = null;
         }
 
         /// <summary>
@@ -139,12 +146,30 @@ namespace FlashHSI.Core.IO
             int itemsToRead = width * bands;
             if (_fileStream.Position >= _fileStream.Length) return false;
 
-            // Read Raw bytes
+            // Read bytes per pixel
             int bytesPerPixel = (Header.DataType == 12 || Header.DataType == 2) ? 2 : 1;
-            // TODO: Handle Float32 (4) if needed
+            int bytesToRead = itemsToRead * bytesPerPixel;
 
-            byte[] rawBytes = _reader.ReadBytes(itemsToRead * bytesPerPixel);
-            if (rawBytes.Length < itemsToRead * bytesPerPixel) return false;
+            // GC 최적화: 버퍼 재사용 (LOH 할당 방지)
+            if (_rawBytesBuffer == null || _rawBytesBuffer.Length < bytesToRead)
+            {
+                _rawBytesBuffer = new byte[bytesToRead];
+                _lastBufferSize = bytesToRead;
+            }
+
+            byte[] rawBytes;
+            if (_rawBytesBuffer.Length == bytesToRead)
+            {
+                rawBytes = _rawBytesBuffer;
+            }
+            else
+            {
+                // 버퍼 크기가 다르면 새 할당 (드문 경우)
+                rawBytes = new byte[bytesToRead];
+            }
+
+            int bytesRead = _reader.Read(rawBytes, 0, bytesToRead);
+            if (bytesRead < bytesToRead) return false;
 
             bool isBigEndian = Header.ByteOrder == 1;
 

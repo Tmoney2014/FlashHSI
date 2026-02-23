@@ -19,7 +19,7 @@ public class BufferPool : IDisposable
     private readonly ArrayPool<byte> _mediumPool = ArrayPool<byte>.Create(8192, 30); // 최대 8KB  
 
     // 정리를 위한 대여된 버퍼 추적
-    private readonly ConcurrentBag<(byte[] buffer, ArrayPool<byte> pool)> _rentedBuffers = new();
+    private readonly ConcurrentDictionary<byte[], ArrayPool<byte>> _rentedBuffers = new();
 
     // 다양한 크기 카테고리별 배열 풀
     private readonly ArrayPool<byte> _smallPool = ArrayPool<byte>.Create(1024, 50); // 최대 1KB
@@ -75,17 +75,24 @@ public class BufferPool : IDisposable
     {
         Log.Warning("Forcing buffer pool cleanup - this indicates a potential memory leak");
 
-        while (_rentedBuffers.TryTake(out var item))
+        // 스냅샷을 먼저取得하여 concurrent modification 방지
+        var snapshot = _rentedBuffers.ToArray();
+        foreach (var item in snapshot)
+        {
             try
             {
-                Array.Clear(item.buffer, 0, item.buffer.Length);
-                item.pool.Return(item.buffer);
-                Interlocked.Decrement(ref _activeBuffers);
+                if (_rentedBuffers.TryRemove(item.Key, out var pool))
+                {
+                    Array.Clear(item.Key, 0, item.Key.Length);
+                    pool.Return(item.Key);
+                    Interlocked.Decrement(ref _activeBuffers);
+                }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Error during force cleanup of buffer");
             }
+        }
     }
 
     /// <summary>
@@ -106,7 +113,10 @@ public class BufferPool : IDisposable
         Interlocked.Increment(ref _totalRents);
         Interlocked.Increment(ref _activeBuffers);
 
-        _rentedBuffers.Add((buffer, pool));
+        if (!_rentedBuffers.TryAdd(buffer, pool))
+        {
+            Log.Warning("BufferPool: TryAdd failed for buffer {HashCode} - possible double-rent", buffer.GetHashCode());
+        }
 
         return new PooledBuffer(buffer, minimumLength, this, pool);
     }
@@ -137,6 +147,12 @@ public class BufferPool : IDisposable
         {
             // 데이터 유출 방지를 위해 반환하기 전 버퍼를 지웁니다
             Array.Clear(buffer, 0, buffer.Length);
+            
+            // TryRemove 성공 여부와 관계없이 pool에 반환 (Double-Return 방지)
+            if (!_rentedBuffers.TryRemove(buffer, out var _))
+            {
+                Log.Warning("Buffer '{BufferHashCode}' was not found in rentedBuffers during return. Returning to pool anyway.", buffer.GetHashCode());
+            }
             pool.Return(buffer);
 
             Interlocked.Increment(ref _totalReturns);

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -14,7 +15,7 @@ using FlashHSI.Core.Control.Camera;
 
 namespace FlashHSI.Core.Engine
 {
-    public class HsiEngine
+    public class HsiEngine : IDisposable
     {
         // Components
         private HsiPipeline _pipeline;
@@ -53,6 +54,13 @@ namespace FlashHSI.Core.Engine
         private Stopwatch _liveUiTimer = new Stopwatch();
         private Stopwatch _liveFpsTimer = new Stopwatch();
         private int _liveFrameCount = 0;
+        
+        // GC 최적화: ProcessCameraFrame에서 재사용할 버퍼 (field-level)
+        private int[]? _classificationRowBuffer;
+        private int _lastWidth;
+        
+        // GC 최적화: 스냅샷 리스트 재사용
+        private readonly List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot> _snapshotBuffer = new();
         
         // Events
         public event Action<EngineStats>? StatsUpdated;
@@ -278,15 +286,24 @@ namespace FlashHSI.Core.Engine
         public unsafe void ProcessCameraFrame(ushort[] frameData, int width, int height)
         {
             if (_currentConfig == null) return;
-            // The provided debug log and Application.Current check seem to belong to LiveViewModel,
-            // not HsiEngine, as 'blobs' and 'Log' are undefined here.
-            // Adding only the missing brace as per instruction 1.
             
             int bandCount = height; // HSI에서 height = band count
-            int[] classificationRow = new int[width];
-            long[] classCounts = new long[_currentConfig.Weights.Count];
-
-            bool useMean = (_maskMode == MaskMode.Mean);
+            
+            // GC 최적화: field-level 버퍼 재사용 (width가 같으면 새 할당 없이 재사용)
+            if (_classificationRowBuffer == null || _lastWidth != width)
+            {
+                _classificationRowBuffer = new int[width];
+                _lastWidth = width;
+            }
+            int[] classificationRow = _classificationRowBuffer;
+            
+            // ArrayPool을 사용한 GC 최적화
+            long[] classCounts = ArrayPool<long>.Shared.Rent(_currentConfig.Weights.Count);
+            Array.Clear(classCounts, 0, _currentConfig.Weights.Count);
+            
+            try
+            {
+                bool useMean = (_maskMode == MaskMode.Mean);
 
             fixed (ushort* pFrame = frameData)
             {
@@ -346,6 +363,7 @@ namespace FlashHSI.Core.Engine
             if (_blobTracker != null)
             {
                 var closedBlobs = _blobTracker.ProcessLine(_globalLineIndex++, classificationRow);
+                // FIX: Process blobs BEFORE releasing to pool (이전: ReleaseClosedBlobs가 foreach 전에 호출되어 리스트가 비어짐)
                 foreach (var blob in closedBlobs)
                 {
                     int bestClass = blob.GetBestClass();
@@ -371,11 +389,14 @@ namespace FlashHSI.Core.Engine
                         }
                     }
                 }
+                // 처리 완료 후 pool에 반환
+                _blobTracker?.ReleaseClosedBlobs(closedBlobs);
             }
 
             // AI Refactor: Create Snapshots and Invoke Event AFTER updates
             // This ensures the UI receives the latest state of blobs (Thread-Safe)
-            var snapshots = new System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>();
+            // GC 최적화: 새 리스트 할당 대신 버퍼 재사용
+            _snapshotBuffer.Clear();
             if (_blobTracker != null)
             {
                 foreach(var b in _blobTracker.GetActiveBlobs())
@@ -383,11 +404,11 @@ namespace FlashHSI.Core.Engine
                     // AI: Visualization Filter (Hide Noise in Live Mode too)
                     if (b.TotalPixels >= _cachedMinPixels)
                     {
-                        snapshots.Add(b.GetSnapshot());
+                        _snapshotBuffer.Add(b.GetSnapshot());
                     }
                 }
             }
-            FrameProcessed?.Invoke(classificationRow, width, snapshots);
+            FrameProcessed?.Invoke(classificationRow, width, _snapshotBuffer);
 
             // Live Stats Update (Throttle 30fps)
             _liveFrameCount++;
@@ -413,6 +434,13 @@ namespace FlashHSI.Core.Engine
                     _liveStats.Unknown = 0;
                 }
                 _liveUiTimer.Restart();
+            }
+            } // try 블록 종료
+            
+            // ArrayPool 반환 (GC 최적화)
+            finally
+            {
+                ArrayPool<long>.Shared.Return(classCounts);
             }
         }
 
@@ -513,6 +541,7 @@ namespace FlashHSI.Core.Engine
             ushort[] lineBuffer = new ushort[width * bandCount];
             int[] classificationRow = new int[width];
             long[] currentClassCounts = new long[_currentConfig?.Weights.Count ?? 32];
+            int[] vizRow = new int[width]; // GC 최적화: while 루프 밖에서 한 번만 할당
 
             // Timing
             var frameTimer = Stopwatch.StartNew();
@@ -633,8 +662,7 @@ namespace FlashHSI.Core.Engine
                         } // End BlobTracker
                         
                         // AI: Visualization Pixel Filtering (Noise Removal)
-                        // Create a clean slate for visualization to remove 1px noise
-                        int[] vizRow = new int[width];
+                        // GC 최적화: 루프 밖에서 할당한 vizRow를 재사용 (Array.Fill만 수행)
                         Array.Fill(vizRow, -1); // Default to background
                         
                         // Only draw pixels that belong to Valid Blobs (>= MinPixels)
@@ -710,6 +738,26 @@ namespace FlashHSI.Core.Engine
                 reader.Close();
             } // End unsafe
         } // End RunLoop
+
+        // GC 최적화: 이벤트 핸들러 누수 방지
+        private bool _disposed;
+        
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            
+            // 정적 이벤트 구독 해제 (메모리 누수 방지)
+            FlashHSI.Core.Classifiers.LinearClassifier.GlobalLog -= (msg) => LogMessage?.Invoke(msg);
+            
+            // 다른 리소스 정리
+            _pipeline = null;
+            _cameraService = null;
+            _blobTracker = null;
+            _ejectionService = null;
+            
+            GC.SuppressFinalize(this);
+        }
     }
 
 

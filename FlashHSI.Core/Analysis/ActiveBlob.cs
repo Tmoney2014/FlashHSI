@@ -10,7 +10,7 @@ namespace FlashHSI.Core.Analysis
     /// </summary>
     public class ActiveBlob
     {
-        private static int _globalIdCounter = 0;
+        private static int _globalIdCounter = 0; // Keeps track of the global IDs in a thread-safe manner
 
         public int Id { get; }
         
@@ -50,7 +50,7 @@ namespace FlashHSI.Core.Analysis
 
         public ActiveBlob(int startX, int endX, int currentLine, int classCount)
         {
-            Id = ++_globalIdCounter;
+            Id = System.Threading.Interlocked.Increment(ref _globalIdCounter);
             StartX = startX;
             EndX = endX;
             StartLine = currentLine;
@@ -133,6 +133,33 @@ namespace FlashHSI.Core.Analysis
                 ClassVotes[classIndex] += count;
                 TotalPixels += count;
             }
+        }
+
+        /// <summary>
+        /// GC 최적화: ObjectPool에서 Rent 시 초기화
+        /// </summary>
+        public void Reset(int startX, int endX, int currentLine, int classCount)
+        {
+            StartX = startX;
+            EndX = endX;
+            StartLine = currentLine;
+            EndLine = currentLine;
+            LastSeenLine = currentLine;
+            
+            CurrentStartX = startX;
+            CurrentEndX = endX;
+            PrevStartX = startX;
+            PrevEndX = endX;
+            
+            CurrentSegments.Clear();
+            CurrentSegments.Add(new BlobSegment { Start = startX, End = endX });
+            PrevSegments.Clear();
+            
+            Array.Clear(ClassVotes, 0, ClassVotes.Length);
+            TotalPixels = 0;
+            MomentX = 0;
+            MomentY = 0;
+            IsClosed = false;
         }
 
         public void UpdateBounds(int startX, int endX, int lineIndex)

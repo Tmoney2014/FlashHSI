@@ -113,7 +113,6 @@ public class MemoryMonitoringService : IDisposable
             Gen2Collections = GC.CollectionCount(2),
             PeakMemoryBytes = _peakMemoryUsage,
             BufferPoolStats = BufferPool.Instance.Stats,
-            BgrBufferPoolStats = BgrBufferPool.Instance.Stats,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -191,13 +190,11 @@ public class MemoryMonitoringService : IDisposable
                             "  • GC Gen1: {Gen1Delta}회 (중간 생존 객체 정리 횟수)\r\n" +
                             "  • GC Gen2: {Gen2Delta}회 (장수 객체 정리 횟수 - 0이면 메모리 누수 없음)\r\n" +
                             "  • Active Buffers: {ActiveBuffers}개 (현재 반환안된 버퍼 수)\r\n" +
-                            "  • BGR Hit Rate: {BgrHitRate:P2} (버퍼풀 재사용 성공률)\r\n" +
                             "  • Memory Delta: {MemoryDelta}MB (GC힙 메모리 증감량)",
                 stats.TotalMemoryBytes / (1024 * 1024),
                 stats.WorkingSetBytes / (1024 * 1024),
                 gen0Delta, gen1Delta, gen2Delta,
                 stats.BufferPoolStats.ActiveBuffers,
-                stats.BgrBufferPoolStats.HitRate,
                 memoryDelta / (1024 * 1024));
 
             // Check for memory pressure
@@ -248,6 +245,5 @@ public readonly struct MemoryStats
     public long Gen1Collections { get; init; }
     public long Gen2Collections { get; init; }
     public BufferPoolStats BufferPoolStats { get; init; }
-    public BgrBufferPoolStats BgrBufferPoolStats { get; init; }
     public DateTime Timestamp { get; init; }
 }

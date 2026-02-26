@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Enums;
 using FlashHSI.Core.Messages;
 using FlashHSI.Core.Models.Serial;
+using FlashHSI.Core.Settings;
 using Serilog;
 using Timer = System.Timers.Timer;
 
@@ -37,6 +38,9 @@ public class SerialCommandService
     private DateTime? _lastSuccessfulConnectionTime;
     private string? _selectedSerialPort;
     
+    // AI가 추가함: 캐시된 피더 값
+    private List<int> _cachedFeederValues = new();
+    
     private readonly IMessenger _messenger;
 
     // 생성자 주입
@@ -47,6 +51,34 @@ public class SerialCommandService
         
         // 초기 상태 전송
         BroadcastInitialStatus();
+        
+        // 메시지 구독
+        WeakReferenceMessenger.Default.Register<SerialCommandService, SettingsChangedMessage<List<int>>>(this, static (recipient, message) =>
+        {
+            if (message.PropertyName == nameof(SystemSettings.FeederValues))
+            {
+                recipient.UpdateAllFeederValues(message.Value);
+            }
+        });
+    }
+
+    /// <summary>
+    /// AI가 추가함: 모든 피더 값 업데이트 (메시지로 호출됨)
+    /// </summary>
+    private void UpdateAllFeederValues(List<int> values)
+    {
+        if (values == null || values.Count == 0) return;
+        
+        _cachedFeederValues = new List<int>(values);
+        
+        // 시리얼로 각 피더에 값 전송
+        for (int i = 0; i < values.Count; i++)
+        {
+            // Task.Run으로 비동기 전송
+            var feederNum = i + 1;
+            var feederVal = values[i];
+            Task.Run(async () => await SetFeederValueCommandAsync(feederNum, feederVal));
+        }
     }
 
     private void BroadcastInitialStatus()

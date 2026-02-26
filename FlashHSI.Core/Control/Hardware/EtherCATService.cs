@@ -6,8 +6,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using EtherCAT.NET;
 using EtherCAT.NET.Infrastructure;
+using FlashHSI.Core.Messages;
 using FlashHSI.Core.Utilities;
 
 namespace FlashHSI.Core.Control.Hardware
@@ -31,6 +33,8 @@ namespace FlashHSI.Core.Control.Hardware
         private volatile bool _isMasterOn; // AI가 추가함: 마스터 ON/OFF 플래그
         private CancellationTokenSource? _ctsAllChannelTest; // AI가 추가함: 전체 채널 테스트 취소용
         private int _cycleFrequency;
+        private double _cycleMs;  // 한 번만 계산한 주기 (ms)
+        private string _esiDirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ESI");
 
         public bool IsConnected => _isConnected;
         /// <ai>AI가 작성함</ai>
@@ -38,6 +42,30 @@ namespace FlashHSI.Core.Control.Hardware
         /// <ai>AI가 작성함</ai>
         public int TotalChannels => _totalChannels;
         public event Action<string>? LogMessage;
+
+        /// <summary>
+        /// 생성자 - 메시지 구독
+        /// </summary>
+        public EtherCATService()
+        {
+            // 메시지 구독 - EtherCATCycleFrequency (int)
+            WeakReferenceMessenger.Default.Register<EtherCATService, SettingsChangedMessage<int>>(this, static (recipient, message) =>
+            {
+                if (message.PropertyName == nameof(FlashHSI.Core.Settings.SystemSettings.EtherCATCycleFrequency))
+                {
+                    recipient.SetCycleFrequency(message.Value);
+                }
+            });
+
+            // 메시지 구독 - EsiDirectoryPath (string)
+            WeakReferenceMessenger.Default.Register<EtherCATService, SettingsChangedMessage<string>>(this, static (recipient, message) =>
+            {
+                if (message.PropertyName == nameof(FlashHSI.Core.Settings.SystemSettings.EsiDirectoryPath))
+                {
+                    recipient.SetEsiDirectoryPath(message.Value);
+                }
+            });
+        }
 
         /// <summary>
         /// 로깅辅助 메서드
@@ -52,28 +80,51 @@ namespace FlashHSI.Core.Control.Hardware
             if (_isConnected) return;
             
             _cycleFrequency = cycleFreq;
+            _cycleMs = 1000.0 / cycleFreq;  // 한 번만 계산
             _ctsConnection = new CancellationTokenSource();
             
             Task.Run(() => InitializeMaster(interfaceName));
+        }
+
+        /// <summary>
+        /// 런타임에서 EtherCAT 사이클 주파수를 변경합니다 (재연결 불필요)
+        /// </summary>
+        public void SetCycleFrequency(int hz)
+        {
+            if (hz < 100 || hz > 2000) return;
+            if (!_isConnected) return;
+            
+            _cycleFrequency = hz;
+            Interlocked.Exchange(ref _cycleMs, 1000.0 / hz);
+            Log($"Cycle frequency changed to {hz}Hz");
+        }
+
+        /// <summary>
+        /// 런타임에서 ESI 디렉토리 경로를 변경합니다
+        /// </summary>
+        public void SetEsiDirectoryPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            
+            _esiDirectoryPath = path;
+            Log($"ESI directory path changed to: {path}");
         }
 
         private async Task InitializeMaster(string interfaceName)
         {
             try
             {
-                var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var esiDirectoryPath = Path.Combine(localAppDataPath, "ESI");
-                Directory.CreateDirectory(esiDirectoryPath);
+                Directory.CreateDirectory(_esiDirectoryPath);
 
                 Log("Scanning Devices...");
-                _ecSettings = new EcSettings((uint)_cycleFrequency, esiDirectoryPath, interfaceName);
+                _ecSettings = new EcSettings((uint)_cycleFrequency, _esiDirectoryPath, interfaceName);
                 
                 var rootSlave = EcUtilities.ScanDevices(interfaceName);
                 await Task.Delay(200);
                 
                 foreach (var slave in rootSlave.Descendants().ToList())
                 {
-                    EcUtilities.CreateDynamicData(esiDirectoryPath, slave);
+                    EcUtilities.CreateDynamicData(_esiDirectoryPath, slave);
                     await Task.Delay(100);
                 }
 
@@ -128,12 +179,12 @@ namespace FlashHSI.Core.Control.Hardware
 
         private void RealTimeLoop()
         {
-            var cycleMs = 1000.0 / _cycleFrequency;
             var sw = Stopwatch.StartNew();
-            var nextCycle = sw.Elapsed.TotalMilliseconds + cycleMs;
 
             while (!_ctsConnection.IsCancellationRequested)
             {
+                var targetMs = sw.Elapsed.TotalMilliseconds + _cycleMs;
+
                 // AI가 수정함: _isMasterOn 체크 추가 — 마스터 OFF 시 IO 갱신 중지
                 if (_isConnected && _isMasterOn && _master != null)
                 {
@@ -145,17 +196,15 @@ namespace FlashHSI.Core.Control.Hardware
                 }
 
                 // Precision Wait for Cycle
-                var currentMs = sw.Elapsed.TotalMilliseconds;
-                var waitMs = nextCycle - currentMs;
+                var waitMs = targetMs - sw.Elapsed.TotalMilliseconds;
                 if (waitMs > 0)
                 {
                     if (waitMs > 16) Thread.Sleep((int)waitMs - 1);
-                    while (sw.Elapsed.TotalMilliseconds < nextCycle)
+                    while (sw.Elapsed.TotalMilliseconds < targetMs)
                     {
                         Thread.SpinWait(10);
                     }
                 }
-                nextCycle += cycleMs;
             }
         }
 

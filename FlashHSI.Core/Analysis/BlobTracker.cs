@@ -3,6 +3,8 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using CommunityToolkit.Mvvm.Messaging;
+using FlashHSI.Core.Messages;
 
 namespace FlashHSI.Core.Analysis
 {
@@ -43,10 +45,11 @@ namespace FlashHSI.Core.Analysis
                 }
             }
         }
-        // Configuration Properties (Runtime Tunable)
+        
+        // Configuration Properties (Runtime Tunable) - 메시지로 업데이트
         public int MinPixels { get; set; } = 5;       // Noise Filter
         public int MaxLineGap { get; set; } = 5;      // Vertical Gap Tolerance
-        public int MaxPixelGap { get; set; } = 10;    // Horizontal/Diagonal Gap Tolerance (AI: Increased default)
+        public int MaxPixelGap { get; set; } = 10;    // Horizontal/Diagonal Gap Tolerance
         
         public bool MergeDifferentClasses { get; set; } = true; // Always true by design (voting)
 
@@ -65,6 +68,23 @@ namespace FlashHSI.Core.Analysis
             
             // GC 최적화: ObjectPool 초기화
             _blobPool = new SimpleObjectPool<ActiveBlob>(() => new ActiveBlob(0, 0, 0, classCount));
+            
+            // 메시지 구독
+            WeakReferenceMessenger.Default.Register<BlobTracker, SettingsChangedMessage<int>>(this, static (recipient, message) =>
+            {
+                switch (message.PropertyName)
+                {
+                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobMinPixels):
+                        recipient.MinPixels = message.Value;
+                        break;
+                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobLineGap):
+                        recipient.MaxLineGap = message.Value;
+                        break;
+                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobPixelGap):
+                        recipient.MaxPixelGap = message.Value;
+                        break;
+                }
+            });
         }
 
         public IReadOnlyList<ActiveBlob> GetActiveBlobs() => _activeBlobs.ToList(); // Return snapshot for thread safety

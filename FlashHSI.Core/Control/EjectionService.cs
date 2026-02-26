@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Analysis;
+using FlashHSI.Core.Messages;
 using FlashHSI.Core.Settings;
 
 namespace FlashHSI.Core.Control
@@ -15,6 +17,55 @@ namespace FlashHSI.Core.Control
     {
         // AI가 추가함: 사출 대상 클래스 필터 (null이면 전체 사출)
         private HashSet<int>? _targetClasses;
+
+        // AI가 추가함: 캐시된 설정값 (메시지로 업데이트)
+        private int _cachedFieldOfView;
+        private bool _cachedIsChannelReverse;
+        private int _cachedEjectionDelayMs;
+        private int _cachedEjectionDurationMs;
+        private int _cachedEjectionBlowMargin;
+        private int _cachedAirGunChannelCount;
+        private int _cachedCameraSensorSize;
+
+        /// <summary>
+        /// 생성자 - 메시지 구독
+        /// </summary>
+        public EjectionService()
+        {
+            // 메시지 구독
+            WeakReferenceMessenger.Default.Register<EjectionService, SettingsChangedMessage<int>>(this, static (recipient, message) =>
+            {
+                switch (message.PropertyName)
+                {
+                    case nameof(SystemSettings.FieldOfView):
+                        recipient._cachedFieldOfView = message.Value;
+                        break;
+                    case nameof(SystemSettings.EjectionDelayMs):
+                        recipient._cachedEjectionDelayMs = message.Value;
+                        break;
+                    case nameof(SystemSettings.EjectionDurationMs):
+                        recipient._cachedEjectionDurationMs = message.Value;
+                        break;
+                    case nameof(SystemSettings.EjectionBlowMargin):
+                        recipient._cachedEjectionBlowMargin = message.Value;
+                        break;
+                    case nameof(SystemSettings.AirGunChannelCount):
+                        recipient._cachedAirGunChannelCount = message.Value;
+                        break;
+                    case nameof(SystemSettings.CameraSensorSize):
+                        recipient._cachedCameraSensorSize = message.Value;
+                        break;
+                }
+            });
+            
+            WeakReferenceMessenger.Default.Register<EjectionService, SettingsChangedMessage<bool>>(this, static (recipient, message) =>
+            {
+                if (message.PropertyName == nameof(SystemSettings.IsChannelReverse))
+                {
+                    recipient._cachedIsChannelReverse = message.Value;
+                }
+            });
+        }
 
         public event Action<EjectionLogItem>? OnEjectionSignal;
 
@@ -51,13 +102,14 @@ namespace FlashHSI.Core.Control
             
             // AI가 수정함: 레거시 매핑 공식 적용 (FOV 기반 + 채널 반전)
             // 레거시: mappedX = x / sensorSize * fov; channel = mappedX / (fov / chCount);
-            int sensorWidth = (int)settings.CameraSensorSize;
+            // Note: 캐시된 값을 사용 (런타임 변경 시 즉시 반영)
+            int sensorWidth = _cachedCameraSensorSize;
             if (sensorWidth == 0) sensorWidth = 1024; // Default fallback
 
-            int channelCount = settings.AirGunChannelCount;
+            int channelCount = _cachedAirGunChannelCount;
             if (channelCount <= 0) channelCount = 32;
 
-            int fov = settings.FieldOfView;
+            int fov = _cachedFieldOfView;
             int centerChannel;
 
             if (fov > 0)
@@ -75,21 +127,14 @@ namespace FlashHSI.Core.Control
             }
 
             // 채널 반전 (하드웨어 설치 방향에 따라)
-            if (settings.IsChannelReverse)
+            if (_cachedIsChannelReverse)
                 centerChannel = channelCount - centerChannel + 1;
 
             // Channel Margin Calculation
-            var channels = MarginBlowCalculator(centerChannel, settings.EjectionBlowMargin, channelCount);
+            var channels = MarginBlowCalculator(centerChannel, _cachedEjectionBlowMargin, channelCount);
 
-            // 2. Temporal Calculation (When to hit)
-            // System Data: Centroid Y (blob.CenterY), Current Line (blob.EndLine)
-            // User Setting: EjectionDelayMs, EjectionDelayOffsetMs
-            
-            double linesSinceCentroid = blob.EndLine - blob.CenterY;
-            double msPerLine = 1000.0 / Math.Max(1.0, currentFps);
-            double timeSinceCentroidPassed = linesSinceCentroid * msPerLine;
-
-            // Final Delay = (User Base Delay + Y-Correction) - (Time Already Passed)
+            // 2. Temporal Calculation (When to hit) - 단순하게 Delay만 적용
+            // Note: 캐시된 값을 사용 (런타임 변경 시 즉시 반영)
             int yCorrection = 0;
             if (settings.YCorrectionRules != null)
             {
@@ -105,14 +150,11 @@ namespace FlashHSI.Core.Control
                 }
             }
 
-            int totalUserDelay = settings.EjectionDelayMs + yCorrection;
-            int finalDelayMs = (int)(totalUserDelay - timeSinceCentroidPassed);
-
-            if (finalDelayMs < 0) finalDelayMs = 0; // Fire immediately if late
+            // 단순하게: 사용자가 지정한 딜레이 + Y보정만 적용
+            int finalDelayMs = _cachedEjectionDelayMs + yCorrection;
 
             // 3. Duration Calculation (How long to hit)
-            // User Setting: EjectionDurationMs (Fixed)
-            int durationMs = settings.EjectionDurationMs;
+            int durationMs = _cachedEjectionDurationMs;
 
             // Log & Event
             // AI 수정: margin이 설정된 경우 ValveId = 0으로 설정하여 HomeViewModel에서 각 채널 개별 fire하도록 함
@@ -121,7 +163,7 @@ namespace FlashHSI.Core.Control
                 Timestamp = DateTime.Now,
                 BlobId = blob.Id,
                 ClassId = bestClass,
-                ValveId = settings.EjectionBlowMargin > 0 ? 0 : centerChannel, // margin 사용 시 0으로 설정하여 ValveIds 경로로 유도
+                ValveId = _cachedEjectionBlowMargin > 0 ? 0 : centerChannel, // margin 사용 시 0으로 설정하여 ValveIds 경로로 유도
                 ValveIds = channels,      // All channels
                 Delay = finalDelayMs,     // In MS now
                 DurationMs = durationMs,  // In MS

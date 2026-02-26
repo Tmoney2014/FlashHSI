@@ -53,6 +53,8 @@ namespace FlashHSI.Core.Settings
         public string SelectedNetworkInterface { get; set; } = "";
         /// <summary>EtherCAT 마스터 IO 갱신 주기 (Hz)</summary>
         public uint EtherCATCycleFrequency { get; set; } = 500;
+        /// <summary>EtherCAT ESI 파일이 들어있는 디렉터리 경로</summary>
+        public string EsiDirectoryPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ESI");
 
         // AI가 추가함: 램프 온도 모니터링 설정
         /// <summary>램프 온도 퍼센트 (0~100, 앱 종료 시 저장하여 다음 시작 시 복원)</summary>

@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Analysis;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.IO;
 using FlashHSI.Core.Masking;
+using FlashHSI.Core.Messages;
 using FlashHSI.Core.Pipelines;
 using FlashHSI.Core.Settings;
 using FlashHSI.Core.Control.Camera;
@@ -22,7 +24,11 @@ namespace FlashHSI.Core.Engine
         private ICameraService? _cameraService;
         private BlobTracker? _blobTracker;
         private EjectionService? _ejectionService;
-        private ModelConfig? _currentConfig;
+        
+        /// <summary>
+        /// AI가 추가함: 현재 로드된 모델 설정 (UI에서 접근 필요)
+        /// </summary>
+        public ModelConfig? CurrentConfig { get; private set; }
 
         // Threading
         private RunMode _runMode = RunMode.Simulation;
@@ -88,6 +94,23 @@ namespace FlashHSI.Core.Engine
             
             // AI: LinearClassifier 디버그 로그 연결 (UI 출력용)
             FlashHSI.Core.Classifiers.LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
+            
+            // AI가 추가함: 메시지 구독
+            WeakReferenceMessenger.Default.Register<HsiEngine, SettingsChangedMessage<double>>(this, static (recipient, message) =>
+            {
+                switch (message.PropertyName)
+                {
+                    case nameof(SystemSettings.TargetFps):
+                        recipient.SetTargetFps(message.Value);
+                        break;
+                    case nameof(SystemSettings.ConfidenceThreshold):
+                        recipient.SetConfidenceThreshold(message.Value);
+                        break;
+                    case nameof(SystemSettings.BackgroundThreshold):
+                        recipient.SetBackgroundThreshold(message.Value);
+                        break;
+                }
+            });
         }
 
         public void LoadModel(string jsonPath)
@@ -98,7 +121,7 @@ namespace FlashHSI.Core.Engine
                 var config = Newtonsoft.Json.JsonConvert.DeserializeObject<ModelConfig>(json);
                 if (config == null) throw new Exception("Failed to deserialize model config");
 
-                _currentConfig = config;
+                CurrentConfig = config;
                 _pipeline.LoadModel(config, Path.GetDirectoryName(jsonPath));
 
                 // Initialize Components
@@ -202,10 +225,47 @@ namespace FlashHSI.Core.Engine
         public void SetMaskSettings(MaskMode mode, MaskRule? rule, int bandIndex, bool lessThan, double threshold)
         {
             _maskMode = mode;
-            _maskRule = rule;
+            // rule이 null이면 기존 MaskRule 유지 (Slider 변경 시 NULL 덮어쓰기 방지)
+            if (rule != null) _maskRule = rule;
             _maskBandIndex = bandIndex;
             _maskOperatorLess = lessThan;
             _backgroundThreshold = threshold;
+            
+            // MaskRule 모드이고 rule이 있으면 Threshold 동기화
+            if (mode == MaskMode.MaskRule && _maskRule != null)
+            {
+                _maskRule.UpdateThreshold(threshold);
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: MaskRuleConditionCollection에서 MaskRule을 생성하여 적용
+        /// </summary>
+        public void SetMaskRuleFromCollection(FlashHSI.Core.Settings.MaskRuleConditionCollection collection)
+        {
+            if (collection.ConditionGroups.Count > 0)
+            {
+                _maskMode = MaskMode.MaskRule;
+                _maskRule = collection.ToMaskRule();
+                LogMessage?.Invoke($"MaskRule 적용: {collection.ToMaskRuleString()}");
+            }
+            else
+            {
+                _maskMode = MaskMode.Mean;
+                _maskRule = null;
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 현재 MaskRuleConditions 문자열을 반환 (설정 로드용)
+        /// </summary>
+        public string GetCurrentMaskRulesString()
+        {
+            if (_maskRule != null && CurrentConfig != null)
+            {
+                return CurrentConfig.Preprocessing.MaskRules ?? "Mean";
+            }
+            return "Mean";
         }
 
         /// <summary>
@@ -219,6 +279,15 @@ namespace FlashHSI.Core.Engine
             {
                 _maskRule.UpdateThreshold(threshold);
             }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 메시징용 배경 임계값 설정 (UpdateBackgroundThreshold와 동일)
+        /// </summary>
+        public void SetBackgroundThreshold(double threshold)
+        {
+            System.Diagnostics.Debug.WriteLine($"[HsiEngine] SetBackgroundThreshold called: {threshold}");
+            UpdateBackgroundThreshold(threshold);
         }
 
         /// <summary>
@@ -239,9 +308,6 @@ namespace FlashHSI.Core.Engine
             }
         }
 
-        /// <summary>
-        /// AI가 추가함: 분류 신뢰도 임계값 설정
-        /// </summary>
         /// <summary>
         /// AI가 추가함: 분류 신뢰도 임계값 설정
         /// </summary>
@@ -272,6 +338,37 @@ namespace FlashHSI.Core.Engine
             return _backgroundThreshold;
         }
 
+        /// <summary>
+        /// AI가 추가함: 현재 Mask 설정 반환 (UI 연동용)
+        /// </summary>
+        public (MaskMode mode, int bandIndex, bool lessThan, double threshold) GetMaskSettings()
+        {
+            return (_maskMode, _maskBandIndex, _maskOperatorLess, _backgroundThreshold);
+        }
+
+        /// <summary>
+        /// AI가 추가함: MaskRule의 첫 번째 조건 정보를 반환 (UI 초기화용)
+        /// </summary>
+        public (int bandIndex, double threshold, bool isLess) GetMaskRuleConditionInfo()
+        {
+            if (_maskRule != null)
+            {
+                return _maskRule.GetFirstConditionInfo();
+            }
+            return (80, 35000.0, true);
+        }
+
+        /// <summary>
+        /// AI가 추가함: MaskRule의 첫 번째 조건을 업데이트 (Slider 연동용)
+        /// </summary>
+        public void UpdateMaskRuleCondition(int bandIndex, double threshold, bool isLess)
+        {
+            if (_maskRule != null)
+            {
+                _maskRule.UpdateFirstCondition(bandIndex, threshold, isLess);
+            }
+        }
+
         public void SetTargetFps(double fps) => _targetFps = fps;
 
         // Duplicate removed
@@ -285,7 +382,7 @@ namespace FlashHSI.Core.Engine
         /// <param name="height">프레임 높이 (밴드 수)</param>
         public unsafe void ProcessCameraFrame(ushort[] frameData, int width, int height)
         {
-            if (_currentConfig == null) return;
+            if (CurrentConfig == null) return;
             
             int bandCount = height; // HSI에서 height = band count
             
@@ -298,12 +395,19 @@ namespace FlashHSI.Core.Engine
             int[] classificationRow = _classificationRowBuffer;
             
             // ArrayPool을 사용한 GC 최적화
-            long[] classCounts = ArrayPool<long>.Shared.Rent(_currentConfig.Weights.Count);
-            Array.Clear(classCounts, 0, _currentConfig.Weights.Count);
+            long[] classCounts = ArrayPool<long>.Shared.Rent(CurrentConfig.Weights.Count);
+            Array.Clear(classCounts, 0, CurrentConfig.Weights.Count);
             
             try
             {
+                // AI가 수정함: Slider 변경 시 즉시 적용되도록 매 프레임마다 모드 확인
                 bool useMean = (_maskMode == MaskMode.Mean);
+                
+                // 디버그 로그
+                if (System.Diagnostics.Debugger.IsAttached)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ProcessCameraFrame] _backgroundThreshold={_backgroundThreshold}, useMean={useMean}, _maskMode={_maskMode}");
+                }
 
             fixed (ushort* pFrame = frameData)
             {
@@ -324,6 +428,7 @@ namespace FlashHSI.Core.Engine
                         // 2. Mean-based Masking (Average Threshold)
                         long sum = 0;
                         for (int b = 0; b < bandCount; b++) sum += pPixel[b];
+                        // 원래 로직: 밝기 < 임계값 → 배경 처리
                         if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
                     }
                     else if (_maskMode == MaskMode.BandPixel)
@@ -382,8 +487,8 @@ namespace FlashHSI.Core.Engine
                         if (LogMessage != null)
                         {
                             string key = bestClass.ToString();
-                            string className = (_currentConfig?.Labels != null && _currentConfig.Labels.ContainsKey(key))
-                                ? _currentConfig.Labels[key] 
+                            string className = (CurrentConfig?.Labels != null && CurrentConfig.Labels.ContainsKey(key))
+                                ? CurrentConfig.Labels[key] 
                                 : $"Class {bestClass}";
                             LogMessage.Invoke($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
                         }
@@ -456,10 +561,10 @@ namespace FlashHSI.Core.Engine
             if (_isRunning) return;
 
             // Stats Init
-            if (_currentConfig != null) {
-                _liveClassCounts = new long[_currentConfig.Weights.Count];
+            if (CurrentConfig != null) {
+                _liveClassCounts = new long[CurrentConfig.Weights.Count];
                 if (_liveStats == null) _liveStats = new EngineStats();
-                _liveStats.ClassCounts = new long[_currentConfig.Weights.Count];
+                _liveStats.ClassCounts = new long[CurrentConfig.Weights.Count];
             }
             
             // AI가 수정함: 라인 인덱스 초기화 (카메라에서 프레임이 올라올 때마다 증가)
@@ -522,9 +627,9 @@ namespace FlashHSI.Core.Engine
                 width = reader.Header.Samples;
 
                 // Re-configure Pipeline
-                if (_currentConfig != null)
+                if (CurrentConfig != null)
                 {
-                    _pipeline.Configure(bandCount, _currentConfig.SelectedBands);
+                    _pipeline.Configure(bandCount, CurrentConfig.SelectedBands);
                 }
                 
                 LogMessage?.Invoke($"Playing: {Path.GetFileName(_headerPath)}");
@@ -540,7 +645,7 @@ namespace FlashHSI.Core.Engine
             // Buffers
             ushort[] lineBuffer = new ushort[width * bandCount];
             int[] classificationRow = new int[width];
-            long[] currentClassCounts = new long[_currentConfig?.Weights.Count ?? 32];
+            long[] currentClassCounts = new long[CurrentConfig?.Weights.Count ?? 32];
             int[] vizRow = new int[width]; // GC 최적화: while 루프 밖에서 한 번만 할당
 
             // Timing
@@ -557,19 +662,31 @@ namespace FlashHSI.Core.Engine
 
             unsafe
             {
-                bool useMaskRule = (_maskMode == MaskMode.MaskRule && _maskRule != null);
-                bool useBandPixel = (_maskMode == MaskMode.BandPixel && _maskBandIndex < bandCount);
-                bool useMean = (_maskMode == MaskMode.Mean);
-                bool useAbsorbanceForMask = (_pipeline.GetExtractorType() == typeof(FlashHSI.Core.Preprocessing.LogGapFeatureExtractor));
-
                 int globalLineIndex = 0;
+                double lastBackgroundThreshold = 0;  // AI가 추가함: 이전 값 저장
+                bool lastUseMean = false;  // AI가 추가함: 이전 모드 저장
 
                 try
                 {
                     LogMessage?.Invoke($"[RunLoop] Started. Size: {width}x{bandCount}");
+                    LogMessage?.Invoke($"[RunLoop] MaskMode: {_maskMode}, BackgroundThreshold: {_backgroundThreshold}");
 
                     while (_isRunning)
                     {
+                        // AI가 수정함: Threshold 변경 시 플래그 업데이트 (캐시)
+                        if (lastBackgroundThreshold != _backgroundThreshold || lastUseMean != (_maskMode == MaskMode.Mean))
+                        {
+                            lastBackgroundThreshold = _backgroundThreshold;
+                            lastUseMean = (_maskMode == MaskMode.Mean);
+                            LogMessage?.Invoke($"[RunLoop] Mask config updated: useMean={lastUseMean}, threshold={_backgroundThreshold}");
+                        }
+
+                        // cached 플래그 사용 (값 변경 시에만 업데이트됨)
+                        bool useMaskRule = (_maskMode == MaskMode.MaskRule && _maskRule != null);
+                        bool useBandPixel = (_maskMode == MaskMode.BandPixel && _maskBandIndex < bandCount);
+                        bool useMean = lastUseMean;
+                        bool useAbsorbanceForMask = (_pipeline.GetExtractorType() == typeof(FlashHSI.Core.Preprocessing.LogGapFeatureExtractor));
+                        
                         long startTick = loopTimer.ElapsedTicks;
                         double fps = _targetFps < 1.0 ? 1.0 : _targetFps;
                         double targetFrameTimeMs = 1000.0 / fps;
@@ -599,6 +716,7 @@ namespace FlashHSI.Core.Engine
                                 {
                                     long sum = 0;
                                     for (int b = 0; b < bandCount; b++) sum += pPixel[b];
+                                    // 원래 로직: 밝기 < 임계값 → 배경 처리
                                     if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
                                 }
                                 else if (useMaskRule)

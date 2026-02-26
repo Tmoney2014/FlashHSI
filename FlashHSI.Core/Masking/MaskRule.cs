@@ -115,6 +115,31 @@ namespace FlashHSI.Core.Masking
             return 0.0;
         }
 
+        /// <summary>
+        /// AI가 추가함: 첫 번째 조건의 정보를 반환 (UI 연동용)
+        /// </summary>
+        public (int bandIndex, double threshold, bool isLess) GetFirstConditionInfo()
+        {
+            if (_conditions.Count > 0)
+            {
+                return (_conditions[0].BandIndex, _conditions[0].Threshold, _conditions[0].IsLess);
+            }
+            return (0, 0.0, true);
+        }
+
+        /// <summary>
+        /// AI가 추가함: 첫 번째 조건을 업데이트 (UI Slider 연동용)
+        /// </summary>
+        public void UpdateFirstCondition(int bandIndex, double threshold, bool isLess)
+        {
+            if (_conditions.Count > 0)
+            {
+                // BandIndex와 Operator는 불변, Threshold만 변경
+                // 만약 BandIndex도 변경해야 하면 새 Condition으로 교체
+                _conditions[0].Threshold = threshold;
+            }
+        }
+
 
 
         /// <summary>

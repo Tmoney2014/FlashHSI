@@ -6,12 +6,14 @@ using FlashHSI.Core;                   // AI가 추가함: ModelConfig 사용
 using FlashHSI.Core.Control.Hardware; // AI가 추가함: IEtherCATService 사용
 using FlashHSI.Core.Control.Serial;   // AI가 추가함: SerialCommandService 사용
 using FlashHSI.Core.Engine;
+using FlashHSI.Core.Messages;         // AI가 추가함: SettingsChangedMessage
 using FlashHSI.Core.Models;            // AI가 추가함: Feeder 모델
 using FlashHSI.Core.Settings;
 using Serilog;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.IO;                      // AI가 추가함: File 사용
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
@@ -37,12 +39,22 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private double _targetFps = 100.0;
         [ObservableProperty] private double _confidenceThreshold = 0.75;
         [ObservableProperty] private double _backgroundThreshold = 3000.0;
+        
+        // AI가 추가함: Mask Mode 설정
+        [ObservableProperty] private MaskMode _selectedMaskMode = MaskMode.Mean;
+        [ObservableProperty] private int _maskBandIndex = 80;
+        [ObservableProperty] private bool _maskLessThan = true;
+        
         [ObservableProperty] private bool _isWhiteRefLoaded;
         [ObservableProperty] private bool _isDarkRefLoaded;
         
         // AI가 추가함: 레퍼런스 파일 경로 표시용 바인딩 프로퍼티
         [ObservableProperty] private string _whiteRefPath = "";
         [ObservableProperty] private string _darkRefPath = "";
+        [ObservableProperty] private string _lastWhiteRefPath = "";
+        [ObservableProperty] private string _lastDarkRefPath = "";
+        [ObservableProperty] private string _lastModelPath = "";
+        [ObservableProperty] private string _lastHeaderPath = "";
         
         // AI가 추가함: SVM 모델 시 Confidence 슬라이더 비활성화
         [ObservableProperty] private bool _isConfidenceEnabled = true;
@@ -64,6 +76,9 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private bool _isChannelReverse;
         [ObservableProperty] private string _selectedNetworkInterface = "";
         [ObservableProperty] private uint _etherCATCycleFrequency = 500;
+        [ObservableProperty] private string _esiDirectoryPath = "";
+        [ObservableProperty] private int _airGunChannelCount = 32;
+        [ObservableProperty] private int _cameraSensorSize = 1024;
         [ObservableProperty] private bool _isEtherCATConnected;
         [ObservableProperty] private bool _isMasterOn;
         [ObservableProperty] private bool _isTestRunning;
@@ -96,6 +111,9 @@ namespace FlashHSI.UI.ViewModels
             _messenger = messenger;
             _etherCATService = etherCATService;
             _serialCommandService = serialCommandService;
+
+            // 구독: 프로퍼티 변경 시 설정 저장 및 메시지 전파
+            PropertyChanged += OnPropertyChangedHandler;
             
             var s = SettingsService.Instance.Settings;
             _headerPath = s.LastHeaderPath;
@@ -123,6 +141,9 @@ namespace FlashHSI.UI.ViewModels
             _isChannelReverse = s.IsChannelReverse;
             _selectedNetworkInterface = s.SelectedNetworkInterface;
             _etherCATCycleFrequency = s.EtherCATCycleFrequency;
+            _esiDirectoryPath = s.EsiDirectoryPath;
+            _airGunChannelCount = s.AirGunChannelCount;
+            _cameraSensorSize = s.CameraSensorSize;
             
             // AI가 추가함: 네트워크 인터페이스 목록 초기화
             LoadNetworkInterfaces();
@@ -134,7 +155,13 @@ namespace FlashHSI.UI.ViewModels
                 IsEtherCATConnected = _etherCATService.IsConnected;
                 IsMasterOn = _etherCATService.IsMasterOn;
             };
-            
+
+            // AI가 추가함: 저장된 파일들을 자동으로 로드 (비동기로 실행)
+            _ = LoadSavedFilesAsync();
+
+            // AI가 추가함: MaskRule 설정 로드 (모델 로드 후 호출됨)
+            LoadMaskRuleSettings();
+
             // AI: Ejection 설정 로드
             // AI: Ejection 설정 로드
             _ejectionDelayMs = s.EjectionDelayMs;
@@ -148,10 +175,7 @@ namespace FlashHSI.UI.ViewModels
                     YCorrectionRules.Add(rule);
                 }
             }
-            
-            // 초기값 엔진 적용
-            _hsiEngine.UpdateBlobTrackerSettings(_blobMinPixels, _blobLineGap, _blobPixelGap);
-            
+
             // AI가 추가함: 피더 설정 로드
             _selectedSerialPort = s.SelectedSerialPort;
             _feederCount = s.FeederCount;
@@ -159,67 +183,177 @@ namespace FlashHSI.UI.ViewModels
             FeedersInit();
         }
 
+        /// <summary>
+        /// AI가 추가함: 저장된 파일들을 앱 시작 시 자동으로 로드
+        /// </summary>
+        private async Task LoadSavedFilesAsync()
+        {
+            var s = SettingsService.Instance.Settings;
+
+            // White Reference 로드
+            if (!string.IsNullOrEmpty(s.LastWhiteRefPath) && File.Exists(s.LastWhiteRefPath))
+            {
+                try
+                {
+                    _hsiEngine.LoadReference(s.LastWhiteRefPath, false);
+                    IsWhiteRefLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Warning(ex, "Failed to load saved WhiteRef");
+                }
+            }
+
+            // Dark Reference 로드
+            if (!string.IsNullOrEmpty(s.LastDarkRefPath) && File.Exists(s.LastDarkRefPath))
+            {
+                try
+                {
+                    _hsiEngine.LoadReference(s.LastDarkRefPath, true);
+                    IsDarkRefLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Warning(ex, "Failed to load saved DarkRef");
+                }
+            }
+
+            // Model 로드
+            if (!string.IsNullOrEmpty(s.LastModelPath) && File.Exists(s.LastModelPath))
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(s.LastModelPath);
+                    var config = System.Text.Json.JsonSerializer.Deserialize<FlashHSI.Core.ModelConfig>(json);
+                    if (config != null)
+                    {
+                        // AI가 수정함: LoadModel 메서드 호출
+                        _hsiEngine.LoadModel(s.LastModelPath);
+                        PopulateSortClasses(config);
+                        ModelLoaded?.Invoke("Model loaded from saved path");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Warning(ex, "Failed to load saved Model");
+                }
+            }
+
+            // Header (시뮬레이션 데이터) 경로 복원
+            if (!string.IsNullOrEmpty(s.LastHeaderPath) && File.Exists(s.LastHeaderPath))
+            {
+                HeaderPath = s.LastHeaderPath;
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: White Reference 로드
+        /// </summary>
         [RelayCommand]
-        public void LoadModel()
+        private void LoadWhiteRef()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    _hsiEngine.LoadReference(dlg.FileName, false);
+                    WhiteRefPath = dlg.FileName;
+                    LastWhiteRefPath = dlg.FileName;
+                    SettingsService.Instance.Settings.LastWhiteRefPath = dlg.FileName;
+                    SettingsService.Instance.Save();
+                    IsWhiteRefLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Failed to load White Reference");
+                }
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: Dark Reference 로드
+        /// </summary>
+        [RelayCommand]
+        private void LoadDarkRef()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    _hsiEngine.LoadReference(dlg.FileName, true);
+                    DarkRefPath = dlg.FileName;
+                    LastDarkRefPath = dlg.FileName;
+                    SettingsService.Instance.Settings.LastDarkRefPath = dlg.FileName;
+                    SettingsService.Instance.Save();
+                    IsDarkRefLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Failed to load Dark Reference");
+                }
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 모델 로드 이벤트
+        /// </summary>
+        public event Action<string>? ModelLoaded;
+
+        /// <summary>
+        /// AI가 추가함: 외부에서 ModelLoaded 이벤트를 발행할 수 있도록 하는 메서드
+        /// HomeViewModel의 카드 선택 플로우에서 사용해요.
+        /// </summary>
+        public void RaiseModelLoaded(string path) => ModelLoaded?.Invoke(path);
+
+        /// <summary>
+        /// AI가 추가함: 모델 로드 (File Path 탭)
+        /// </summary>
+        [RelayCommand]
+        private async Task LoadModel()
         {
             var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "Model JSON (*.json)|*.json" };
             if (dlg.ShowDialog() == true)
             {
-               ModelLoaded?.Invoke(dlg.FileName);
+                try
+                {
+                    var json = await File.ReadAllTextAsync(dlg.FileName);
+                    var config = System.Text.Json.JsonSerializer.Deserialize<FlashHSI.Core.ModelConfig>(json);
+                    if (config != null)
+                    {
+                        // AI가 수정함: LoadModel 메서드 호출
+                        _hsiEngine.LoadModel(dlg.FileName);
+                        PopulateSortClasses(config);
+                        LastModelPath = dlg.FileName;
+                        SettingsService.Instance.Settings.LastModelPath = dlg.FileName;
+                        SettingsService.Instance.Save();
+                        ModelLoaded?.Invoke("Model loaded successfully");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Failed to load model");
+                }
             }
         }
-        
-        public event Action<string>? ModelLoaded;
-        
+
         /// <summary>
-        /// 외부에서 ModelLoaded 이벤트를 발행할 수 있도록 하는 메서드예요.
-        /// HomeViewModel의 카드 선택 플로우에서 사용해요.
+        /// AI가 추가함: 시뮬레이션 데이터 선택 (File Path 탭)
         /// </summary>
-        /// <ai>AI가 작성함</ai>
-        public void RaiseModelLoaded(string path) => ModelLoaded?.Invoke(path); // AI가 추가함: 외부 이벤트 발행용
-        
         [RelayCommand]
-        public void SelectDataFile()
+        private void SelectDataFile()
         {
-             var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
-             if (dlg.ShowDialog() == true)
-             {
-                 HeaderPath = dlg.FileName;
-                 SettingsService.Instance.Settings.LastHeaderPath = HeaderPath;
-                 SettingsService.Instance.Save();
-             }
-        }
-        
-        /// <ai>AI가 수정함: 경로 프로퍼티(WhiteRefPath) 업데이트 추가</ai>
-        [RelayCommand]
-        public void LoadWhiteRef()
-        {
-             var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
-             if (dlg.ShowDialog() == true)
-             {
-                 _hsiEngine.LoadReference(dlg.FileName, false);
-                 WhiteRefPath = dlg.FileName; // AI가 수정함: UI 바인딩용 경로 업데이트
-                 SettingsService.Instance.Settings.LastWhiteRefPath = dlg.FileName;
-                 SettingsService.Instance.Save();
-                 IsWhiteRefLoaded = true;
-             }
+            var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
+            if (dlg.ShowDialog() == true)
+            {
+                HeaderPath = dlg.FileName;
+                LastHeaderPath = dlg.FileName;
+                SettingsService.Instance.Settings.LastHeaderPath = dlg.FileName;
+                SettingsService.Instance.Save();
+            }
         }
 
-        /// <ai>AI가 수정함: 경로 프로퍼티(DarkRefPath) 업데이트 추가</ai>
-        [RelayCommand]
-        public void LoadDarkRef()
-        {
-             var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "ENVI Header (*.hdr)|*.hdr" };
-             if (dlg.ShowDialog() == true)
-             {
-                 _hsiEngine.LoadReference(dlg.FileName, true);
-                 DarkRefPath = dlg.FileName; // AI가 수정함: UI 바인딩용 경로 업데이트
-                 SettingsService.Instance.Settings.LastDarkRefPath = dlg.FileName;
-                 SettingsService.Instance.Save();
-                 IsDarkRefLoaded = true;
-             }
-        }
-        
         partial void OnTargetFpsChanged(double value)
         {
             _hsiEngine.SetTargetFps(value);
@@ -236,10 +370,70 @@ namespace FlashHSI.UI.ViewModels
         
         partial void OnBackgroundThresholdChanged(double value)
         {
-            // AI가 수정함: 모드와 관계없이 임계값 동적 업데이트
-            _hsiEngine.UpdateBackgroundThreshold(value);
+            // 테스트: 슬라이더 드래그 완료 시 값 적용 확인
+            System.Diagnostics.Debug.WriteLine($"[테스트] BackgroundThreshold 적용됨: {value}");
+            
+            // AI가 수정함: SetMaskSettings를 통해 전체 설정 업데이트
+            _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, MaskLessThan, value);
             SettingsService.Instance.Settings.BackgroundThreshold = value;
             SettingsService.Instance.Save();
+        }
+
+        // AI가 추가함: MaskRule 설정 로드 (모델 로드 후 호출)
+        private void LoadMaskRuleSettings()
+        {
+            try
+            {
+                var maskInfo = _hsiEngine.GetMaskRuleConditionInfo();
+                _maskBandIndex = maskInfo.bandIndex;
+                _maskLessThan = maskInfo.isLess;
+                _backgroundThreshold = maskInfo.threshold;
+                
+                // Mode는 HsiEngine에서 자동 설정됨 (LoadModel 시)
+                var currentMode = _hsiEngine.GetMaskSettings().mode;
+                _selectedMaskMode = currentMode;
+                
+                OnPropertyChanged(nameof(MaskBandIndex));
+                OnPropertyChanged(nameof(MaskLessThan));
+                OnPropertyChanged(nameof(BackgroundThreshold));
+                OnPropertyChanged(nameof(SelectedMaskMode));
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Warning(ex, "Failed to load MaskRule settings");
+            }
+        }
+
+        // AI가 추가함: MaskRule 모드에서 Band Index 변경 시
+        partial void OnMaskBandIndexChanged(int value)
+        {
+            if (SelectedMaskMode == MaskMode.BandPixel)
+            {
+                _hsiEngine.SetMaskSettings(SelectedMaskMode, null, value, MaskLessThan, BackgroundThreshold);
+            }
+            else if (SelectedMaskMode == MaskMode.MaskRule)
+            {
+                _hsiEngine.UpdateMaskRuleCondition(value, BackgroundThreshold, MaskLessThan);
+            }
+        }
+
+        // AI가 추가함: MaskRule 모드에서 Less Than 변경 시
+        partial void OnMaskLessThanChanged(bool value)
+        {
+            if (SelectedMaskMode == MaskMode.BandPixel)
+            {
+                _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, value, BackgroundThreshold);
+            }
+            else if (SelectedMaskMode == MaskMode.MaskRule)
+            {
+                _hsiEngine.UpdateMaskRuleCondition(MaskBandIndex, BackgroundThreshold, value);
+            }
+        }
+
+        // AI가 추가함: Mask Mode 변경 시 전체 설정 업데이트
+        partial void OnSelectedMaskModeChanged(MaskMode value)
+        {
+            _hsiEngine.SetMaskSettings(value, null, MaskBandIndex, MaskLessThan, BackgroundThreshold);
         }
         
         // AI가 추가함: 카메라 파라미터 변경 시 적용
@@ -313,6 +507,31 @@ namespace FlashHSI.UI.ViewModels
         // Y-Correction Rules
         public ObservableCollection<YCorrectionRule> YCorrectionRules { get; } = new ObservableCollection<YCorrectionRule>();
 
+        // AI가 추가함: MaskRule Conditions
+        [ObservableProperty] private MaskRuleLogicalOperator _maskRuleLogicalOperator = MaskRuleLogicalOperator.AND;
+        public MaskRuleConditionCollection MaskRuleConditions { get; } = new MaskRuleConditionCollection();
+
+        /// <summary>
+        /// AI가 추가함: ESI 디렉토리 폴더 선택
+        /// </summary>
+        [RelayCommand]
+        private void SelectEsiDirectory()
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Select ESI Directory",
+                InitialDirectory = EsiDirectoryPath
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                EsiDirectoryPath = dialog.FolderName;
+                SettingsService.Instance.Settings.EsiDirectoryPath = EsiDirectoryPath;
+                SettingsService.Instance.Save();
+                WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<string>(nameof(FlashHSI.Core.Settings.SystemSettings.EsiDirectoryPath), EsiDirectoryPath));
+            }
+        }
+
         [RelayCommand]
         private void AddYCorrectionRule()
         {
@@ -336,16 +555,165 @@ namespace FlashHSI.UI.ViewModels
             SettingsService.Instance.Save();
         }
 
+        // AI가 추가함: MaskRule 2중 구조 Commands
+        // Outer level: ConditionGroup 추가 (AND 또는 OR로 연결)
+        [RelayCommand]
+        private void AddMaskRuleGroupAnd()
+        {
+            MaskRuleConditions.AddGroup(MaskRuleLogicalOperator.AND);
+            ApplyMaskRuleConditions();
+        }
+
+        [RelayCommand]
+        private void AddMaskRuleGroupOr()
+        {
+            MaskRuleConditions.AddGroup(MaskRuleLogicalOperator.OR);
+            ApplyMaskRuleConditions();
+        }
+
+        [RelayCommand]
+        private void RemoveMaskRuleGroup(MaskRuleConditionGroup group)
+        {
+            if (group != null)
+            {
+                MaskRuleConditions.RemoveGroup(group);
+                ApplyMaskRuleConditions();
+            }
+        }
+
+        // Inner level: ConditionGroup 내에 Rule 추가 (AND 또는 OR로 연결)
+        [RelayCommand]
+        private void AddMaskRuleAnd(MaskRuleConditionGroup group)
+        {
+            if (group != null)
+            {
+                group.AddCondition(MaskRuleLogicalOperator.AND);
+                ApplyMaskRuleConditions();
+            }
+        }
+
+        [RelayCommand]
+        private void AddMaskRuleOr(MaskRuleConditionGroup group)
+        {
+            if (group != null)
+            {
+                group.AddCondition(MaskRuleLogicalOperator.OR);
+                ApplyMaskRuleConditions();
+            }
+        }
+
+        [RelayCommand]
+        private void RemoveMaskRuleFromGroup(MaskRuleCondition condition)
+        {
+            // Find the group containing this condition
+            foreach (var group in MaskRuleConditions.ConditionGroups)
+            {
+                if (group.Conditions.Contains(condition))
+                {
+                    group.RemoveCondition(condition);
+                    ApplyMaskRuleConditions();
+                    break;
+                }
+            }
+        }
+
+        // AI가 추가함: MaskRule 조건을 엔진에 적용
+        private void ApplyMaskRuleConditions()
+        {
+            if (SelectedMaskMode == MaskMode.MaskRule && MaskRuleConditions.ConditionGroups.Count > 0)
+            {
+                _hsiEngine.SetMaskRuleFromCollection(MaskRuleConditions);
+            }
+        }
+
+        // AI가 추가함: MaskRuleCondition 변경 시 엔진에 적용
+        private void OnMaskRuleConditionChanged()
+        {
+            ApplyMaskRuleConditions();
+        }
+
+        // Note: Using PropertyChanged event instead of OnChanged partial methods
+        // due to CommunityToolkit.Mvvm 8.x source generator creating conflicting implementations
+        private void OnPropertyChangedHandler(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(TargetFps):
+                    SettingsService.Instance.Settings.TargetFps = TargetFps;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(FlashHSI.Core.Settings.SystemSettings.TargetFps), TargetFps));
+                    break;
+                case nameof(ConfidenceThreshold):
+                    SettingsService.Instance.Settings.ConfidenceThreshold = ConfidenceThreshold;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(FlashHSI.Core.Settings.SystemSettings.ConfidenceThreshold), ConfidenceThreshold));
+                    break;
+                case nameof(BackgroundThreshold):
+                    System.Diagnostics.Debug.WriteLine($"[SettingVM] BackgroundThreshold changed: {BackgroundThreshold}");
+                    SettingsService.Instance.Settings.BackgroundThreshold = BackgroundThreshold;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(FlashHSI.Core.Settings.SystemSettings.BackgroundThreshold), BackgroundThreshold));
+                    break;
+                case nameof(BlobMinPixels):
+                    SettingsService.Instance.Settings.BlobMinPixels = BlobMinPixels;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.BlobMinPixels), BlobMinPixels));
+                    break;
+                case nameof(BlobLineGap):
+                    SettingsService.Instance.Settings.BlobLineGap = BlobLineGap;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.BlobLineGap), BlobLineGap));
+                    break;
+                case nameof(BlobPixelGap):
+                    SettingsService.Instance.Settings.BlobPixelGap = BlobPixelGap;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.BlobPixelGap), BlobPixelGap));
+                    break;
+                case nameof(EsiDirectoryPath):
+                    SettingsService.Instance.Settings.EsiDirectoryPath = EsiDirectoryPath;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<string>(nameof(FlashHSI.Core.Settings.SystemSettings.EsiDirectoryPath), EsiDirectoryPath));
+                    break;
+                case nameof(EjectionDelayMs):
+                    SettingsService.Instance.Settings.EjectionDelayMs = EjectionDelayMs;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.EjectionDelayMs), EjectionDelayMs));
+                    break;
+                case nameof(CameraExposureTime):
+                    SettingsService.Instance.Settings.CameraExposureTime = CameraExposureTime;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(FlashHSI.Core.Settings.SystemSettings.CameraExposureTime), CameraExposureTime));
+                    break;
+                case nameof(CameraFrameRate):
+                    SettingsService.Instance.Settings.CameraFrameRate = CameraFrameRate;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(FlashHSI.Core.Settings.SystemSettings.CameraFrameRate), CameraFrameRate));
+                    break;
+                case nameof(AirGunChannelCount):
+                    SettingsService.Instance.Settings.AirGunChannelCount = AirGunChannelCount;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.AirGunChannelCount), AirGunChannelCount));
+                    break;
+                case nameof(CameraSensorSize):
+                    SettingsService.Instance.Settings.CameraSensorSize = CameraSensorSize;
+                    SettingsService.Instance.Save();
+                    WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.CameraSensorSize), CameraSensorSize));
+                    break;
+            }
+        }
+
         // AI가 추가함: EtherCAT / 센서 매핑 설정 변경 핸들러
         partial void OnFieldOfViewChanged(int value)
         {
             SettingsService.Instance.Settings.FieldOfView = value;
             SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.FieldOfView), value));
         }
         partial void OnIsChannelReverseChanged(bool value)
         {
             SettingsService.Instance.Settings.IsChannelReverse = value;
             SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<bool>(nameof(FlashHSI.Core.Settings.SystemSettings.IsChannelReverse), value));
         }
         partial void OnSelectedNetworkInterfaceChanged(string value)
         {
@@ -356,6 +724,7 @@ namespace FlashHSI.UI.ViewModels
         {
             SettingsService.Instance.Settings.EtherCATCycleFrequency = value;
             SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.EtherCATCycleFrequency), (int)value));
         }
 
         /// <ai>AI가 작성함: NIC 목록 로드</ai>
@@ -481,11 +850,13 @@ namespace FlashHSI.UI.ViewModels
         {
             SettingsService.Instance.Settings.EjectionDurationMs = value;
             SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.EjectionDurationMs), value));
         }
         partial void OnEjectionBlowMarginChanged(int value)
         {
             SettingsService.Instance.Settings.EjectionBlowMargin = value;
             SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(nameof(FlashHSI.Core.Settings.SystemSettings.EjectionBlowMargin), value));
         }
 
         #region Feeder 관련 로직
@@ -609,6 +980,12 @@ namespace FlashHSI.UI.ViewModels
 
             foreach (var feeder in FeederList)
                 feeder.FeederValue = value;
+            
+            // 메시지로 전송
+            var feederValues = FeederList.Select(f => f.FeederValue).ToList();
+            SettingsService.Instance.Settings.FeederValues = feederValues;
+            SettingsService.Instance.Save();
+            WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<List<int>>(nameof(FlashHSI.Core.Settings.SystemSettings.FeederValues), feederValues));
         }
 
         /// <ai>AI가 작성함: 개별 피더 값 1 증가</ai>

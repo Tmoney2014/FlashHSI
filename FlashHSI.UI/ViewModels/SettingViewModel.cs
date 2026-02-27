@@ -404,10 +404,15 @@ namespace FlashHSI.UI.ViewModels
             }
         }
 
-        // AI가 추가함: MaskRule 모드에서 Band Index 변경 시
+        // AI가 추가함: MaskBandIndex 변경 시 (Mean, BandPixel, MaskRule 모드 모두 처리)
         partial void OnMaskBandIndexChanged(int value)
         {
-            if (SelectedMaskMode == MaskMode.BandPixel)
+            // Mean 모드에서도 BandIndex 변경 시 엔진에 설정 적용
+            if (SelectedMaskMode == MaskMode.Mean)
+            {
+                _hsiEngine.SetMaskSettings(SelectedMaskMode, null, value, MaskLessThan, BackgroundThreshold);
+            }
+            else if (SelectedMaskMode == MaskMode.BandPixel)
             {
                 _hsiEngine.SetMaskSettings(SelectedMaskMode, null, value, MaskLessThan, BackgroundThreshold);
             }
@@ -417,10 +422,15 @@ namespace FlashHSI.UI.ViewModels
             }
         }
 
-        // AI가 추가함: MaskRule 모드에서 Less Than 변경 시
+        // AI가 추가함: Less Than 변경 시 (Mean, BandPixel, MaskRule 모드 모두 처리)
         partial void OnMaskLessThanChanged(bool value)
         {
-            if (SelectedMaskMode == MaskMode.BandPixel)
+            // Mean 모드에서도 LessThan 변경 시 엔진에 설정 적용
+            if (SelectedMaskMode == MaskMode.Mean)
+            {
+                _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, value, BackgroundThreshold);
+            }
+            else if (SelectedMaskMode == MaskMode.BandPixel)
             {
                 _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, value, BackgroundThreshold);
             }
@@ -433,6 +443,8 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: Mask Mode 변경 시 전체 설정 업데이트
         partial void OnSelectedMaskModeChanged(MaskMode value)
         {
+            // Mean 모드에서는 maskRule을 clear하기 위해 null 전달
+            // BandPixel/MaskRule 모드에서는 기존 설정 유지
             _hsiEngine.SetMaskSettings(value, null, MaskBandIndex, MaskLessThan, BackgroundThreshold);
         }
         
@@ -510,6 +522,15 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: MaskRule Conditions
         [ObservableProperty] private MaskRuleLogicalOperator _maskRuleLogicalOperator = MaskRuleLogicalOperator.AND;
         public MaskRuleConditionCollection MaskRuleConditions { get; } = new MaskRuleConditionCollection();
+
+        // AI가 추가함: MaskRuleCondition 변경 시 자동으로 엔진에 적용
+        public SettingViewModel()
+        {
+            // ... existing constructor code ...
+            
+            // MaskRuleCondition 변경 시 자동으로 HsiEngine에 적용
+            MaskRuleConditions.OnConditionChanged += ApplyMaskRuleConditions;
+        }
 
         /// <summary>
         /// AI가 추가함: ESI 디렉토리 폴더 선택

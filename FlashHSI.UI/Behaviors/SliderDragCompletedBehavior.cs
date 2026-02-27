@@ -31,6 +31,16 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
             typeof(SliderDragCompletedBehavior),
             new PropertyMetadata(null));
 
+    /// <summary>
+    /// Command가 없을 때 호출할 콜백 (Action)
+    /// </summary>
+    public static readonly DependencyProperty CallbackProperty =
+        DependencyProperty.Register(
+            nameof(Callback),
+            typeof(Action),
+            typeof(SliderDragCompletedBehavior),
+            new PropertyMetadata(null));
+
     private bool _isDragging;
 
     public ICommand? Command
@@ -43,6 +53,12 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
     {
         get => GetValue(CommandParameterProperty);
         set => SetValue(CommandParameterProperty, value);
+    }
+
+    public Action? Callback
+    {
+        get => (Action?)GetValue(CallbackProperty);
+        set => SetValue(CallbackProperty, value);
     }
 
     protected override void OnAttached()
@@ -73,15 +89,22 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
 
     private void ExecuteCommand()
     {
-        // Command가 있으면 실행
+        // 1. 먼저 Binding Source 업데이트 (값을 ViewModel에 적용)
+        var bindingExpr = AssociatedObject?.GetBindingExpression(Slider.ValueProperty);
+        if (bindingExpr != null)
+        {
+            bindingExpr.UpdateSource();
+        }
+        
+        // 2. Command가 있으면 실행
         if (Command?.CanExecute(CommandParameter) == true)
         {
             Command.Execute(CommandParameter);
         }
-        // Command가 없으면 Binding Source를 업데이트 (UpdateSourceTrigger=Explicit용)
-        else if (AssociatedObject?.GetBindingExpression(Slider.ValueProperty) != null)
+        // 3. Command가 없으면 콜백만 호출
+        else
         {
-            AssociatedObject.GetBindingExpression(Slider.ValueProperty).UpdateSource();
+            Callback?.Invoke();
         }
     }
 

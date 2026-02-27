@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using FlashHSI.Core.Masking;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Text;
 
 namespace FlashHSI.Core.Settings
@@ -25,9 +27,74 @@ namespace FlashHSI.Core.Settings
     public partial class MaskRuleConditionCollection : ObservableObject
     {
         /// <summary>
+        /// Event raised when any condition property changes
+        /// </summary>
+        public event Action? OnConditionChanged;
+
+        /// <summary>
         /// Groups of conditions (connected by OR between groups).
         /// </summary>
         public ObservableCollection<MaskRuleConditionGroup> ConditionGroups { get; } = new ObservableCollection<MaskRuleConditionGroup>();
+
+        public MaskRuleConditionCollection()
+        {
+            // Subscribe to CollectionChanged to track group additions/removals
+            ConditionGroups.CollectionChanged += OnConditionGroupsChanged;
+        }
+
+        private void OnConditionGroupsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (MaskRuleConditionGroup group in e.NewItems)
+                {
+                    // Subscribe to group's conditions collection changes
+                    group.Conditions.CollectionChanged += OnConditionsChanged;
+                    // Subscribe to each condition's property changes
+                    foreach (var condition in group.Conditions)
+                    {
+                        condition.PropertyChanged += OnConditionPropertyChanged;
+                    }
+                }
+            }
+            if (e.OldItems != null)
+            {
+                foreach (MaskRuleConditionGroup group in e.OldItems)
+                {
+                    group.Conditions.CollectionChanged -= OnConditionsChanged;
+                    foreach (var condition in group.Conditions)
+                    {
+                        condition.PropertyChanged -= OnConditionPropertyChanged;
+                    }
+                }
+            }
+        }
+
+        private void OnConditionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+            {
+                foreach (MaskRuleCondition condition in e.NewItems)
+                {
+                    condition.PropertyChanged += OnConditionPropertyChanged;
+                }
+            }
+            if (e.OldItems != null)
+            {
+                foreach (MaskRuleCondition condition in e.OldItems)
+                {
+                    condition.PropertyChanged -= OnConditionPropertyChanged;
+                }
+            }
+            // Notify that conditions changed
+            OnConditionChanged?.Invoke();
+        }
+
+        private void OnConditionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            // Notify that any condition property changed
+            OnConditionChanged?.Invoke();
+        }
 
         /// <summary>
         /// Generates the full MaskRule string.

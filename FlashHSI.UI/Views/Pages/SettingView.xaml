@@ -8,7 +8,6 @@
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:behaviors="clr-namespace:FlashHSI.UI.Behaviors"
              xmlns:converters="clr-namespace:FlashHSI.UI.Converters"
-             xmlns:controls="clr-namespace:FlashHSI.UI.Controls"
              xmlns:local1="clr-namespace:FlashHSI.Core.Engine;assembly=FlashHSI.Core"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="1000">
@@ -18,7 +17,6 @@
         <converters:HexToColorBrushConverter x:Key="HexToColorBrushConverter"/>
         <converters:MaskModeToBoolConverter x:Key="MaskModeToBoolConverter"/>
         <converters:MaskModeToVisibilityConverter x:Key="MaskModeToVisibilityConverter"/>
-        <converters:EnumToBoolConverter x:Key="EnumToBoolConverter"/>
         <converters:OperatorToColorConverter x:Key="OperatorToColorConverter"/>
     </UserControl.Resources>
 

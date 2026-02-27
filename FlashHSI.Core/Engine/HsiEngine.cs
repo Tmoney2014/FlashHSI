@@ -225,8 +225,18 @@ namespace FlashHSI.Core.Engine
         public void SetMaskSettings(MaskMode mode, MaskRule? rule, int bandIndex, bool lessThan, double threshold)
         {
             _maskMode = mode;
-            // rule이 null이면 기존 MaskRule 유지 (Slider 변경 시 NULL 덮어쓰기 방지)
-            if (rule != null) _maskRule = rule;
+            
+            // Mean 모드에서는 maskRule을 clear (BandPixel 모드에서도 기존 rule 제거)
+            if (mode == MaskMode.Mean || mode == MaskMode.BandPixel)
+            {
+                _maskRule = null;
+            }
+            // rule이 null이 아니면 기존 MaskRule 교체 (MaskRule 모드에서만)
+            else if (rule != null)
+            {
+                _maskRule = rule;
+            }
+            
             _maskBandIndex = bandIndex;
             _maskOperatorLess = lessThan;
             _backgroundThreshold = threshold;

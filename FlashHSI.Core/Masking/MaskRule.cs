@@ -19,11 +19,11 @@ namespace FlashHSI.Core.Masking
     /// </summary>
     public class Condition
     {
-        public readonly int BandIndex; // zero‑based index
-        public readonly char Operator; // one of '<', '>', '=', '!' (used internally)
+        public int BandIndex { get; set; } // zero‑based index
+        public char Operator { get; set; } // one of '<', '>', '=', '!' (used internally)
         public double Threshold { get; set; } // Mutable for dynamic adjustment
-        public readonly bool IsLess; // true if operator is '<' or '<='
-        public readonly bool IncludeEqual; // true if operator includes equality
+        public bool IsLess { get; set; } // true if operator is '<' or '<='
+        public bool IncludeEqual { get; set; } // true if operator includes equality
 
         public Condition(int bandIndex, char op, double threshold, bool includeEqual = false)
         {
@@ -134,9 +134,11 @@ namespace FlashHSI.Core.Masking
         {
             if (_conditions.Count > 0)
             {
-                // BandIndex와 Operator는 불변, Threshold만 변경
-                // 만약 BandIndex도 변경해야 하면 새 Condition으로 교체
+                // BandIndex, IsLess, Threshold 모두 업데이트
+                _conditions[0].BandIndex = bandIndex;
                 _conditions[0].Threshold = threshold;
+                _conditions[0].IsLess = isLess;
+                _conditions[0].Operator = isLess ? '<' : '>';
             }
         }
 

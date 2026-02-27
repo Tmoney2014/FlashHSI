@@ -73,7 +73,16 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
 
     private void ExecuteCommand()
     {
-        if (Command?.CanExecute(CommandParameter) == true) Command.Execute(CommandParameter);
+        // Command가 있으면 실행
+        if (Command?.CanExecute(CommandParameter) == true)
+        {
+            Command.Execute(CommandParameter);
+        }
+        // Command가 없으면 Binding Source를 업데이트 (UpdateSourceTrigger=Explicit용)
+        else if (AssociatedObject?.GetBindingExpression(Slider.ValueProperty) != null)
+        {
+            AssociatedObject.GetBindingExpression(Slider.ValueProperty).UpdateSource();
+        }
     }
 
     private void OnKeyUp(object sender, KeyEventArgs e)
@@ -100,10 +109,8 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
 
     private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            ExecuteCommand();
-        }
+        // 드래그 또는 클릭 모두에서 Command 실행
+        _isDragging = false;
+        ExecuteCommand();
     }
 }

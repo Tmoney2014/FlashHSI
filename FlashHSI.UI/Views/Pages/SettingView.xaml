@@ -48,7 +48,7 @@
                                     <TextBlock Text="Exposure Time (μs)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraExposureTime, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="100" IsSnapToTickEnabled="False">
+                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -60,7 +60,7 @@
                                     <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="False">
+                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -176,7 +176,7 @@
                                     <TextBlock Text="Base Delay (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding EjectionDelayMs}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="0" Maximum="500" Value="{Binding EjectionDelayMs, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="0" Maximum="500" Value="{Binding EjectionDelayMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -218,7 +218,7 @@
                                                                 <TextBlock Text="Threshold Y (Px)" VerticalAlignment="Center" Width="100"/>
                                                                 <TextBox Text="{Binding ThresholdY, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                                                          behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                                <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="True">
+                                                                <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                                                     <i:Interaction.Behaviors>
                                                                         <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -294,7 +294,7 @@
                                     <TextBlock Text="Cycle Frequency (Hz)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding EtherCATCycleFrequency}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="100" Maximum="2000" Value="{Binding EtherCATCycleFrequency, UpdateSourceTrigger=Explicit}" TickFrequency="100" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="100" Maximum="2000" Value="{Binding EtherCATCycleFrequency, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -306,7 +306,7 @@
                                     <TextBlock Text="Field of View (mm)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding FieldOfView}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="0" Maximum="2000" Value="{Binding FieldOfView, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="0" Maximum="2000" Value="{Binding FieldOfView, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -384,7 +384,7 @@
                                     <TextBlock Text="Blow Time (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TestBlowTime}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -395,7 +395,7 @@
                                     <TextBlock Text="Delay Between (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TestDelay}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay, UpdateSourceTrigger=Explicit}" TickFrequency="50" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -455,11 +455,12 @@
                                     <TextBlock Text="Confidence Threshold" Width="200" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding ConfidenceThreshold, StringFormat=N2}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="0" Maximum="1" Value="{Binding ConfidenceThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="0.05" IsSnapToTickEnabled="False"
-                                            behaviors:SliderValuePopupBehavior.Format="N2">
+                                    <Slider Minimum="0" Maximum="1" Value="{Binding ConfidenceThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="0.01" IsSnapToTickEnabled="False"
+                                            behaviors:SliderValuePopupBehavior.Format="N2" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -508,11 +509,11 @@
                                     <TextBlock Text="Background Threshold" Width="200" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding BackgroundThreshold, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="6"/>
-                                    <Slider Minimum="1000" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="1000" IsSnapToTickEnabled="False">
+                                    <Slider Minimum="1000" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -628,7 +629,7 @@
                                                                                     <DockPanel>
                                                                                         <TextBox Text="{Binding Threshold, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Center" FontSize="12" VerticalAlignment="Center"
                                                                                                  behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="6"/>
-                                                                                        <Slider Minimum="1" Maximum="65535" Value="{Binding Threshold, UpdateSourceTrigger=Explicit}" TickFrequency="1000" IsSnapToTickEnabled="False">
+                                                                                        <Slider Minimum="1" Maximum="65535" Value="{Binding Threshold, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
                                                                                             <i:Interaction.Behaviors>
                                                                                                 <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -799,9 +800,15 @@
                                                     <!-- 슬라이더 -->
                                                     <Slider Grid.Column="2" Margin="8,0"
                                                             Minimum="1" Maximum="99"
-                                                            Value="{Binding FeederValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                            TickFrequency="10" TickPlacement="None" IsSnapToTickEnabled="False"
+                                                            Value="{Binding FeederValue, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                                            TickFrequency="1" TickPlacement="None" IsSnapToTickEnabled="False"
                                                             VerticalAlignment="Center">
+                                                        <i:Interaction.Behaviors>
+                                                            <behaviors:SliderDragCompletedBehavior 
+                                                                Command="{Binding DataContext.FeederSliderDragCompletedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"/>
+                                                            <behaviors:SliderValuePopupBehavior/>
+                                                        </i:Interaction.Behaviors>
                                                     </Slider>
 
                                                     <!-- 증가 버튼 -->
@@ -853,9 +860,15 @@
 
                                         <Slider Grid.Column="2" Margin="8,0"
                                                 Minimum="1" Maximum="99"
-                                                Value="{Binding AllFeederValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                TickFrequency="10" TickPlacement="None" IsSnapToTickEnabled="False"
+                                                Value="{Binding AllFeederValue, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                                TickFrequency="1" TickPlacement="None" IsSnapToTickEnabled="False"
                                                 VerticalAlignment="Center">
+                                            <i:Interaction.Behaviors>
+                                                <behaviors:SliderDragCompletedBehavior 
+                                                    Command="{Binding DataContext.FeederSliderDragCompletedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="AllFeederValue"/>
+                                                <behaviors:SliderValuePopupBehavior/>
+                                            </i:Interaction.Behaviors>
                                         </Slider>
 
                                         <Button Grid.Column="3" Command="{Binding IncreaseAllFeederValueCommand}"
@@ -1002,7 +1015,7 @@
                                     <TextBlock Text="Target FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TargetFps, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                    <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>

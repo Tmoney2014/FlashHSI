@@ -507,13 +507,16 @@
                                 <DockPanel Margin="0,0,0,10" ToolTip="평균 밴드 강도 임계값. 이 값 이하의 픽셀은 배경으로 처리"
                                            Visibility="{Binding SelectedMaskMode, Converter={StaticResource MaskModeToVisibilityConverter}, ConverterParameter=MeanOrBandPixel}">
                                     <TextBlock Text="Background Threshold" Width="200" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding BackgroundThreshold, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="6"/>
-                                    <Slider Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" 
+                                    <!-- ViewModel 연결된 TextBox: 실제 적용 값 표시 -->
+                                    <TextBox x:Name="AppliedValueTextBox" Text="{Binding BackgroundThreshold, StringFormat=F3}" Width="100" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="10" Opacity="1"/>
+                                    <!-- Slider 값 직접 표시용 TextBox: 드래그 중에만 보임 -->
+                                    <TextBox x:Name="SliderValueTextBox" Width="100" DockPanel.Dock="Right" TextAlignment="Right"
+                                             IsReadOnly="True" Background="Transparent" Opacity="0"/>
+                                    <Slider x:Name="BackgroundThresholdSlider" Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" 
                                             TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center"
                                             SmallChange="1" LargeChange="100">
                                         <i:Interaction.Behaviors>
-                                            <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
                                             <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>

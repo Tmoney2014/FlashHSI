@@ -370,8 +370,8 @@ namespace FlashHSI.UI.ViewModels
         
         partial void OnBackgroundThresholdChanged(double value)
         {
-            // 테스트: 슬라이더 드래그 완료 시 값 적용 확인
-            System.Diagnostics.Debug.WriteLine($"[테스트] BackgroundThreshold 적용됨: {value}");
+            // 소수점 3번째 자리까지 유지해서 적용
+            System.Diagnostics.Debug.WriteLine($"[SettingVM] BackgroundThreshold 적용됨: {value}");
             
             // AI가 수정함: SetMaskSettings를 통해 전체 설정 업데이트
             _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, MaskLessThan, value);

@@ -151,11 +151,19 @@ public class SliderValuePopupBehavior : Behavior<Slider>
 
     private void OnThumbDragDelta(object sender, DragDeltaEventArgs e)
     {
+        // Slider.Value를 읽어서 Popup에 표시 (원래 방식)
         UpdatePopupValue();
     }
 
     private void OnThumbDragCompleted(object sender, RoutedEventArgs e)
     {
+        // 드래그 완료 시점의 값으로 popup 한 번 더 업데이트 (SliderDragCompletedBehavior가 적용하는 값과 일치시킴)
+        if (AssociatedObject != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SliderPopup-DragComplete-THUMB] Value={AssociatedObject.Value}");
+        }
+        UpdatePopupValue();
+        
         _isDragging = false;
         HidePopup();
         ShowTextBox();
@@ -198,8 +206,13 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     {
         if (_popupText != null && AssociatedObject != null)
         {
-            string format = GetFormat(AssociatedObject);
-            _popupText.Text = AssociatedObject.Value.ToString(format);
+            // Slider 값을 그대로 표시 (적용되는 값과 동일한 포맷)
+            double rawValue = AssociatedObject.Value;
+            
+            // 디버그 로그
+            System.Diagnostics.Debug.WriteLine($"[SliderPopup] Raw={rawValue}, Display={rawValue}");
+            
+            _popupText.Text = rawValue.ToString();
         }
     }
 }

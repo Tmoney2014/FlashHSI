@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Xaml.Behaviors;
 
 namespace FlashHSI.UI.Behaviors;
@@ -89,19 +91,26 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
 
     private void ExecuteCommand()
     {
-        // 1. 먼저 Binding Source 업데이트 (값을 ViewModel에 적용)
-        var bindingExpr = AssociatedObject?.GetBindingExpression(Slider.ValueProperty);
+        if (AssociatedObject == null) return;
+
+        // ★★★ Slider의 최종 값을 직접 읽어서 로깅 ★★★
+        double sliderValue = AssociatedObject.Value;
+        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-EXECUTE] Slider.Value 직접 읽음 = {sliderValue}");
+        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-UpdateSource] Before Value={AssociatedObject.Value}");
+
+        // Binding Source 업데이트 (값을 ViewModel에 적용)
+        var bindingExpr = AssociatedObject.GetBindingExpression(Slider.ValueProperty);
         if (bindingExpr != null)
         {
             bindingExpr.UpdateSource();
         }
-        
-        // 2. Command가 있으면 실행
+
+        // Command가 있으면 실행
         if (Command?.CanExecute(CommandParameter) == true)
         {
             Command.Execute(CommandParameter);
         }
-        // 3. Command가 없으면 콜백만 호출
+        // Command가 없으면 콜백만 호출
         else
         {
             Callback?.Invoke();
@@ -133,7 +142,8 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
     private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         // 드래그 또는 클릭 모두에서 Command 실행
-        _isDragging = false;
+        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-LEFTBUTTONUP] 호출됨! Slider.Value={AssociatedObject?.Value}");
         ExecuteCommand();
+        _isDragging = false;
     }
 }

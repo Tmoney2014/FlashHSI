@@ -509,7 +509,9 @@
                                     <TextBlock Text="Background Threshold" Width="200" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding BackgroundThreshold, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="6"/>
-                                    <Slider Minimum="1000" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
+                                    <Slider Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" 
+                                            TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center"
+                                            SmallChange="1" LargeChange="100">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>

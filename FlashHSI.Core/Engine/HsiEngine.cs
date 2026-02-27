@@ -224,6 +224,8 @@ namespace FlashHSI.Core.Engine
 
         public void SetMaskSettings(MaskMode mode, MaskRule? rule, int bandIndex, bool lessThan, double threshold)
         {
+            System.Diagnostics.Debug.WriteLine($"[HsiEngine] SetMaskSettings: mode={mode}, bandIndex={bandIndex}, lessThan={lessThan}, threshold={threshold}");
+            
             _maskMode = mode;
             
             // Mean 모드에서는 maskRule을 clear (BandPixel 모드에서도 기존 rule 제거)

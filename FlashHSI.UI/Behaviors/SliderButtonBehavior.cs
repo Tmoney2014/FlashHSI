@@ -22,11 +22,12 @@ public class SliderButtonBehavior : Behavior<Slider>
     // Popup 관련
     private Popup? _popup;
     private TextBlock? _popupText;
-    private double _lastButtonValue;  // 버튼 조작 시 저장할 값
     private DispatcherTimer? _applyTimer;  // 500ms 후 값 적용용 타이머
     
     // 버튼 상태
     private bool _isButtonPressed = false;
+    private int _clickCount = 1;  // Interval 클릭 횟수 추적
+    private DateTime _buttonPressTime;  // 버튼 누른 시간
     private bool _isHoldMode = false;  // 홀로 진입했는지 여부 (홀드 모드일 때 단일 클릭 값 적용 방지)
 
     protected override void OnAttached()
@@ -248,7 +249,9 @@ public class SliderButtonBehavior : Behavior<Slider>
     private void OnButtonMouseDown(object sender, MouseButtonEventArgs e)
     {
         _isButtonPressed = true;
+        _clickCount = 0;
         _isHoldMode = false;
+        _buttonPressTime = DateTime.Now;
         
         // 타이머 중단
         _applyTimer?.Stop();
@@ -329,12 +332,13 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         if (_slider == null) return;
 
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] DecreaseClick called, isHoldMode={_isHoldMode}");
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] DecreaseClick called, clickCount={_clickCount}");
 
         // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
-        if (!_isHoldMode)
+        if (_clickCount == 0)
         {
             _isHoldMode = true;  // 홀드 모드 시작
+            _clickCount++;
             return;  // 값 변경 없이 타이머만 시작
         }
 
@@ -357,12 +361,13 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         if (_slider == null) return;
 
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] IncreaseClick called, isHoldMode={_isHoldMode}");
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] IncreaseClick called, clickCount={_clickCount}");
 
         // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
-        if (!_isHoldMode)
+        if (_clickCount == 0)
         {
             _isHoldMode = true;  // 홀드 모드 시작
+            _clickCount++;
             return;  // 값 변경 없이 타이머만 시작
         }
 

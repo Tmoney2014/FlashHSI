@@ -28,6 +28,8 @@ public class SliderButtonBehavior : Behavior<Slider>
     // 버튼 상태
     private bool _isButtonPressed = false;
     private int _clickCount = 0;  // Interval 클릭 횟수 추적
+    private DateTime _buttonPressTime;  // 버튼 누른 시간
+    private bool _isHoldMode = false;  // 홀로 진입했는지 여부 (홀드 모드일 때 단일 클릭 값 적용 방지)
 
     protected override void OnAttached()
     {
@@ -72,7 +74,7 @@ public class SliderButtonBehavior : Behavior<Slider>
         // 타이머 초기화
         _applyTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(500)
+            Interval = TimeSpan.FromMilliseconds(700)  // 홀드 모드 종료를 위해 대기 시간 증가
         };
         _applyTimer.Tick += OnApplyTimerTick;
 
@@ -238,7 +240,7 @@ public class SliderButtonBehavior : Behavior<Slider>
             VerticalAlignment = sliderVerticalAlignment,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(4, 0, 0, 0),
-            Delay = 500,
+            Delay = 500,  // 첫 반복까지 500ms 대기
             Interval = 30,  // 30ms마다 반복 (더 빠르게)
             Style = Application.Current.Resources["MaterialDesignIconButton"] as Style
         };
@@ -248,9 +250,11 @@ public class SliderButtonBehavior : Behavior<Slider>
     private void OnButtonMouseDown(object sender, MouseButtonEventArgs e)
     {
         _isButtonPressed = true;
-        _clickCount = 0;  // 클릭 카운트 초기화
+        _clickCount = 0;
+        _isHoldMode = false;
+        _buttonPressTime = DateTime.Now;
         
-        // 타이머 중단 (다시 버튼을 누르면)
+        // 타이머 중단
         _applyTimer?.Stop();
         
         // Popup 표시
@@ -261,9 +265,8 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         _isButtonPressed = false;
         
-        // MouseUp 시: Popup 숨기고 타이머 시작 (500ms 후 적용)
+        // 단일 클릭이든 홀이든 500ms 후 적용
         HidePopup();
-        
         _applyTimer?.Stop();
         _applyTimer?.Start();
     }
@@ -273,21 +276,29 @@ public class SliderButtonBehavior : Behavior<Slider>
         // 500ms 후 실행
         _applyTimer?.Stop();
         
-        // hold 중이면 적용 X (타이머 리셋만)
+        // 계속 홀딩 중이면 타이머 리셋해서 계속 대기
         if (_isButtonPressed)
         {
-            // 계속 hold 중 - 타이머 리셋해서 계속 대기
             _applyTimer?.Start();
             return;
         }
         
-        // hold를 놓았으면 Popup 숨기고 값 적용
+        // 버튼을 놓았으면
         HidePopup();
         
+        // 홀드로 진입했었다면: 값 적용 안 함 (첫 클릭은 무효)
+        if (_isHoldMode)
+        {
+            _isHoldMode = false;  // 플래그 리셋
+            System.Diagnostics.Debug.WriteLine("[SliderButtonBehavior] Hold mode - value not applied");
+            return;
+        }
+        
+        // 일반 단일 클릭: 값 적용
         if (_slider != null)
         {
-            // ViewModel에 적용 (마지막 값만 한번 적용)
             _slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
+            System.Diagnostics.Debug.WriteLine("[SliderButtonBehavior] Single click - value applied");
         }
     }
 
@@ -324,9 +335,10 @@ public class SliderButtonBehavior : Behavior<Slider>
 
         System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] DecreaseClick called, clickCount={_clickCount}");
 
-        // 첫 번째 Interval 클릭에서는 값 변경 안 함 (대기만)
+        // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
         if (_clickCount == 0)
         {
+            _isHoldMode = true;  // 홀드 모드 시작
             _clickCount++;
             return;  // 값 변경 없이 타이머만 시작
         }
@@ -341,7 +353,7 @@ public class SliderButtonBehavior : Behavior<Slider>
         // Popup 보이기
         ShowPopup();
         
-        // 500ms 타이머 리셋 (다시 카운트)
+        // 500ms 타이머 리셋
         _applyTimer?.Stop();
         _applyTimer?.Start();
     }
@@ -352,9 +364,10 @@ public class SliderButtonBehavior : Behavior<Slider>
 
         System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] IncreaseClick called, clickCount={_clickCount}");
 
-        // 첫 번째 Interval 클릭에서는 값 변경 안 함 (대기만)
+        // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
         if (_clickCount == 0)
         {
+            _isHoldMode = true;  // 홀드 모드 시작
             _clickCount++;
             return;  // 값 변경 없이 타이머만 시작
         }
@@ -369,7 +382,7 @@ public class SliderButtonBehavior : Behavior<Slider>
         // Popup 보이기
         ShowPopup();
         
-        // 500ms 타이머 리셋 (다시 카운트)
+        // 500ms 타이머 리셋
         _applyTimer?.Stop();
         _applyTimer?.Start();
     }

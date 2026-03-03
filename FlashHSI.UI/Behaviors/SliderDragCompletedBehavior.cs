@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using Microsoft.Xaml.Behaviors;
-
 namespace FlashHSI.UI.Behaviors;
 
 /// <summary>
@@ -62,15 +62,16 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
         set => SetValue(CallbackProperty, value);
     }
 
+    // AI가 수정함: 마우스 이벤트 억지 조합을 제거하고, WPF 네이티브 Thumb 이벤트를 통해 정확한 상태 추적
     protected override void OnAttached()
     {
         base.OnAttached();
 
         if (AssociatedObject != null)
         {
-            AssociatedObject.PreviewMouseLeftButtonDown += OnPreviewMouseLeftButtonDown;
+            AssociatedObject.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(OnDragStarted));
+            AssociatedObject.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnDragCompleted));
             AssociatedObject.PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
-            AssociatedObject.MouseLeave += OnMouseLeave;
             AssociatedObject.KeyUp += OnKeyUp;
         }
     }
@@ -79,70 +80,60 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
     {
         if (AssociatedObject != null)
         {
-            AssociatedObject.PreviewMouseLeftButtonDown -= OnPreviewMouseLeftButtonDown;
+            AssociatedObject.RemoveHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(OnDragStarted));
+            AssociatedObject.RemoveHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnDragCompleted));
             AssociatedObject.PreviewMouseLeftButtonUp -= OnPreviewMouseLeftButtonUp;
-            AssociatedObject.MouseLeave -= OnMouseLeave;
             AssociatedObject.KeyUp -= OnKeyUp;
         }
 
         base.OnDetaching();
     }
 
-    private void ExecuteCommand()
+    private void OnDragStarted(object sender, DragStartedEventArgs e)
     {
-        if (AssociatedObject == null) return;
+        _isDragging = true;
+    }
 
-        // ★★★ Slider의 최종 값을 직접 읽어서 로깅 ★★★
-        double sliderValue = AssociatedObject.Value;
-        Debug.WriteLine($"[SliderDragCompleted-EXECUTE] Slider.Value 직접 읽음 = {sliderValue}");
-        Debug.WriteLine($"[SliderDragCompleted-UpdateSource] Before Value={AssociatedObject.Value}");
+    private void OnDragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        _isDragging = false;
+        ExecuteCommand();
+    }
 
-        // Binding Source 업데이트 (값을 ViewModel에 적용)
-        var bindingExpr = AssociatedObject.GetBindingExpression(Slider.ValueProperty);
-        if (bindingExpr != null)
+    private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        // 썸(Thumb) 드래그가 아닐 때(예: 트랙 빈 공간 클릭)만 실행하여 중복 호출 방지
+        if (!_isDragging)
         {
-            bindingExpr.UpdateSource();
-        }
-
-        // Command가 있으면 실행
-        if (Command?.CanExecute(CommandParameter) == true)
-        {
-            Command.Execute(CommandParameter);
-        }
-        // Command가 없으면 콜백만 호출
-        else
-        {
-            Callback?.Invoke();
+            ExecuteCommand();
         }
     }
 
     private void OnKeyUp(object sender, KeyEventArgs e)
     {
-        // 키보드로 슬라이더 조작 시에도 Command 실행
-        if (e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Up || e.Key == Key.Down ||
-            e.Key == Key.Home || e.Key == Key.End || e.Key == Key.PageUp || e.Key == Key.PageDown)
-            ExecuteCommand();
-    }
-
-    private void OnMouseLeave(object sender, MouseEventArgs e)
-    {
-        if (_isDragging)
+        // 키보드로 슬라이더 조작 시 Command 실행
+        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown)
         {
-            _isDragging = false;
             ExecuteCommand();
         }
     }
 
-    private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void ExecuteCommand()
     {
-        _isDragging = true;
-    }
+        if (AssociatedObject == null) return;
 
-    private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        // 드래그 또는 클릭 모두에서 Command 실행
-        Debug.WriteLine($"[SliderDragCompleted-LEFTBUTTONUP] 호출됨! Slider.Value={AssociatedObject?.Value}");
-        ExecuteCommand();
-        _isDragging = false;
+        // Binding Source 업데이트 (값을 ViewModel에 적용)
+        var bindingExpr = AssociatedObject.GetBindingExpression(Slider.ValueProperty);
+        bindingExpr?.UpdateSource();
+
+        // Command가 있으면 실행, 없으면 Action Callback 등록된 내용 실행
+        if (Command?.CanExecute(CommandParameter) == true)
+        {
+            Command.Execute(CommandParameter);
+        }
+        else
+        {
+            Callback?.Invoke();
+        }
     }
 }

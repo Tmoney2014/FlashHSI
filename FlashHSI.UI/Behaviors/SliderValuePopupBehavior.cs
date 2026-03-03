@@ -31,6 +31,7 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     public static string GetFormat(DependencyObject obj) => (string)obj.GetValue(FormatProperty);
     public static void SetFormat(DependencyObject obj, string value) => obj.SetValue(FormatProperty, value);
 
+    // AI가 수정함: 이벤트 누수(Memory Leak) 방지를 위해 Unloaded 이벤트 핸들러 추가
     protected override void OnAttached()
     {
         base.OnAttached();
@@ -38,6 +39,7 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         if (AssociatedObject == null) return;
 
         AssociatedObject.Loaded += OnLoaded;
+        AssociatedObject.Unloaded += OnUnloaded;
     }
 
     protected override void OnDetaching()
@@ -45,8 +47,9 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         if (AssociatedObject != null)
         {
             AssociatedObject.Loaded -= OnLoaded;
+            AssociatedObject.Unloaded -= OnUnloaded;
         }
-        
+
         if (_popup != null)
         {
             _popup.IsOpen = false;
@@ -71,6 +74,22 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         CreatePopup();
     }
 
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        var thumb = FindThumb(AssociatedObject);
+        if (thumb != null)
+        {
+            thumb.DragStarted -= OnThumbDragStarted;
+            thumb.DragCompleted -= OnThumbDragCompleted;
+            thumb.DragDelta -= OnThumbDragDelta;
+        }
+
+        if (_popup != null)
+        {
+            _popup.IsOpen = false;
+        }
+    }
+
     private TextBox? FindTextBox(DependencyObject slider)
     {
         var parent = VisualTreeHelper.GetParent(slider);
@@ -92,12 +111,12 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            
+
             if (child is Thumb thumb)
             {
                 return thumb;
             }
-            
+
             var result = FindThumb(child);
             if (result != null)
             {
@@ -162,26 +181,28 @@ public class SliderValuePopupBehavior : Behavior<Slider>
 
     private void OnThumbDragCompleted(object sender, DragCompletedEventArgs e)
     {
-        // ★★★ 저장한 마지막 값을 Popup에 표시 ★★★
         double finalValue = _lastDragValue;
-        Debug.WriteLine($"[SliderPopup] finalValue={finalValue}");
-        
-        // Popup에 최종 값 표시 (소수점 3자리)
+
+        // Popup에 최종 값 표시 (DependencyProperty Format 사용)
         if (_popupText != null)
         {
-            _popupText.Text = finalValue.ToString("F3");
+            string format = GetFormat(this);
+            _popupText.Text = finalValue.ToString(format);
         }
-        
-        // ViewModel에 저장한 값으로 직접 설정
+
+        // AI가 수정함: _isDragging 플래그를 Binding Source 업데이트 전에 해제
+        // (DragCompletedBehavior와의 충돌 방지)
+        _isDragging = false;
+
         if (AssociatedObject != null)
         {
             AssociatedObject.Value = finalValue;
             var bindingExpr = AssociatedObject.GetBindingExpression(Slider.ValueProperty);
             bindingExpr?.UpdateSource();
         }
-        
+
         _isDragging = false;
-        
+
         // Popup 숨기고 TextBox 보이기
         HidePopup();
         ShowTextBox();
@@ -207,8 +228,9 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     {
         if (_popupText != null)
         {
-            // TextBox와 동일하게 소수점 3자리까지 표시
-            _popupText.Text = _lastDragValue.ToString("F3");
+            // DependencyProperty로 등록된 Format 속성 활용 (기본값 N0)
+            string format = GetFormat(this);
+            _popupText.Text = _lastDragValue.ToString(format);
         }
     }
 

@@ -121,6 +121,10 @@ namespace FlashHSI.UI.ViewModels
             }
             
             _hsiEngine.SetTargetFps(s.TargetFps);
+            
+            // AI가 수정함: SettingVM 이벤트 구독 완료 후 저장된 파일 자동 로드 시작
+            // (SettingVM 생성자에서 fire-and-forget 시 ModelLoaded 구독 전에 이벤트가 발생하는 레이스 컨디션 수정)
+            _ = SettingVM.LoadSavedFilesAsync();
         }
 
         // AI가 수정함: OnFrameProcessed 메서드는 LiveViewModel로 이동됨

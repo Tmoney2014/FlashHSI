@@ -166,9 +166,8 @@ namespace FlashHSI.UI.ViewModels
                 IsMasterOn = _etherCATService.IsMasterOn;
             };
 
-            // AI가 추가함: 저장된 파일들을 자동으로 로드 (비동기로 실행)
-            // LoadMaskRuleSettings()는 모델 로드 성공 직후에 호출됨 (async 타이밍 버그 수정)
-            _ = LoadSavedFilesAsync();
+            // AI가 수정함: LoadSavedFilesAsync()는 MainViewModel에서 이벤트 구독 완료 후 호출
+            // (SettingVM 생성자에서 fire-and-forget 시 ModelLoaded 이벤트 구독 전에 발생하는 레이스 컨디션 수정)
 
             // AI: Ejection 설정 로드
             // AI: Ejection 설정 로드
@@ -194,7 +193,7 @@ namespace FlashHSI.UI.ViewModels
         /// <summary>
         /// AI가 추가함: 저장된 파일들을 앱 시작 시 자동으로 로드
         /// </summary>
-        private async Task LoadSavedFilesAsync()
+        internal async Task LoadSavedFilesAsync()
         {
             var s = SettingsService.Instance.Settings;
 
@@ -238,7 +237,7 @@ namespace FlashHSI.UI.ViewModels
                         // AI가 수정함: LoadModel 메서드 호출
                         _hsiEngine.LoadModel(s.LastModelPath);
                         PopulateSortClasses(config);
-                        ModelLoaded?.Invoke("Model loaded from saved path");
+                        ModelLoaded?.Invoke(s.LastModelPath);
                         
                         // AI가 수정함: 모델 로드 직후 MaskRule 설정 복원 (async 타이밍 버그 수정)
                         LoadMaskRuleSettings();
@@ -339,7 +338,7 @@ namespace FlashHSI.UI.ViewModels
                         LastModelPath = dlg.FileName;
                         SettingsService.Instance.Settings.LastModelPath = dlg.FileName;
                         SettingsService.Instance.Save();
-                        ModelLoaded?.Invoke("Model loaded successfully");
+                        ModelLoaded?.Invoke(dlg.FileName);
                         
                         // AI가 추가함: 모델 로드 직후 MaskRule 설정 복원
                         LoadMaskRuleSettings();

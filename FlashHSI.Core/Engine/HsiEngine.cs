@@ -440,8 +440,16 @@ namespace FlashHSI.Core.Engine
                         // 2. Mean-based Masking (Average Threshold)
                         long sum = 0;
                         for (int b = 0; b < bandCount; b++) sum += pPixel[b];
-                        // 원래 로직: 밝기 < 임계값 → 배경 처리
-                        if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
+                        double meanValue = (double)sum / bandCount;
+                        // 체크박스 (MaskLessThan)에 따라 조건 결정
+                        if (_maskOperatorLess)
+                        {
+                            if (meanValue < _backgroundThreshold) isBackground = true;
+                        }
+                        else
+                        {
+                            if (meanValue > _backgroundThreshold) isBackground = true;
+                        }
                     }
                     else if (_maskMode == MaskMode.BandPixel)
                     {
@@ -728,8 +736,16 @@ namespace FlashHSI.Core.Engine
                                 {
                                     long sum = 0;
                                     for (int b = 0; b < bandCount; b++) sum += pPixel[b];
-                                    // 원래 로직: 밝기 < 임계값 → 배경 처리
-                                    if (((double)sum / bandCount) < _backgroundThreshold) isBackground = true;
+                                    double meanValue = (double)sum / bandCount;
+                                    // 체크박스 (MaskLessThan)에 따라 조건 결정
+                                    if (_maskOperatorLess)
+                                    {
+                                        if (meanValue < _backgroundThreshold) isBackground = true;
+                                    }
+                                    else
+                                    {
+                                        if (meanValue > _backgroundThreshold) isBackground = true;
+                                    }
                                 }
                                 else if (useMaskRule)
                                 {

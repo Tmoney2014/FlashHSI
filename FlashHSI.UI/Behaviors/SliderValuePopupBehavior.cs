@@ -17,7 +17,6 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     private TextBlock? _popupText;
     private bool _isDragging;
     private TextBox? _linkedTextBox;
-    private TextBox? _sliderValueTextBox;
     private double _lastDragValue;  // DragDelta 중에 마지막으로 읽은 값 저장
 
     /// <summary>
@@ -69,27 +68,8 @@ public class SliderValuePopupBehavior : Behavior<Slider>
 
         // 같은 DockPanel에 있는 TextBox 찾기
         _linkedTextBox = FindTextBox(AssociatedObject);
-        
-        // Slider 값을 직접 표시하는 TextBox 찾기 (x:Name="SliderValueTextBox")
-        _sliderValueTextBox = FindSliderValueTextBox(AssociatedObject);
 
         CreatePopup();
-    }
-
-    private TextBox? FindSliderValueTextBox(DependencyObject slider)
-    {
-        var parent = VisualTreeHelper.GetParent(slider);
-        if (parent is DockPanel dockPanel)
-        {
-            foreach (var child in dockPanel.Children)
-            {
-                if (child is TextBox textBox && textBox.Name == "SliderValueTextBox")
-                {
-                    return textBox;
-                }
-            }
-        }
-        return null;
     }
 
     private TextBox? FindTextBox(DependencyObject slider)
@@ -168,29 +148,29 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     {
         _isDragging = true;
         HideTextBox();
-        ShowSliderValueTextBox();  // Slider 값 표시용 TextBox 보이기
+        ShowPopup();
     }
 
     private void OnThumbDragDelta(object sender, DragDeltaEventArgs e)
     {
-        // Slider.Value를 읽어서 TextBox에 표시 + 저장
+        // Slider.Value를 읽어서 Popup에 표시 + 저장
         if (AssociatedObject != null)
         {
             _lastDragValue = AssociatedObject.Value;
-            _sliderValueTextBox.Text = _lastDragValue.ToString();
+            UpdatePopupValue();
         }
     }
 
     private void OnThumbDragCompleted(object sender, DragCompletedEventArgs e)
     {
-        // ★★★ 저장한 마지막 값을 사용 ★★★
+        // ★★★ 저장한 마지막 값을 Popup에 표시 ★★★
         double finalValue = _lastDragValue;
-        System.Diagnostics.Debug.WriteLine($"[SliderValueTextBox] finalValue={finalValue}");
+        System.Diagnostics.Debug.WriteLine($"[SliderPopup] finalValue={finalValue}");
         
-        // Slider 값 표시용 TextBox 업데이트 (저장한 값)
-        if (_sliderValueTextBox != null)
+        // Popup에 최종 값 표시 (소수점 3자리)
+        if (_popupText != null)
         {
-            _sliderValueTextBox.Text = finalValue.ToString();
+            _popupText.Text = finalValue.ToString("F3");
         }
         
         // ViewModel에 저장한 값으로 직접 설정
@@ -203,8 +183,8 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         
         _isDragging = false;
         
-        // ViewModel TextBox 보이기, Slider 값 TextBox 숨기기
-        HideSliderValueTextBox();
+        // Popup 숨기고 TextBox 보이기
+        HidePopup();
         ShowTextBox();
     }
 
@@ -222,33 +202,31 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         {
             _linkedTextBox.Opacity = 1;
         }
-        // Slider 값 표시용 TextBox 숨기기
-        HideSliderValueTextBox();
     }
 
-    private void ShowSliderValueTextBox()
+    private void UpdatePopupValue()
     {
-        if (_sliderValueTextBox != null)
+        if (_popupText != null)
         {
-            _sliderValueTextBox.Opacity = 1;
+            // TextBox와 동일하게 소수점 3자리까지 표시
+            _popupText.Text = _lastDragValue.ToString("F3");
         }
     }
 
-    private void HideSliderValueTextBox()
+    private void ShowPopup()
     {
-        if (_sliderValueTextBox != null)
+        if (_popup != null && _popupText != null)
         {
-            _sliderValueTextBox.Opacity = 0;
+            UpdatePopupValue();
+            _popup.IsOpen = true;
         }
     }
 
-    private void UpdateSliderValueTextBox()
+    private void HidePopup()
     {
-        if (_sliderValueTextBox != null && AssociatedObject != null)
+        if (_popup != null)
         {
-            double rawValue = AssociatedObject.Value;
-            System.Diagnostics.Debug.WriteLine($"[SliderValueTextBox] Raw={rawValue}");
-            _sliderValueTextBox.Text = rawValue.ToString();
+            _popup.IsOpen = false;
         }
     }
 }

@@ -451,7 +451,7 @@
                             <StackPanel>
                                 <TextBlock Text="Classification" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
 
-                                <DockPanel Margin="0,0,0,10" ToolTip="LDA 모델에서 Confidence 임계값. 이 값 이하의 분류 결과는 Unknown으로 처리">
+                                <DockPanel Margin="0,0,0,10" ToolTip="모델에서 Confidence 임계값. 이 값 이하의 분류 결과는 Unknown으로 처리">
                                     <TextBlock Text="Confidence Threshold" Width="200" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding ConfidenceThreshold, StringFormat=N2}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>

@@ -1,10 +1,6 @@
-using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Messages;
+using FlashHSI.Core.Settings;
 
 namespace FlashHSI.Core.Analysis
 {
@@ -74,13 +70,13 @@ namespace FlashHSI.Core.Analysis
             {
                 switch (message.PropertyName)
                 {
-                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobMinPixels):
+                    case nameof(SystemSettings.BlobMinPixels):
                         recipient.MinPixels = message.Value;
                         break;
-                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobLineGap):
+                    case nameof(SystemSettings.BlobLineGap):
                         recipient.MaxLineGap = message.Value;
                         break;
-                    case nameof(FlashHSI.Core.Settings.SystemSettings.BlobPixelGap):
+                    case nameof(SystemSettings.BlobPixelGap):
                         recipient.MaxPixelGap = message.Value;
                         break;
                 }

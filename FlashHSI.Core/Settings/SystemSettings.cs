@@ -1,5 +1,3 @@
-using System;
-
 namespace FlashHSI.Core.Settings
 {
     public class SystemSettings

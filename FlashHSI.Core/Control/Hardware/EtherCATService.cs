@@ -1,16 +1,10 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using EtherCAT.NET;
 using EtherCAT.NET.Infrastructure;
 using FlashHSI.Core.Messages;
-using FlashHSI.Core.Utilities;
+using FlashHSI.Core.Settings;
 
 namespace FlashHSI.Core.Control.Hardware
 {
@@ -51,7 +45,7 @@ namespace FlashHSI.Core.Control.Hardware
             // 메시지 구독 - EtherCATCycleFrequency (int)
             WeakReferenceMessenger.Default.Register<EtherCATService, SettingsChangedMessage<int>>(this, static (recipient, message) =>
             {
-                if (message.PropertyName == nameof(FlashHSI.Core.Settings.SystemSettings.EtherCATCycleFrequency))
+                if (message.PropertyName == nameof(SystemSettings.EtherCATCycleFrequency))
                 {
                     recipient.SetCycleFrequency(message.Value);
                 }
@@ -60,7 +54,7 @@ namespace FlashHSI.Core.Control.Hardware
             // 메시지 구독 - EsiDirectoryPath (string)
             WeakReferenceMessenger.Default.Register<EtherCATService, SettingsChangedMessage<string>>(this, static (recipient, message) =>
             {
-                if (message.PropertyName == nameof(FlashHSI.Core.Settings.SystemSettings.EsiDirectoryPath))
+                if (message.PropertyName == nameof(SystemSettings.EsiDirectoryPath))
                 {
                     recipient.SetEsiDirectoryPath(message.Value);
                 }

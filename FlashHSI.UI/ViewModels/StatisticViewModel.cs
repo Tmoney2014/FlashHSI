@@ -1,12 +1,10 @@
+using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FlashHSI.Core;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core.Services;
-using Serilog;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Windows;
 
 namespace FlashHSI.UI.ViewModels
 {

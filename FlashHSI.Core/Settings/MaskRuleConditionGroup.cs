@@ -1,6 +1,6 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Text;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace FlashHSI.Core.Settings
 {

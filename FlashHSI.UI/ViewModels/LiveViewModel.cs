@@ -1,19 +1,17 @@
+using System.Buffers;
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using FlashHSI.Core.Analysis;
 using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core.Messages;
 using FlashHSI.UI.Services;
 using Serilog;
-using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace FlashHSI.UI.ViewModels
 {
@@ -203,7 +201,7 @@ namespace FlashHSI.UI.ViewModels
         /// <summary>
         /// 프레임 처리 이벤트 핸들러 (MainViewModel에서 이동)
         /// </summary>
-        private void OnFrameProcessed(int[] data, int width, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot> blobs)
+        private void OnFrameProcessed(int[] data, int width, List<ActiveBlob.BlobSnapshot> blobs)
         {
             // The original code had `if (Application.Current == null) return;`
             // The provided snippet removed it and added `if (_isPaused) return;`

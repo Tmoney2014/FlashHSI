@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using EtherCAT.NET.Infrastructure;
 
 namespace FlashHSI.Core.Control.Hardware

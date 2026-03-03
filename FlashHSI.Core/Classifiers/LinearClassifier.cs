@@ -1,5 +1,5 @@
-using FlashHSI.Core.Interfaces;
 using System.Runtime.CompilerServices;
+using FlashHSI.Core.Interfaces;
 
 namespace FlashHSI.Core.Classifiers
 {

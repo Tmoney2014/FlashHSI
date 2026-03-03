@@ -1,8 +1,7 @@
-using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Xaml.Behaviors;
 
@@ -165,7 +164,7 @@ public class SliderValuePopupBehavior : Behavior<Slider>
     {
         // ★★★ 저장한 마지막 값을 Popup에 표시 ★★★
         double finalValue = _lastDragValue;
-        System.Diagnostics.Debug.WriteLine($"[SliderPopup] finalValue={finalValue}");
+        Debug.WriteLine($"[SliderPopup] finalValue={finalValue}");
         
         // Popup에 최종 값 표시 (소수점 3자리)
         if (_popupText != null)

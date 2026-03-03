@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.Timers;
 using FlashHSI.Core.Memory;

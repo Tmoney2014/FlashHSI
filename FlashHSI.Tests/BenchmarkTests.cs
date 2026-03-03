@@ -1,6 +1,7 @@
-using FlashHSI.Core;
-using Newtonsoft.Json;
 using System.Diagnostics;
+using FlashHSI.Core;
+using FlashHSI.Core.Classifiers;
+using Newtonsoft.Json;
 using Xunit.Abstractions;
 
 namespace FlashHSI.Tests
@@ -46,7 +47,7 @@ namespace FlashHSI.Tests
             string json = CreateMockModel();
             var config = JsonConvert.DeserializeObject<ModelConfig>(json);
 
-            var classifier = new FlashHSI.Core.Classifiers.LinearClassifier();
+            var classifier = new LinearClassifier();
             classifier.Load(config);
 
             int totalBands = 200;

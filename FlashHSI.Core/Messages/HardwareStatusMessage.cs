@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging.Messages;
-using FlashHSI.Core.Enums; // DeviceStatus 사용을 위해 namespace 추가
+using FlashHSI.Core.Enums;
+
+// DeviceStatus 사용을 위해 namespace 추가
 
 namespace FlashHSI.Core.Messages;
 

@@ -1,19 +1,17 @@
-using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Analysis;
+using FlashHSI.Core.Classifiers;
 using FlashHSI.Core.Control;
+using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.IO;
 using FlashHSI.Core.Masking;
 using FlashHSI.Core.Messages;
 using FlashHSI.Core.Pipelines;
+using FlashHSI.Core.Preprocessing;
 using FlashHSI.Core.Settings;
-using FlashHSI.Core.Control.Camera;
-
+using Newtonsoft.Json;
 
 namespace FlashHSI.Core.Engine
 {
@@ -66,14 +64,14 @@ namespace FlashHSI.Core.Engine
         private int _lastWidth;
         
         // GC 최적화: 스냅샷 리스트 재사용
-        private readonly List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot> _snapshotBuffer = new();
+        private readonly List<ActiveBlob.BlobSnapshot> _snapshotBuffer = new();
         
         // Events
         public event Action<EngineStats>? StatsUpdated;
         public event Action<string>? LogMessage;
         public event Action<bool>? SimulationStateChanged;
         // AI: Changed event signature to include active blobs for advanced visualization (Top Cap)
-        public event Action<int[], int, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>>? FrameProcessed;
+        public event Action<int[], int, List<ActiveBlob.BlobSnapshot>>? FrameProcessed;
         public event Action<EjectionLogItem>? EjectionOccurred;
 
         public bool IsSimulating => _isRunning;
@@ -93,7 +91,7 @@ namespace FlashHSI.Core.Engine
             _cameraService = cameraService;
             
             // AI: LinearClassifier 디버그 로그 연결 (UI 출력용)
-            FlashHSI.Core.Classifiers.LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
+            LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
             
             // AI가 추가함: 메시지 구독
             WeakReferenceMessenger.Default.Register<HsiEngine, SettingsChangedMessage<double>>(this, static (recipient, message) =>
@@ -118,7 +116,7 @@ namespace FlashHSI.Core.Engine
             try
             {
                 string json = File.ReadAllText(jsonPath);
-                var config = Newtonsoft.Json.JsonConvert.DeserializeObject<ModelConfig>(json);
+                var config = JsonConvert.DeserializeObject<ModelConfig>(json);
                 if (config == null) throw new Exception("Failed to deserialize model config");
 
                 CurrentConfig = config;
@@ -156,7 +154,7 @@ namespace FlashHSI.Core.Engine
                 }
 
                 // AI: 초기 Confidence Threshold 설정
-                SetConfidenceThreshold(FlashHSI.Core.Settings.SettingsService.Instance.Settings.ConfidenceThreshold);
+                SetConfidenceThreshold(SettingsService.Instance.Settings.ConfidenceThreshold);
                 
                 // AI가 추가함: 모델 타입 저장 (UI 연동용)
                 LoadedModelType = config.OriginalType ?? "";
@@ -224,7 +222,7 @@ namespace FlashHSI.Core.Engine
 
         public void SetMaskSettings(MaskMode mode, MaskRule? rule, int bandIndex, bool lessThan, double threshold)
         {
-            System.Diagnostics.Debug.WriteLine($"[HsiEngine] SetMaskSettings: mode={mode}, bandIndex={bandIndex}, lessThan={lessThan}, threshold={threshold}");
+            Debug.WriteLine($"[HsiEngine] SetMaskSettings: mode={mode}, bandIndex={bandIndex}, lessThan={lessThan}, threshold={threshold}");
             
             _maskMode = mode;
             
@@ -253,7 +251,7 @@ namespace FlashHSI.Core.Engine
         /// <summary>
         /// AI가 추가함: MaskRuleConditionCollection에서 MaskRule을 생성하여 적용
         /// </summary>
-        public void SetMaskRuleFromCollection(FlashHSI.Core.Settings.MaskRuleConditionCollection collection)
+        public void SetMaskRuleFromCollection(MaskRuleConditionCollection collection)
         {
             if (collection.ConditionGroups.Count > 0)
             {
@@ -298,7 +296,7 @@ namespace FlashHSI.Core.Engine
         /// </summary>
         public void SetBackgroundThreshold(double threshold)
         {
-            System.Diagnostics.Debug.WriteLine($"[HsiEngine] SetBackgroundThreshold called: {threshold}");
+            Debug.WriteLine($"[HsiEngine] SetBackgroundThreshold called: {threshold}");
             UpdateBackgroundThreshold(threshold);
         }
 
@@ -416,9 +414,9 @@ namespace FlashHSI.Core.Engine
                 bool useMean = (_maskMode == MaskMode.Mean);
                 
                 // 디버그 로그
-                if (System.Diagnostics.Debugger.IsAttached)
+                if (Debugger.IsAttached)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ProcessCameraFrame] _backgroundThreshold={_backgroundThreshold}, useMean={useMean}, _maskMode={_maskMode}");
+                    Debug.WriteLine($"[ProcessCameraFrame] _backgroundThreshold={_backgroundThreshold}, useMean={useMean}, _maskMode={_maskMode}");
                 }
 
             fixed (ushort* pFrame = frameData)
@@ -705,7 +703,7 @@ namespace FlashHSI.Core.Engine
                         bool useMaskRule = (_maskMode == MaskMode.MaskRule && _maskRule != null);
                         bool useBandPixel = (_maskMode == MaskMode.BandPixel && _maskBandIndex < bandCount);
                         bool useMean = lastUseMean;
-                        bool useAbsorbanceForMask = (_pipeline.GetExtractorType() == typeof(FlashHSI.Core.Preprocessing.LogGapFeatureExtractor));
+                        bool useAbsorbanceForMask = (_pipeline.GetExtractorType() == typeof(LogGapFeatureExtractor));
                         
                         long startTick = loopTimer.ElapsedTicks;
                         double fps = _targetFps < 1.0 ? 1.0 : _targetFps;
@@ -774,7 +772,7 @@ namespace FlashHSI.Core.Engine
 
                         // Notify Visualization (Synchronous to avoid allocation? No, now we allocate for safety)
                     // Generate Snapshots for Thread Safety
-                    var snapshots = new System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>();
+                    var snapshots = new List<ActiveBlob.BlobSnapshot>();
 
                         // 2. Tracking
                         if (_blobTracker != null)
@@ -894,7 +892,7 @@ namespace FlashHSI.Core.Engine
             _disposed = true;
             
             // 정적 이벤트 구독 해제 (메모리 누수 방지)
-            FlashHSI.Core.Classifiers.LinearClassifier.GlobalLog -= (msg) => LogMessage?.Invoke(msg);
+            LinearClassifier.GlobalLog -= (msg) => LogMessage?.Invoke(msg);
             
             // 다른 리소스 정리
             _pipeline = null;

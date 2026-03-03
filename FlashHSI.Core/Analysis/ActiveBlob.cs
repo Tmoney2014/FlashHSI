@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace FlashHSI.Core.Analysis
 {
     /// <summary>
@@ -50,7 +47,7 @@ namespace FlashHSI.Core.Analysis
 
         public ActiveBlob(int startX, int endX, int currentLine, int classCount)
         {
-            Id = System.Threading.Interlocked.Increment(ref _globalIdCounter);
+            Id = Interlocked.Increment(ref _globalIdCounter);
             StartX = startX;
             EndX = endX;
             StartLine = currentLine;

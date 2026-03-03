@@ -2,7 +2,6 @@ using FlashHSI.Core;
 using FlashHSI.Core.Classifiers;
 using FlashHSI.Core.Pipelines;
 using FlashHSI.Core.Preprocessing;
-using Newtonsoft.Json;
 
 namespace FlashHSI.Tests
 {

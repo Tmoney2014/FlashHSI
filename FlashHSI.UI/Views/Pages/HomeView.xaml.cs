@@ -1,7 +1,8 @@
-using FlashHSI.Core.Models;
-using FlashHSI.UI.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using FlashHSI.Core.Models;
+using FlashHSI.UI.ViewModels;
 
 namespace FlashHSI.UI.Views.Pages
 {
@@ -15,8 +16,8 @@ namespace FlashHSI.UI.Views.Pages
         // AI가 추가함: 모델 카드 클릭 시 ViewModel의 SelectModelCardCommand 호출
         private void ModelCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is System.Windows.FrameworkElement fe && fe.DataContext is ModelCard card
-                && DataContext is HomeViewModel vm)
+            if (sender is FrameworkElement fe && fe.DataContext is ModelCard card
+                                              && DataContext is HomeViewModel vm)
             {
                 vm.SelectModelCardCommand.Execute(card);
             }

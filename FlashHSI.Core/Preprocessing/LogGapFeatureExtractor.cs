@@ -1,5 +1,4 @@
 using FlashHSI.Core.Interfaces;
-using System.Runtime.InteropServices;
 
 namespace FlashHSI.Core.Preprocessing
 {

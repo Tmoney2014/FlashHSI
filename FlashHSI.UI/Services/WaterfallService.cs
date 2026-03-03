@@ -1,10 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using FlashHSI.Core.Settings;
 using FlashHSI.Core;
+using FlashHSI.Core.Analysis;
 
 namespace FlashHSI.UI.Services
 {
@@ -36,7 +34,7 @@ namespace FlashHSI.UI.Services
             // Add default or special handling if needed
         }
 
-        public unsafe void AddLine(int[] classificationRow, int width, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSnapshot>? blobs = null)
+        public unsafe void AddLine(int[] classificationRow, int width, List<ActiveBlob.BlobSnapshot>? blobs = null)
         {
             if (DisplayImage == null) return;
             if (width != DisplayImage.PixelWidth) 
@@ -157,7 +155,7 @@ namespace FlashHSI.UI.Services
             }
         }
         
-        private bool IsContained(int x, System.Collections.Generic.List<FlashHSI.Core.Analysis.ActiveBlob.BlobSegment> segments)
+        private bool IsContained(int x, List<ActiveBlob.BlobSegment> segments)
         {
             foreach (var seg in segments)
             {

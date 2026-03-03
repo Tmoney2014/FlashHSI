@@ -1,6 +1,4 @@
 using Serilog;
-using System;
-using System.IO;
 
 namespace FlashHSI.Core.Logging
 {

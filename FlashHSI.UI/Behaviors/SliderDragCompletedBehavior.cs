@@ -1,8 +1,7 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media;
 using Microsoft.Xaml.Behaviors;
 
 namespace FlashHSI.UI.Behaviors;
@@ -95,8 +94,8 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
 
         // ★★★ Slider의 최종 값을 직접 읽어서 로깅 ★★★
         double sliderValue = AssociatedObject.Value;
-        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-EXECUTE] Slider.Value 직접 읽음 = {sliderValue}");
-        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-UpdateSource] Before Value={AssociatedObject.Value}");
+        Debug.WriteLine($"[SliderDragCompleted-EXECUTE] Slider.Value 직접 읽음 = {sliderValue}");
+        Debug.WriteLine($"[SliderDragCompleted-UpdateSource] Before Value={AssociatedObject.Value}");
 
         // Binding Source 업데이트 (값을 ViewModel에 적용)
         var bindingExpr = AssociatedObject.GetBindingExpression(Slider.ValueProperty);
@@ -142,7 +141,7 @@ public class SliderDragCompletedBehavior : Behavior<Slider>
     private void OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         // 드래그 또는 클릭 모두에서 Command 실행
-        System.Diagnostics.Debug.WriteLine($"[SliderDragCompleted-LEFTBUTTONUP] 호출됨! Slider.Value={AssociatedObject?.Value}");
+        Debug.WriteLine($"[SliderDragCompleted-LEFTBUTTONUP] 호출됨! Slider.Value={AssociatedObject?.Value}");
         ExecuteCommand();
         _isDragging = false;
     }

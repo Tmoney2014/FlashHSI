@@ -1,11 +1,11 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.Engine;
 using Microsoft.Win32;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Windows;
 
 namespace FlashHSI.UI.ViewModels
 {

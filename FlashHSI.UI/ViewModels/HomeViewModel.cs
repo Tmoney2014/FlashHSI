@@ -1,18 +1,30 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using FlashHSI.Core.Engine;
-using FlashHSI.Core.Control; // AI가 추가함: EjectionLogItem
-using FlashHSI.Core.Control.Camera; // AI가 추가함: 카메라 서비스
+using FlashHSI.Core.Control;
+using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.Control.Hardware;
-using FlashHSI.Core.Control.Serial; // AI가 추가함: 피더 전원 제어
-using FlashHSI.Core.Messages; // AI가 추가함: HardwareStatusMessage 수신
-using FlashHSI.Core.Models; // AI가 추가함: ModelCard
+using FlashHSI.Core.Control.Serial;
+using FlashHSI.Core.Engine;
+using FlashHSI.Core.Messages;
+using FlashHSI.Core.Models;
 using FlashHSI.Core.Settings;
-using Serilog; // AI가 추가함: 램프 온도 로깅
-using System.Collections.ObjectModel; // AI가 추가함: ModelCards 컬렉션
-using System.IO; // AI가 추가함: 디렉터리 스캔
-using System.Windows.Threading; // AI가 추가함: 시작 타이머용
+using Microsoft.Win32;
+using Serilog;
+// AI가 추가함: EjectionLogItem
+// AI가 추가함: 카메라 서비스
+// AI가 추가함: 피더 전원 제어
+// AI가 추가함: HardwareStatusMessage 수신
+// AI가 추가함: ModelCard
+// AI가 추가함: 램프 온도 로깅
+// AI가 추가함: ModelCards 컬렉션
+// AI가 추가함: 디렉터리 스캔
+
+// AI가 추가함: 시작 타이머용
 
 namespace FlashHSI.UI.ViewModels
 {
@@ -145,7 +157,7 @@ namespace FlashHSI.UI.ViewModels
             _messenger.Register<ErrorStatusMessage>(this, (r, m) =>
             {
                 var err = m.Value;
-                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
                     LeftBeltError = err.LeftBeltError;
                     RightBeltError = err.RightBeltError;
@@ -255,7 +267,7 @@ namespace FlashHSI.UI.ViewModels
                     SendStatus("피더 전원 ON");
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 SendStatus($"피더 제어 실패: {ex.Message}");
             }
@@ -280,7 +292,7 @@ namespace FlashHSI.UI.ViewModels
                     SendStatus("벨트 ON");
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 SendStatus($"벨트 제어 실패: {ex.Message}");
             }
@@ -305,7 +317,7 @@ namespace FlashHSI.UI.ViewModels
                     SendStatus("램프 ON");
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 SendStatus($"램프 제어 실패: {ex.Message}");
             }
@@ -346,7 +358,7 @@ namespace FlashHSI.UI.ViewModels
                     }
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 SendStatus($"연결 오류: {ex.Message}");
                 Log.Error(ex, "카메라 연결 오류 (홈)");
@@ -362,7 +374,7 @@ namespace FlashHSI.UI.ViewModels
                 await _serialService.ErrorClearCommandAsync();
                 SendStatus("에러 클리어 완료");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 SendStatus($"에러 클리어 실패: {ex.Message}");
             }
@@ -379,7 +391,7 @@ namespace FlashHSI.UI.ViewModels
         private void BrowseModelDirectory()
         {
             // WPF에서 FolderBrowserDialog 대신 OpenFolderDialog 사용 (.NET 8)
-            var dlg = new Microsoft.Win32.OpenFolderDialog
+            var dlg = new OpenFolderDialog
             {
                 Title = "모델 디렉터리 선택"
             };
@@ -450,7 +462,7 @@ namespace FlashHSI.UI.ViewModels
             foreach (var file in jsonFiles.OrderBy(f => Path.GetFileNameWithoutExtension(f)))
             {
                 var name = Path.GetFileNameWithoutExtension(file);
-                var isSelected = string.Equals(file, currentModelPath, System.StringComparison.OrdinalIgnoreCase);
+                var isSelected = string.Equals(file, currentModelPath, StringComparison.OrdinalIgnoreCase);
                 ModelCards.Add(new ModelCard(name, file, isSelected));
             }
             

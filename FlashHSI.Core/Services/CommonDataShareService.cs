@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using FlashHSI.Core;
 
 namespace FlashHSI.Core.Services
 {

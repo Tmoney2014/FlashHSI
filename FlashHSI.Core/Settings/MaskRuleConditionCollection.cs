@@ -1,9 +1,9 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using FlashHSI.Core.Masking;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text;
+using CommunityToolkit.Mvvm.ComponentModel;
+using FlashHSI.Core.Masking;
 
 namespace FlashHSI.Core.Settings
 {

@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.IO;
 using System.IO.Ports;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;

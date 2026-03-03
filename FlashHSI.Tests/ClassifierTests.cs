@@ -1,4 +1,5 @@
 using FlashHSI.Core;
+using FlashHSI.Core.Classifiers;
 using Newtonsoft.Json;
 
 namespace FlashHSI.Tests
@@ -28,7 +29,7 @@ namespace FlashHSI.Tests
             config.Bias.Add(0.0);
 
             string json = JsonConvert.SerializeObject(config);
-            var classifier = new FlashHSI.Core.Classifiers.LinearClassifier();
+            var classifier = new LinearClassifier();
             classifier.Load(config);
 
             // Input (Simulated Features) - 2 bands, so 2 features required

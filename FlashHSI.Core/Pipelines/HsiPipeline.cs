@@ -1,3 +1,4 @@
+using FlashHSI.Core.Classifiers;
 using FlashHSI.Core.Interfaces;
 using FlashHSI.Core.Preprocessing;
 
@@ -109,7 +110,7 @@ namespace FlashHSI.Core.Pipelines
             _featureProcessors.Clear();
 
             // 1. Classifier
-            var classifier = new FlashHSI.Core.Classifiers.LinearClassifier();
+            var classifier = new LinearClassifier();
             classifier.Load(config);
             SetClassifier(classifier);
 

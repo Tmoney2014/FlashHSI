@@ -1,18 +1,17 @@
-using System;
 using System.Diagnostics;
 using System.Windows;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog;
-using FlashHSI.Core.Logging;
-using FlashHSI.Core.Services;
-using FlashHSI.Core.Engine;
+using CommunityToolkit.Mvvm.Messaging;
+using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial;
-using FlashHSI.Core.Control.Camera;  // AI가 추가함
+using FlashHSI.Core.Engine;
+using FlashHSI.Core.Logging;
+using FlashHSI.Core.Services;
 using FlashHSI.UI.Services;
 using FlashHSI.UI.ViewModels;
-using FlashHSI.UI.Views;
-using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
+using Serilog;
+// AI가 추가함
 
 namespace FlashHSI.UI
 {
@@ -40,7 +39,7 @@ namespace FlashHSI.UI
             SetupExceptionHandling();
 
             // 5. Initialize Memory Monitoring
-            var memoryService = Services.GetRequiredService<FlashHSI.Core.Services.MemoryMonitoringService>();
+            var memoryService = Services.GetRequiredService<MemoryMonitoringService>();
             memoryService.StartMonitoring();
 
             // 6. Show Main Window

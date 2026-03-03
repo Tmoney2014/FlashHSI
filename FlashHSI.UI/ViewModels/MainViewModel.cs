@@ -1,26 +1,24 @@
+using System.IO;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using FlashHSI.Core.Engine;
 using FlashHSI.Core;
-using FlashHSI.Core.Settings;
-using FlashHSI.Core.Messages; // AI가 추가함: SnackbarMessage 수신
-using Newtonsoft.Json;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Windows;
-using System.Threading.Tasks;
-using System.Windows.Threading;
-using System.Windows.Media;
-using FlashHSI.UI.Services;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.Control.Hardware;
-using FlashHSI.Core.Control.Serial; // Added
+using FlashHSI.Core.Control.Serial;
+using FlashHSI.Core.Engine;
+using FlashHSI.Core.Messages;
 using FlashHSI.Core.Services;
-using MaterialDesignThemes.Wpf; // AI가 추가함: SnackbarMessageQueue
-using System.Collections.Generic;
-using System.Linq;
-using System;
+using FlashHSI.Core.Settings;
+using FlashHSI.UI.Services;
+using MaterialDesignThemes.Wpf;
+using Newtonsoft.Json;
+using Serilog;
+using SnackbarMessage = FlashHSI.Core.Messages.SnackbarMessage;
+// AI가 추가함: SnackbarMessage 수신
+// Added
+// AI가 추가함: SnackbarMessageQueue
 
 namespace FlashHSI.UI.ViewModels
 {
@@ -91,7 +89,7 @@ namespace FlashHSI.UI.ViewModels
             SettingVM.ModelLoaded += OnModelLoaded;
             
             // AI가 추가함: SnackbarMessage 수신 → 하단 Snackbar 알림 표시
-            _messenger.Register<Core.Messages.SnackbarMessage>(this, (r, m) =>
+            _messenger.Register<SnackbarMessage>(this, (r, m) =>
             {
                 Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
@@ -107,7 +105,7 @@ namespace FlashHSI.UI.ViewModels
             });
             
             // AI가 추가함: SystemMessage 수신 → 하단 상태바 업데이트 (HomeViewModel 등에서 전송)
-            _messenger.Register<Core.Messages.SystemMessage>(this, (r, m) =>
+            _messenger.Register<SystemMessage>(this, (r, m) =>
             {
                 Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
@@ -173,6 +171,10 @@ namespace FlashHSI.UI.ViewModels
             {
                 _hsiEngine.LoadModel(path);
                 
+                // AI가 수정함: 모델 경로를 SystemSettings에 저장 (재시작 시 복원용)
+                SettingsService.Instance.Settings.LastModelPath = path;
+                SettingsService.Instance.Save();
+                
                 // AI가 추가함: MaskRule 활성화 여부 업데이트
                 SettingVM.IsMaskRuleActive = _hsiEngine.IsMaskRuleActive;
                 
@@ -192,8 +194,9 @@ namespace FlashHSI.UI.ViewModels
                 // AI가 수정함: 모델 로드 시 SortClass 목록 생성
                 SettingVM.PopulateSortClasses(config);
                 
-                // AI가 수정함: 엔진에서 현재 적용된 임계값(MaskRule 포함)을 가져와 UI 설정
-                SettingVM.BackgroundThreshold = _hsiEngine.GetCurrentThreshold();
+                // AI가 수정함: model_config.json의 C# 전용 필드에서 배경 마스킹 설정 복원
+                // (기존 엔진 직접 읽기 대신, 저장된 전체 설정을 복원)
+                SettingVM.LoadMaskRuleSettings();
                 
                 // AI가 추가함: HomeView 모델 상태 갱신
                 HomeVM.NotifyModelLoaded(config.ModelType ?? "Unknown");
@@ -210,7 +213,7 @@ namespace FlashHSI.UI.ViewModels
         public async Task WindowClosing()
         {
             // AI가 수정함: 종료 안전 처리 — 레거시 MainWindowViewModel.OnTimerCompleted() 동등
-            Serilog.Log.Information("앱 종료 처리 시작");
+            Log.Information("앱 종료 처리 시작");
             
             // 1. 엔진 정지
             _hsiEngine.Stop();
@@ -219,33 +222,33 @@ namespace FlashHSI.UI.ViewModels
             try
             {
                 await _serialService.ShutDown();
-                Serilog.Log.Information("시리얼 보드 종료 완료");
+                Log.Information("시리얼 보드 종료 완료");
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "시리얼 보드 종료 중 오류 발생");
+                Log.Error(ex, "시리얼 보드 종료 중 오류 발생");
             }
             
             // 3. EtherCAT 마스터 종료
             try
             {
                 await _hardwareService.DisconnectAsync();
-                Serilog.Log.Information("EtherCAT 마스터 종료 완료");
+                Log.Information("EtherCAT 마스터 종료 완료");
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "EtherCAT 마스터 종료 중 오류 발생");
+                Log.Error(ex, "EtherCAT 마스터 종료 중 오류 발생");
             }
             
             // 4. 설정 저장
             try
             {
                 SettingsService.Instance.Save();
-                Serilog.Log.Information("설정 저장 완료");
+                Log.Information("설정 저장 완료");
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error(ex, "설정 저장 중 오류 발생");
+                Log.Error(ex, "설정 저장 중 오류 발생");
             }
         }
         
@@ -275,7 +278,7 @@ namespace FlashHSI.UI.ViewModels
         /// <ai>AI가 작성함</ai>
         partial void OnIsBusyChanged(bool oldValue, bool newValue)
         {
-            Serilog.Log.Information("IsBusy 값 변경: {NewValue}, 이전: {OldValue}", newValue, oldValue);
+            Log.Information("IsBusy 값 변경: {NewValue}, 이전: {OldValue}", newValue, oldValue);
         }
     }
 }

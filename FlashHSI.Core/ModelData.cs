@@ -1,5 +1,3 @@
-using Newtonsoft.Json;
-
 namespace FlashHSI.Core
 {
     public class ModelConfig
@@ -32,5 +30,35 @@ namespace FlashHSI.Core
         public string Mode { get; set; } = "Raw";
         public string MaskRules { get; set; } = "Mean";
         public string Threshold { get; set; } = "0.0";
+
+        // C# 앱에서 추가: 배경 마스킹 UI 설정 저장/복원용
+        public string? MaskMode { get; set; }
+        public int? MaskBandIndex { get; set; }
+        public bool? MaskLessThan { get; set; }
+        public bool? IsMaskRuleActive { get; set; }
+        public double? MaskThreshold { get; set; }
+        
+        // C# 앱에서 추가: MaskRule 2중 구조 컨디션 저장/복원용
+        public List<MaskRuleConditionGroupData>? MaskRuleConditionsData { get; set; }
+    }
+
+    /// <summary>
+    /// MaskRule 컨디션 그룹 직렬화용 DTO
+    /// </summary>
+    public class MaskRuleConditionGroupData
+    {
+        public string GroupOperator { get; set; } = "AND";
+        public List<MaskRuleConditionData> Conditions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// MaskRule 개별 컨디션 직렬화용 DTO
+    /// </summary>
+    public class MaskRuleConditionData
+    {
+        public int BandIndex { get; set; } = 80;
+        public double Threshold { get; set; } = 35000.0;
+        public bool IsLess { get; set; } = true;
+        public string NextOperator { get; set; } = "AND";
     }
 }

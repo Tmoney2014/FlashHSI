@@ -77,9 +77,12 @@ public class SliderButtonBehavior : Behavior<Slider>
         };
         _applyTimer.Tick += OnApplyTimerTick;
 
-        // 부모 찾기 (Grid 또는 DockPanel)
+        // 부모 찾기 (Grid 또는 DeckPanel)
+        // DataTemplate 안에서는 한 단계 위의 부모까지 확인
         var parent = VisualTreeHelper.GetParent(_slider);
+        var grandParent = parent != null ? VisualTreeHelper.GetParent(parent) : null;
         
+        // 먼저 직접 부모 확인
         if (parent is Grid grid)
         {
             AddButtonsToGrid(grid);
@@ -88,13 +91,20 @@ public class SliderButtonBehavior : Behavior<Slider>
         {
             AddButtonsToDockPanel(dockPanel);
         }
+        // 한 단계 위 부모 확인 (DataTemplate这样的情况)
+        else if (grandParent is Grid grid2)
+        {
+            AddButtonsToGrid(grid2);
+        }
+        else if (grandParent is DockPanel dockPanel2)
+        {
+            AddButtonsToDockPanel(dockPanel2);
+        }
     }
-    
+
     private void CreatePopup()
     {
         if (_slider == null) return;
-
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] CreatePopup called for slider");
 
         _popup = new Popup
         {
@@ -126,8 +136,6 @@ public class SliderButtonBehavior : Behavior<Slider>
             BorderBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
             BorderThickness = new Thickness(1)
         };
-        
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] Popup created: {_popup != null}");
     }
     
     private void UpdatePopupValue()
@@ -162,8 +170,16 @@ public class SliderButtonBehavior : Behavior<Slider>
         // 버튼 생성
         CreateButtons();
 
-        // Slider의 현재 위치 파악
+        // Slider의 현재 위치와 Grid.Column 파악
         int sliderIndex = -1;
+        int sliderColumn = 0;
+        
+        // Slider의 Column 확인
+        if (_slider.GetValue(Grid.ColumnProperty) is int col)
+        {
+            sliderColumn = col;
+        }
+        
         for (int i = 0; i < parent.Children.Count; i++)
         {
             if (parent.Children[i] == _slider)
@@ -175,9 +191,14 @@ public class SliderButtonBehavior : Behavior<Slider>
 
         if (sliderIndex >= 0)
         {
-            // Slider 좌측에 Decrease 버튼 추가
+            // Slider의 Column-1에 Decrease 버튼 추가 (같은 행)
+            _decreaseButton.SetValue(Grid.ColumnProperty, sliderColumn - 1);
+            _decreaseButton.SetValue(Grid.RowProperty, 0);
             parent.Children.Insert(sliderIndex, _decreaseButton);
-            // Slider 우측에 Increase 버튼 추가
+            
+            // Slider의 Column+1에 Increase 버튼 추가 (같은 행)
+            _increaseButton.SetValue(Grid.ColumnProperty, sliderColumn + 1);
+            _increaseButton.SetValue(Grid.RowProperty, 0);
             parent.Children.Insert(sliderIndex + 2, _increaseButton);
         }
     }
@@ -289,7 +310,6 @@ public class SliderButtonBehavior : Behavior<Slider>
         if (_isHoldMode)
         {
             _isHoldMode = false;  // 플래그 리셋
-            System.Diagnostics.Debug.WriteLine("[SliderButtonBehavior] Hold mode - value not applied");
             return;
         }
         
@@ -297,7 +317,6 @@ public class SliderButtonBehavior : Behavior<Slider>
         if (_slider != null)
         {
             _slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
-            System.Diagnostics.Debug.WriteLine("[SliderButtonBehavior] Single click - value applied");
         }
     }
 
@@ -332,8 +351,6 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         if (_slider == null) return;
 
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] DecreaseClick called, clickCount={_clickCount}");
-
         // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
         if (_clickCount == 0)
         {
@@ -360,8 +377,6 @@ public class SliderButtonBehavior : Behavior<Slider>
     private void OnIncreaseClick(object sender, RoutedEventArgs e)
     {
         if (_slider == null) return;
-
-        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] IncreaseClick called, clickCount={_clickCount}");
 
         // 첫 번째 Interval 클릭: 홀로 진입했음을 표시하고 값 변경 안 함
         if (_clickCount == 0)

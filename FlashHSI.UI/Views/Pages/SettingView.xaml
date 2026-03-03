@@ -492,6 +492,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -514,6 +515,7 @@
                                             TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center"
                                             SmallChange="1" LargeChange="100">
                                         <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
                                             <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
@@ -616,12 +618,13 @@
                                                                                     <DockPanel>
                                                                                         <TextBox Text="{Binding BandIndex, UpdateSourceTrigger=LostFocus}" Width="80" DockPanel.Dock="Right" TextAlignment="Center" FontSize="12" VerticalAlignment="Center"
                                                                                                  behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                                                        <Slider Minimum="1" Maximum="255" Value="{Binding BandIndex, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
-                                                                                            <i:Interaction.Behaviors>
-                                                                                                <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                                                                            </i:Interaction.Behaviors>
-                                                                                        </Slider>
+                                                                                         <Slider Minimum="1" Maximum="255" Value="{Binding BandIndex, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                                                                             <i:Interaction.Behaviors>
+                                                                                                 <behaviors:SliderDragCompletedBehavior/>
+                                                                                                 <behaviors:SliderValuePopupBehavior/>
+                                                                                                 <behaviors:SliderButtonBehavior/>
+                                                                                             </i:Interaction.Behaviors>
+                                                                                         </Slider>
                                                                                     </DockPanel>
                                                                                 </StackPanel>
 
@@ -631,12 +634,13 @@
                                                                                     <DockPanel>
                                                                                         <TextBox Text="{Binding Threshold, UpdateSourceTrigger=LostFocus, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Center" FontSize="12" VerticalAlignment="Center"
                                                                                                  behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="6"/>
-                                                                                        <Slider Minimum="1" Maximum="65535" Value="{Binding Threshold, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
-                                                                                            <i:Interaction.Behaviors>
-                                                                                                <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                                                                            </i:Interaction.Behaviors>
-                                                                                        </Slider>
+                                                                                         <Slider Minimum="1" Maximum="65535" Value="{Binding Threshold, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
+                                                                                             <i:Interaction.Behaviors>
+                                                                                                 <behaviors:SliderDragCompletedBehavior/>
+                                                                                                 <behaviors:SliderValuePopupBehavior/>
+                                                                                                 <behaviors:SliderButtonBehavior/>
+                                                                                             </i:Interaction.Behaviors>
+                                                                                         </Slider>
                                                                                     </DockPanel>
                                                                                 </StackPanel>
                                                                             </DockPanel>
@@ -667,6 +671,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -679,6 +684,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -691,6 +697,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -748,6 +755,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -791,13 +799,13 @@
                                                     </TextBlock>
 
                                                     <!-- 감소 버튼 -->
-                                                    <Button Grid.Column="1"
+                                                    <!-- <Button Grid.Column="1"
                                                             Command="{Binding DataContext.DecreaseFeederValueCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}"
                                                             Style="{StaticResource MaterialDesignIconButton}"
                                                             Width="28" Height="28" VerticalAlignment="Center">
                                                         <materialDesign:PackIcon Kind="Minus" Width="16" Height="16"/>
-                                                    </Button>
+                                                    </Button> -->
 
                                                     <!-- 슬라이더 -->
                                                     <Slider Grid.Column="2" Margin="8,0"
@@ -810,17 +818,18 @@
                                                                 Command="{Binding DataContext.FeederSliderDragCompletedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"/>
                                                             <behaviors:SliderValuePopupBehavior/>
+                                                            <behaviors:SliderButtonBehavior/>
                                                         </i:Interaction.Behaviors>
                                                     </Slider>
 
                                                     <!-- 증가 버튼 -->
-                                                    <Button Grid.Column="3"
+                                                    <!-- <Button Grid.Column="3"
                                                             Command="{Binding DataContext.IncreaseFeederValueCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}"
                                                             Style="{StaticResource MaterialDesignIconButton}"
                                                             Width="28" Height="28" VerticalAlignment="Center">
                                                         <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"/>
-                                                    </Button>
+                                                    </Button> -->
 
                                                     <!-- 값 배지 -->
                                                     <Border Grid.Column="4"
@@ -854,11 +863,11 @@
 
                                         <TextBlock Grid.Column="0" Text="전체 제어" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
 
-                                        <Button Grid.Column="1" Command="{Binding DecreaseAllFeederValueCommand}"
+                                        <!-- <Button Grid.Column="1" Command="{Binding DecreaseAllFeederValueCommand}"
                                                 Style="{StaticResource MaterialDesignIconButton}"
                                                 Width="28" Height="28" VerticalAlignment="Center">
                                             <materialDesign:PackIcon Kind="Minus" Width="16" Height="16"/>
-                                        </Button>
+                                        </Button> -->
 
                                         <Slider Grid.Column="2" Margin="8,0"
                                                 Minimum="1" Maximum="99"
@@ -870,14 +879,16 @@
                                                     Command="{Binding DataContext.FeederSliderDragCompletedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="AllFeederValue"/>
                                                 <behaviors:SliderValuePopupBehavior/>
+                                                <behaviors:SliderButtonBehavior/>
                                             </i:Interaction.Behaviors>
                                         </Slider>
 
+                                        <!-- 전체 증가 버튼 (현재 비활성화)
                                         <Button Grid.Column="3" Command="{Binding IncreaseAllFeederValueCommand}"
                                                 Style="{StaticResource MaterialDesignIconButton}"
                                                 Width="28" Height="28" VerticalAlignment="Center">
                                             <materialDesign:PackIcon Kind="Plus" Width="16" Height="16"/>
-                                        </Button>
+                                        </Button> -->
 
                                         <Border Grid.Column="4"
                                                 Background="{DynamicResource MaterialDesign.Brush.Primary}"

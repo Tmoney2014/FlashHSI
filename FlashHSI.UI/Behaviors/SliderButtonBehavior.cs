@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Xaml.Behaviors;
 
@@ -17,6 +18,16 @@ public class SliderButtonBehavior : Behavior<Slider>
     private RepeatButton? _increaseButton;
     private Slider? _slider;
     private bool _buttonsAdded = false;
+    
+    // Popup 관련
+    private Popup? _popup;
+    private TextBlock? _popupText;
+    private double _lastButtonValue;  // 버튼 조작 시 저장할 값
+    private DispatcherTimer? _applyTimer;  // 500ms 후 값 적용용 타이머
+    
+    // 버튼 상태
+    private bool _isButtonPressed = false;
+    private int _clickCount = 0;  // Interval 클릭 횟수 추적
 
     protected override void OnAttached()
     {
@@ -34,6 +45,15 @@ public class SliderButtonBehavior : Behavior<Slider>
         {
             _slider.Loaded -= OnSliderLoaded;
         }
+        
+        // 타이머 정리
+        _applyTimer?.Stop();
+        
+        // Popup 정리
+        if (_popup != null)
+        {
+            _popup.IsOpen = false;
+        }
 
         // 버튼 제거
         RemoveButtons();
@@ -46,6 +66,16 @@ public class SliderButtonBehavior : Behavior<Slider>
         if (_slider == null || _buttonsAdded) return;
         _buttonsAdded = true;
 
+        // Popup 생성
+        CreatePopup();
+        
+        // 타이머 초기화
+        _applyTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _applyTimer.Tick += OnApplyTimerTick;
+
         // 부모 찾기 (Grid 또는 DockPanel)
         var parent = VisualTreeHelper.GetParent(_slider);
         
@@ -56,6 +86,71 @@ public class SliderButtonBehavior : Behavior<Slider>
         else if (parent is DockPanel dockPanel)
         {
             AddButtonsToDockPanel(dockPanel);
+        }
+    }
+    
+    private void CreatePopup()
+    {
+        if (_slider == null) return;
+
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] CreatePopup called for slider");
+
+        _popup = new Popup
+        {
+            PlacementTarget = _slider,
+            Placement = PlacementMode.Right,
+            StaysOpen = false,
+            AllowsTransparency = true,
+            PopupAnimation = PopupAnimation.Fade,
+            IsOpen = false,
+            HorizontalOffset = 5
+        };
+
+        _popupText = new TextBlock
+        {
+            Background = new SolidColorBrush(Color.FromArgb(200, 33, 33, 33)),
+            Foreground = Brushes.White,
+            Padding = new Thickness(8, 4, 8, 4),
+            FontSize = 18,
+            FontWeight = FontWeights.Bold,
+            MinWidth = 50,
+            TextAlignment = TextAlignment.Center
+        };
+
+        _popup.Child = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(200, 33, 33, 33)),
+            CornerRadius = new CornerRadius(4),
+            Child = _popupText,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(100, 100, 100)),
+            BorderThickness = new Thickness(1)
+        };
+        
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] Popup created: {_popup != null}");
+    }
+    
+    private void UpdatePopupValue()
+    {
+        if (_popupText != null && _slider != null)
+        {
+            _popupText.Text = _slider.Value.ToString("F3");
+        }
+    }
+    
+    private void ShowPopup()
+    {
+        if (_popup != null && _popupText != null)
+        {
+            UpdatePopupValue();
+            _popup.IsOpen = true;
+        }
+    }
+    
+    private void HidePopup()
+    {
+        if (_popup != null)
+        {
+            _popup.IsOpen = false;
         }
     }
 
@@ -120,7 +215,7 @@ public class SliderButtonBehavior : Behavior<Slider>
         // Slider의 VerticalAlignment를 가져오거나 기본값 Center 사용
         var sliderVerticalAlignment = _slider?.VerticalAlignment ?? VerticalAlignment.Center;
         
-        // RepeatButton으로 長押し対応
+        // RepeatButton으로 长押し対応
         _decreaseButton = new RepeatButton
         {
             Content = new PackIcon { Kind = PackIconKind.Minus, Width = 16, Height = 16 },
@@ -130,7 +225,7 @@ public class SliderButtonBehavior : Behavior<Slider>
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 4, 0),
             Delay = 500,  // 첫 반복까지 500ms 대기
-            Interval = 100,  // 그 후 100ms마다 반복 (10틱/초)
+            Interval = 30,  // 30ms마다 반복 (더 빠르게)
             Style = Application.Current.Resources["MaterialDesignIconButton"] as Style
         };
         _decreaseButton.Click += OnDecreaseClick;
@@ -144,16 +239,64 @@ public class SliderButtonBehavior : Behavior<Slider>
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(4, 0, 0, 0),
             Delay = 500,
-            Interval = 100,
+            Interval = 30,  // 30ms마다 반복 (더 빠르게)
             Style = Application.Current.Resources["MaterialDesignIconButton"] as Style
         };
         _increaseButton.Click += OnIncreaseClick;
+    }
+
+    private void OnButtonMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isButtonPressed = true;
+        _clickCount = 0;  // 클릭 카운트 초기화
+        
+        // 타이머 중단 (다시 버튼을 누르면)
+        _applyTimer?.Stop();
+        
+        // Popup 표시
+        ShowPopup();
+    }
+    
+    private void OnButtonMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        _isButtonPressed = false;
+        
+        // MouseUp 시: Popup 숨기고 타이머 시작 (500ms 후 적용)
+        HidePopup();
+        
+        _applyTimer?.Stop();
+        _applyTimer?.Start();
+    }
+    
+    private void OnApplyTimerTick(object? sender, EventArgs e)
+    {
+        // 500ms 후 실행
+        _applyTimer?.Stop();
+        
+        // hold 중이면 적용 X (타이머 리셋만)
+        if (_isButtonPressed)
+        {
+            // 계속 hold 중 - 타이머 리셋해서 계속 대기
+            _applyTimer?.Start();
+            return;
+        }
+        
+        // hold를 놓았으면 Popup 숨기고 값 적용
+        HidePopup();
+        
+        if (_slider != null)
+        {
+            // ViewModel에 적용 (마지막 값만 한번 적용)
+            _slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
+        }
     }
 
     private void RemoveButtons()
     {
         if (_decreaseButton != null)
         {
+            _decreaseButton.PreviewMouseLeftButtonDown -= OnButtonMouseDown;
+            _decreaseButton.PreviewMouseLeftButtonUp -= OnButtonMouseUp;
             _decreaseButton.Click -= OnDecreaseClick;
             var parent = VisualTreeHelper.GetParent(_decreaseButton);
             if (parent is Panel panel)
@@ -164,6 +307,8 @@ public class SliderButtonBehavior : Behavior<Slider>
 
         if (_increaseButton != null)
         {
+            _increaseButton.PreviewMouseLeftButtonDown -= OnButtonMouseDown;
+            _increaseButton.PreviewMouseLeftButtonUp -= OnButtonMouseUp;
             _increaseButton.Click -= OnIncreaseClick;
             var parent = VisualTreeHelper.GetParent(_increaseButton);
             if (parent is Panel panel)
@@ -177,23 +322,55 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         if (_slider == null) return;
 
-        // TickFrequency 또는 1만큼 감소
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] DecreaseClick called, clickCount={_clickCount}");
+
+        // 첫 번째 Interval 클릭에서는 값 변경 안 함 (대기만)
+        if (_clickCount == 0)
+        {
+            _clickCount++;
+            return;  // 값 변경 없이 타이머만 시작
+        }
+
+        // 두 번째 이후 Interval 클릭부터 값 변경
         double tick = _slider.TickFrequency > 0 ? _slider.TickFrequency : 1;
         _slider.Value = Math.Max(_slider.Minimum, _slider.Value - tick);
         
-        // Binding Source 업데이트 (UpdateSourceTrigger=Explicit 대응)
-        _slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
+        // Popup 업데이트 (값만 표시, 적용 X)
+        UpdatePopupValue();
+        
+        // Popup 보이기
+        ShowPopup();
+        
+        // 500ms 타이머 리셋 (다시 카운트)
+        _applyTimer?.Stop();
+        _applyTimer?.Start();
     }
 
     private void OnIncreaseClick(object sender, RoutedEventArgs e)
     {
         if (_slider == null) return;
 
-        // TickFrequency 또는 1만큼 증가
+        System.Diagnostics.Debug.WriteLine($"[SliderButtonBehavior] IncreaseClick called, clickCount={_clickCount}");
+
+        // 첫 번째 Interval 클릭에서는 값 변경 안 함 (대기만)
+        if (_clickCount == 0)
+        {
+            _clickCount++;
+            return;  // 값 변경 없이 타이머만 시작
+        }
+
+        // 두 번째 이후 Interval 클릭부터 값 변경
         double tick = _slider.TickFrequency > 0 ? _slider.TickFrequency : 1;
         _slider.Value = Math.Min(_slider.Maximum, _slider.Value + tick);
         
-        // Binding Source 업데이트 (UpdateSourceTrigger=Explicit 대응)
-        _slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
+        // Popup 업데이트 (값만 표시, 적용 X)
+        UpdatePopupValue();
+        
+        // Popup 보이기
+        ShowPopup();
+        
+        // 500ms 타이머 리셋 (다시 카운트)
+        _applyTimer?.Stop();
+        _applyTimer?.Start();
     }
 }

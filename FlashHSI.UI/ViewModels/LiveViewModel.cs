@@ -115,7 +115,8 @@ namespace FlashHSI.UI.ViewModels
                 }
             }
 
-            if (!IsPredicting) return; // 분류 모드가 아니면 무시
+            // AI가 수정함: IsLive OR IsPredicting이면 프레임을 엔진으로 전달
+            if (!IsLive && !IsPredicting) return;
 
             _hsiEngine.ProcessCameraFrame(data, width, height);
         }

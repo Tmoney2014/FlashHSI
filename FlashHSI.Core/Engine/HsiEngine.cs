@@ -22,7 +22,7 @@ namespace FlashHSI.Core.Engine
         private ICameraService? _cameraService;
         private BlobTracker? _blobTracker;
         private EjectionService? _ejectionService;
-        
+
         /// <summary>
         /// AI가 추가함: 현재 로드된 모델 설정 (UI에서 접근 필요)
         /// </summary>
@@ -58,41 +58,40 @@ namespace FlashHSI.Core.Engine
         private Stopwatch _liveUiTimer = new Stopwatch();
         private Stopwatch _liveFpsTimer = new Stopwatch();
         private int _liveFrameCount = 0;
-        
+
         // GC 최적화: ProcessCameraFrame에서 재사용할 버퍼 (field-level)
         private int[]? _classificationRowBuffer;
         private int _lastWidth;
-        
-        // GC 최적화: 스냅샷 리스트 재사용
-        private readonly List<ActiveBlob.BlobSnapshot> _snapshotBuffer = new();
-        
+
+        // GC 최적화: 스냅샷 리스트 제거 (ArrayPool 기반 Zero-Allocation으로 대체)
+
         // Events
         public event Action<EngineStats>? StatsUpdated;
         public event Action<string>? LogMessage;
         public event Action<bool>? SimulationStateChanged;
-        // AI: Changed event signature to include active blobs for advanced visualization (Top Cap)
-        public event Action<int[], int, List<ActiveBlob.BlobSnapshot>>? FrameProcessed;
+        // AI: Changed event signature to pass serialized blob contour array (ArrayPool) instead of objects
+        public event Action<int[], int, int[], int>? FrameProcessed;
         public event Action<EjectionLogItem>? EjectionOccurred;
 
         public bool IsSimulating => _isRunning;
         public bool IsMaskRuleActive => _maskMode == MaskMode.MaskRule;
-        
+
         /// <summary>
         /// AI: Expose Current FPS for Ejection Timing (Live Mode)
         /// </summary>
         public double CurrentFps => _runMode == RunMode.Live ? (_liveStats?.Fps ?? 0) : 0;
-        
+
         // AI가 추가함: 현재 로드된 모델의 OriginalType (UI에서 Confidence 슬라이더 활성화 판단용)
         public string LoadedModelType { get; private set; } = "";
-        
+
         public HsiEngine(ICameraService? cameraService = null)
         {
             _pipeline = new HsiPipeline();
             _cameraService = cameraService;
-            
+
             // AI: LinearClassifier 디버그 로그 연결 (UI 출력용)
             LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
-            
+
             // AI가 추가함: 메시지 구독
             WeakReferenceMessenger.Default.Register<HsiEngine, SettingsChangedMessage<double>>(this, static (recipient, message) =>
             {
@@ -155,10 +154,10 @@ namespace FlashHSI.Core.Engine
 
                 // AI: 초기 Confidence Threshold 설정
                 SetConfidenceThreshold(SettingsService.Instance.Settings.ConfidenceThreshold);
-                
+
                 // AI가 추가함: 모델 타입 저장 (UI 연동용)
                 LoadedModelType = config.OriginalType ?? "";
-                
+
                 LogMessage?.Invoke($"Model Loaded: {config.ModelType}");
             }
             catch (Exception ex)
@@ -176,43 +175,43 @@ namespace FlashHSI.Core.Engine
 
         public double[]? LoadReference(string path, bool isDark)
         {
-            try 
+            try
             {
                 var reader = new EnviReader();
                 reader.Load(path);
-                
-                int bands = reader.Header.Bands; 
-                int width = reader.Header.Samples; 
-                long[] sum = new long[bands]; 
-                
+
+                int bands = reader.Header.Bands;
+                int width = reader.Header.Samples;
+                long[] sum = new long[bands];
+
                 ushort[] buf = new ushort[width * bands];
                 int linesToRead = Math.Min(50, reader.Header.Lines); // Average first 50 lines
                 int count = 0;
 
-                for(int i=0; i < linesToRead; i++) 
+                for (int i = 0; i < linesToRead; i++)
                 {
-                    if(!reader.ReadNextFrame(buf)) break;
-                    
-                    for(int x=0; x<width; x++) 
+                    if (!reader.ReadNextFrame(buf)) break;
+
+                    for (int x = 0; x < width; x++)
                     {
-                        int baseIdx = x * bands; 
-                        for(int b=0; b<bands; b++) sum[b] += buf[baseIdx+b];
+                        int baseIdx = x * bands;
+                        for (int b = 0; b < bands; b++) sum[b] += buf[baseIdx + b];
                     }
                     count += width;
                 }
                 reader.Close();
 
-                if(count > 0) 
-                { 
-                    double[] avg = new double[bands]; 
-                    for(int b=0; b<bands; b++) avg[b] = (double)sum[b]/count; 
-                    
+                if (count > 0)
+                {
+                    double[] avg = new double[bands];
+                    for (int b = 0; b < bands; b++) avg[b] = (double)sum[b] / count;
+
                     if (isDark) _darkRef = avg;
                     else _whiteRef = avg;
 
-                    return avg; 
+                    return avg;
                 }
-            } 
+            }
             catch (Exception ex)
             {
                 LogMessage?.Invoke($"Error loading reference: {ex.Message}");
@@ -222,10 +221,10 @@ namespace FlashHSI.Core.Engine
 
         public void SetMaskSettings(MaskMode mode, MaskRule? rule, int bandIndex, bool lessThan, double threshold)
         {
-            Debug.WriteLine($"[HsiEngine] SetMaskSettings: mode={mode}, bandIndex={bandIndex}, lessThan={lessThan}, threshold={threshold}");
-            
+            // Debug.WriteLine($"[HsiEngine] SetMaskSettings: mode={mode}, bandIndex={bandIndex}, lessThan={lessThan}, threshold={threshold}");
+
             _maskMode = mode;
-            
+
             // Mean 모드에서는 maskRule을 clear (BandPixel 모드에서도 기존 rule 제거)
             if (mode == MaskMode.Mean || mode == MaskMode.BandPixel)
             {
@@ -236,11 +235,11 @@ namespace FlashHSI.Core.Engine
             {
                 _maskRule = rule;
             }
-            
+
             _maskBandIndex = bandIndex;
             _maskOperatorLess = lessThan;
             _backgroundThreshold = threshold;
-            
+
             // MaskRule 모드이고 rule이 있으면 Threshold 동기화
             if (mode == MaskMode.MaskRule && _maskRule != null)
             {
@@ -296,7 +295,7 @@ namespace FlashHSI.Core.Engine
         /// </summary>
         public void SetBackgroundThreshold(double threshold)
         {
-            Debug.WriteLine($"[HsiEngine] SetBackgroundThreshold called: {threshold}");
+            // Debug.WriteLine($"[HsiEngine] SetBackgroundThreshold called: {threshold}");
             UpdateBackgroundThreshold(threshold);
         }
 
@@ -393,9 +392,9 @@ namespace FlashHSI.Core.Engine
         public unsafe void ProcessCameraFrame(ushort[] frameData, int width, int height)
         {
             if (CurrentConfig == null) return;
-            
+
             int bandCount = height; // HSI에서 height = band count
-            
+
             // GC 최적화: field-level 버퍼 재사용 (width가 같으면 새 할당 없이 재사용)
             if (_classificationRowBuffer == null || _lastWidth != width)
             {
@@ -403,167 +402,210 @@ namespace FlashHSI.Core.Engine
                 _lastWidth = width;
             }
             int[] classificationRow = _classificationRowBuffer;
-            
+
             // ArrayPool을 사용한 GC 최적화
             long[] classCounts = ArrayPool<long>.Shared.Rent(CurrentConfig.Weights.Count);
             Array.Clear(classCounts, 0, CurrentConfig.Weights.Count);
-            
+
+            // GC 최적화: UI 표시용 버퍼 (필터링된 결과값 전달)
+            int[] vizRow = ArrayPool<int>.Shared.Rent(width);
+            Array.Fill(vizRow, -1); // Default to background
+
             try
             {
                 // AI가 수정함: Slider 변경 시 즉시 적용되도록 매 프레임마다 모드 확인
                 bool useMean = (_maskMode == MaskMode.Mean);
-                
+
                 // 디버그 로그
                 if (Debugger.IsAttached)
                 {
-                    Debug.WriteLine($"[ProcessCameraFrame] _backgroundThreshold={_backgroundThreshold}, useMean={useMean}, _maskMode={_maskMode}");
+                    // Debug.WriteLine($"[ProcessCameraFrame] _backgroundThreshold={_backgroundThreshold}, useMean={useMean}, _maskMode={_maskMode}");
                 }
 
-            fixed (ushort* pFrame = frameData)
-            {
-                for (int x = 0; x < width; x++)
+                fixed (ushort* pFrame = frameData)
                 {
-                    ushort* pPixel = pFrame + (x * bandCount);
-                    bool isBackground = false;
+                    // AI가 추가함: 5초마다 HsiEngine 프레임 수신 진단 (블랙 프레임 여부 확인)
+                    if (_liveFpsTimer.ElapsedMilliseconds % 5000 < 33 && _liveFrameCount % 30 == 0) // 대략 5초 주기
+                    {
+                        long sampleSum = 0;
+                        for (int k = 0; k < bandCount; k++) sampleSum += pFrame[k];
+                        LogMessage?.Invoke($"[HsiEngine] 프레임 수신 중... 첫 픽셀 평균값: {sampleSum / bandCount}, Width: {width}");
+                    }
 
-                    // Masking (Mean 모드만 지원, 간소화)
-                    // Masking Strategy
-                    if (_maskMode == MaskMode.MaskRule && _maskRule != null)
+                    for (int x = 0; x < width; x++)
                     {
-                        // AI가 수정함: Evaluate=true는 '객체'이므로 반전 필요 (RunLoop Line 497과 통일)
-                        isBackground = !_maskRule.Evaluate(pPixel, _whiteRef, _darkRef, false);
-                    }
-                    else if (_maskMode == MaskMode.Mean)
-                    {
-                        // 2. Mean-based Masking (Average Threshold)
-                        long sum = 0;
-                        for (int b = 0; b < bandCount; b++) sum += pPixel[b];
-                        double meanValue = (double)sum / bandCount;
-                        // 체크박스 (MaskLessThan)에 따라 조건 결정
-                        if (_maskOperatorLess)
+                        ushort* pPixel = pFrame + (x * bandCount);
+                        bool isBackground = false;
+
+                        // Masking (Mean 모드만 지원, 간소화)
+                        // Masking Strategy
+                        if (_maskMode == MaskMode.MaskRule && _maskRule != null)
                         {
-                            if (meanValue < _backgroundThreshold) isBackground = true;
+                            // AI가 수정함: Evaluate=true는 '객체'이므로 반전 필요 (RunLoop Line 497과 통일)
+                            isBackground = !_maskRule.Evaluate(pPixel, _whiteRef, _darkRef, false);
                         }
-                        else
+                        else if (_maskMode == MaskMode.Mean)
                         {
-                            if (meanValue > _backgroundThreshold) isBackground = true;
-                        }
-                    }
-                    else if (_maskMode == MaskMode.BandPixel)
-                    {
-                        // 3. Single Band Threshold Masking
-                        if (_maskBandIndex >= 0 && _maskBandIndex < bandCount)
-                        {
-                            ushort val = pPixel[_maskBandIndex];
+                            // 2. Mean-based Masking (Average Threshold)
+                            long sum = 0;
+                            for (int b = 0; b < bandCount; b++) sum += pPixel[b];
+                            double meanValue = (double)sum / bandCount;
+                            // 체크박스 (MaskLessThan)에 따라 조건 결정
                             if (_maskOperatorLess)
                             {
-                                if (val < _backgroundThreshold) isBackground = true;
+                                if (meanValue < _backgroundThreshold) isBackground = true;
                             }
                             else
                             {
-                                if (val > _backgroundThreshold) isBackground = true;
+                                if (meanValue > _backgroundThreshold) isBackground = true;
+                            }
+                        }
+                        else if (_maskMode == MaskMode.BandPixel)
+                        {
+                            // 3. Single Band Threshold Masking
+                            if (_maskBandIndex >= 0 && _maskBandIndex < bandCount)
+                            {
+                                ushort val = pPixel[_maskBandIndex];
+                                if (_maskOperatorLess)
+                                {
+                                    if (val < _backgroundThreshold) isBackground = true;
+                                }
+                                else
+                                {
+                                    if (val > _backgroundThreshold) isBackground = true;
+                                }
+                            }
+                        }
+
+                        if (isBackground)
+                        {
+                            classificationRow[x] = -1;
+                        }
+                        else
+                        {
+                            int cls = _pipeline.ProcessFrame(pPixel, bandCount);
+                            classificationRow[x] = cls;
+                            if (cls >= 0 && cls < classCounts.Length) classCounts[cls]++;
+                        }
+                    }
+                }
+
+
+
+
+                // AI가 추가함: Blob Tracking & Ejection (Live Mode)
+                if (_blobTracker != null)
+                {
+                    var closedBlobs = _blobTracker.ProcessLine(_globalLineIndex++, classificationRow);
+                    // FIX: Process blobs BEFORE releasing to pool (이전: ReleaseClosedBlobs가 foreach 전에 호출되어 리스트가 비어짐)
+                    foreach (var blob in closedBlobs)
+                    {
+                        int bestClass = blob.GetBestClass();
+                        if (bestClass >= 0)
+                        {
+                            // Ejection Service
+                            _ejectionService?.Process(blob);
+
+                            // Live Stats Accumulation
+                            if (_liveClassCounts != null && bestClass < _liveClassCounts.Length)
+                                _liveClassCounts[bestClass]++;
+                            if (_liveStats != null)
+                                _liveStats.Objects++;
+
+                            // Logging
+                            if (LogMessage != null)
+                            {
+                                string key = bestClass.ToString();
+                                string className = (CurrentConfig?.Labels != null && CurrentConfig.Labels.ContainsKey(key))
+                                    ? CurrentConfig.Labels[key]
+                                    : $"Class {bestClass}";
+                                LogMessage.Invoke($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
                             }
                         }
                     }
-
-                    if (isBackground)
-                    {
-                        classificationRow[x] = -1;
-                    }
-                    else
-                    {
-                        int cls = _pipeline.ProcessFrame(pPixel, bandCount);
-                        classificationRow[x] = cls;
-                        if (cls >= 0 && cls < classCounts.Length) classCounts[cls]++;
-                    }
+                    // 처리 완료 후 pool에 반환
+                    _blobTracker?.ReleaseClosedBlobs(closedBlobs);
                 }
-            }
 
-
-
-
-            // AI가 추가함: Blob Tracking & Ejection (Live Mode)
-            if (_blobTracker != null)
-            {
-                var closedBlobs = _blobTracker.ProcessLine(_globalLineIndex++, classificationRow);
-                // FIX: Process blobs BEFORE releasing to pool (이전: ReleaseClosedBlobs가 foreach 전에 호출되어 리스트가 비어짐)
-                foreach (var blob in closedBlobs)
+                // AI Refactor: Create Snapshots and Invoke Event AFTER updates
+                // GC 최적화: BlobSnapshot(객체) 대신 ArrayPool을 사용해 int[]로 윤곽선 정보 전체를 압축 직렬화하여 전달
+                if (FrameProcessed != null)
                 {
-                    int bestClass = blob.GetBestClass();
-                    if (bestClass >= 0)
+                    int[] contourData = ArrayPool<int>.Shared.Rent(1024);
+                    int contourLen = 0;
+                    contourData[contourLen++] = 0; // index 0: 유효 Blob 개수 기록용
+
+                    int validBlobCount = 0;
+                    if (_blobTracker != null)
                     {
-                        // Ejection Service
-                        _ejectionService?.Process(blob);
-
-                        // Live Stats Accumulation
-                        if (_liveClassCounts != null && bestClass < _liveClassCounts.Length) 
-                            _liveClassCounts[bestClass]++;
-                        if (_liveStats != null) 
-                            _liveStats.Objects++;
-
-                        // Logging
-                        if (LogMessage != null)
+                        foreach (var b in _blobTracker.GetActiveBlobs())
                         {
-                            string key = bestClass.ToString();
-                            string className = (CurrentConfig?.Labels != null && CurrentConfig.Labels.ContainsKey(key))
-                                ? CurrentConfig.Labels[key] 
-                                : $"Class {bestClass}";
-                            LogMessage.Invoke($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
+                            if (b.TotalPixels >= _cachedMinPixels)
+                            {
+                                validBlobCount++;
+                                int cCount = b.CurrentSegments.Count;
+                                int pCount = b.PrevSegments.Count;
+
+                                // Buffer size check (safely expand if needed)
+                                if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
+                                {
+                                    int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
+                                    Array.Copy(contourData, newArr, contourLen);
+                                    ArrayPool<int>.Shared.Return(contourData);
+                                    contourData = newArr;
+                                }
+
+                                contourData[contourLen++] = cCount;
+                                contourData[contourLen++] = pCount;
+                                foreach (var seg in b.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                foreach (var seg in b.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+
+                                // Set vizRow according to valid blob positions
+                                foreach (var seg in b.CurrentSegments)
+                                {
+                                    for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
+                                }
+                            }
                         }
                     }
-                }
-                // 처리 완료 후 pool에 반환
-                _blobTracker?.ReleaseClosedBlobs(closedBlobs);
-            }
+                    contourData[0] = validBlobCount;
 
-            // AI Refactor: Create Snapshots and Invoke Event AFTER updates
-            // This ensures the UI receives the latest state of blobs (Thread-Safe)
-            // GC 최적화: 새 리스트 할당 대신 버퍼 재사용
-            _snapshotBuffer.Clear();
-            if (_blobTracker != null)
-            {
-                foreach(var b in _blobTracker.GetActiveBlobs())
+                    // UI 렌더링 측에서 사용 후 반환해야 함
+                    FrameProcessed.Invoke(vizRow, width, contourData, contourLen);
+                }
+
+                // Live Stats Update (Throttle 30fps)
+                _liveFrameCount++;
+                if (_liveFpsTimer.ElapsedMilliseconds >= 1000)
                 {
-                    // AI: Visualization Filter (Hide Noise in Live Mode too)
-                    if (b.TotalPixels >= _cachedMinPixels)
+                    if (_liveStats != null) _liveStats.Fps = _liveFrameCount;
+                    _liveFrameCount = 0;
+                    _liveFpsTimer.Restart();
+                }
+
+                if (_liveUiTimer.ElapsedMilliseconds >= 33)
+                {
+                    if (_liveStats != null && _liveClassCounts != null)
                     {
-                        _snapshotBuffer.Add(b.GetSnapshot());
+                        Array.Copy(_liveClassCounts, _liveStats.ClassCounts, _liveClassCounts.Length);
+                        Array.Clear(_liveClassCounts, 0, _liveClassCounts.Length);
+
+                        StatsUpdated?.Invoke(_liveStats);
+
+                        // Reset delta counts for next batch
+                        _liveStats.Objects = 0;
+                        _liveStats.Background = 0;
+                        _liveStats.Unknown = 0;
                     }
+                    _liveUiTimer.Restart();
                 }
-            }
-            FrameProcessed?.Invoke(classificationRow, width, _snapshotBuffer);
-
-            // Live Stats Update (Throttle 30fps)
-            _liveFrameCount++;
-            if (_liveFpsTimer.ElapsedMilliseconds >= 1000)
-            {
-                if (_liveStats != null) _liveStats.Fps = _liveFrameCount;
-                _liveFrameCount = 0;
-                _liveFpsTimer.Restart();
-            }
-
-            if (_liveUiTimer.ElapsedMilliseconds >= 33)
-            {
-                if (_liveStats != null && _liveClassCounts != null)
-                {
-                    Array.Copy(_liveClassCounts, _liveStats.ClassCounts, _liveClassCounts.Length);
-                    Array.Clear(_liveClassCounts, 0, _liveClassCounts.Length);
-                    
-                    StatsUpdated?.Invoke(_liveStats);
-                    
-                    // Reset delta counts for next batch
-                    _liveStats.Objects = 0;
-                    _liveStats.Background = 0; 
-                    _liveStats.Unknown = 0;
-                }
-                _liveUiTimer.Restart();
-            }
             } // try 블록 종료
-            
+
             // ArrayPool 반환 (GC 최적화)
             finally
             {
                 ArrayPool<long>.Shared.Return(classCounts);
+                ArrayPool<int>.Shared.Return(vizRow);
             }
         }
 
@@ -579,24 +621,25 @@ namespace FlashHSI.Core.Engine
             if (_isRunning) return;
 
             // Stats Init
-            if (CurrentConfig != null) {
+            if (CurrentConfig != null)
+            {
                 _liveClassCounts = new long[CurrentConfig.Weights.Count];
                 if (_liveStats == null) _liveStats = new EngineStats();
                 _liveStats.ClassCounts = new long[CurrentConfig.Weights.Count];
             }
-            
+
             // AI가 수정함: 라인 인덱스 초기화 (카메라에서 프레임이 올라올 때마다 증가)
             _globalLineIndex = 0;
-            
+
             _liveUiTimer.Restart();
             _liveFpsTimer.Restart();
             _liveFrameCount = 0;
             if (_liveStats == null) _liveStats = new EngineStats(); // Ensure non-null
-            
+
             _runMode = RunMode.Live;
             _isRunning = true;
             SimulationStateChanged?.Invoke(true);
-            
+
             // 참고: ProcessCameraFrame()은 PleoraCameraService.AcquisitionLoop() 콜백에서 호출됨
             // 별도 스레드 필요 없음
         }
@@ -649,7 +692,7 @@ namespace FlashHSI.Core.Engine
                 {
                     _pipeline.Configure(bandCount, CurrentConfig.SelectedBands);
                 }
-                
+
                 LogMessage?.Invoke($"Playing: {Path.GetFileName(_headerPath)}");
             }
             catch (Exception ex)
@@ -704,7 +747,7 @@ namespace FlashHSI.Core.Engine
                         bool useBandPixel = (_maskMode == MaskMode.BandPixel && _maskBandIndex < bandCount);
                         bool useMean = lastUseMean;
                         bool useAbsorbanceForMask = (_pipeline.GetExtractorType() == typeof(LogGapFeatureExtractor));
-                        
+
                         long startTick = loopTimer.ElapsedTicks;
                         double fps = _targetFps < 1.0 ? 1.0 : _targetFps;
                         double targetFrameTimeMs = 1000.0 / fps;
@@ -714,10 +757,10 @@ namespace FlashHSI.Core.Engine
                         {
                             LogMessage?.Invoke("[RunLoop] EOF. Rewinding...");
                             reader.Load(_headerPath); // Restart loop
-                            if (!reader.ReadNextFrame(lineBuffer)) 
+                            if (!reader.ReadNextFrame(lineBuffer))
                             {
-                                 LogMessage?.Invoke("[RunLoop] Failed to read after rewind. Stop.");
-                                 break;
+                                LogMessage?.Invoke("[RunLoop] Failed to read after rewind. Stop.");
+                                break;
                             }
                         }
 
@@ -770,67 +813,98 @@ namespace FlashHSI.Core.Engine
                             }
                         }
 
-                        // Notify Visualization (Synchronous to avoid allocation? No, now we allocate for safety)
-                    // Generate Snapshots for Thread Safety
-                    var snapshots = new List<ActiveBlob.BlobSnapshot>();
+                        // Notify Visualization (Zero-Allocation)
+                        int[] contourData = null!;
+                        int contourLen = 0;
+                        if (FrameProcessed != null)
+                        {
+                            contourData = ArrayPool<int>.Shared.Rent(1024);
+                            contourData[contourLen++] = 0;
+                        }
 
                         // 2. Tracking
+                        Array.Fill(vizRow, -1); // Default to background
+                        int validBlobCount = 0;
+
                         if (_blobTracker != null)
                         {
-                           var closedBlobs = _blobTracker.ProcessLine(globalLineIndex, classificationRow);
-                           
-                           // Add Active Blobs to Snapshots
-                           foreach(var b in _blobTracker.GetActiveBlobs())
-                           {
-                               // AI: Visualization Filter (Hide Noise)
-                               // Only show blobs that have enough pixels to be considered 'real'
-                               if (b.TotalPixels >= _cachedMinPixels)
-                               {
-                                   snapshots.Add(b.GetSnapshot());
-                               }
-                           }
+                            var closedBlobs = _blobTracker.ProcessLine(globalLineIndex, classificationRow);
 
-                           foreach (var blob in closedBlobs)
-                           {
-                               // Add Closed Blobs to Snapshots (for Bottom Cap rendering)
-                               snapshots.Add(blob.GetSnapshot());
+                            // Add Active Blobs
+                            foreach (var b in _blobTracker.GetActiveBlobs())
+                            {
+                                // AI: Visualization Filter (Hide Noise)
+                                if (b.TotalPixels >= _cachedMinPixels)
+                                {
+                                    validBlobCount++;
+                                    if (FrameProcessed != null)
+                                    {
+                                        int cCount = b.CurrentSegments.Count;
+                                        int pCount = b.PrevSegments.Count;
+                                        if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
+                                        {
+                                            int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
+                                            Array.Copy(contourData, newArr, contourLen);
+                                            ArrayPool<int>.Shared.Return(contourData);
+                                            contourData = newArr;
+                                        }
+                                        contourData[contourLen++] = cCount;
+                                        contourData[contourLen++] = pCount;
+                                        foreach (var seg in b.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                        foreach (var seg in b.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                    }
 
-                               int bestClass = blob.GetBestClass();
-                               if (bestClass >= 0)
-                               {
-                                   _ejectionService?.Process(blob);
-                                   stats.Objects++;
-                                   if (bestClass < currentClassCounts.Length) currentClassCounts[bestClass]++;
-                               }
-                           }
+                                    // Set vizRow according to valid blob positions
+                                    foreach (var seg in b.CurrentSegments)
+                                    {
+                                        for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
+                                    }
+                                }
+                            }
+
+                            // Add Closed Blobs to Snapshots (for Bottom Cap rendering)
+                            foreach (var blob in closedBlobs)
+                            {
+                                validBlobCount++;
+                                if (FrameProcessed != null)
+                                {
+                                    int cCount = blob.CurrentSegments.Count;
+                                    int pCount = blob.PrevSegments.Count;
+                                    if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
+                                    {
+                                        int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
+                                        Array.Copy(contourData, newArr, contourLen);
+                                        ArrayPool<int>.Shared.Return(contourData);
+                                        contourData = newArr;
+                                    }
+                                    contourData[contourLen++] = cCount;
+                                    contourData[contourLen++] = pCount;
+                                    foreach (var seg in blob.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                    foreach (var seg in blob.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                }
+
+                                foreach (var seg in blob.CurrentSegments)
+                                {
+                                    for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
+                                }
+
+                                int bestClass = blob.GetBestClass();
+                                if (bestClass >= 0)
+                                {
+                                    _ejectionService?.Process(blob);
+                                    stats.Objects++;
+                                    if (bestClass < currentClassCounts.Length) currentClassCounts[bestClass]++;
+                                }
+                            }
+
+                            // Pool 반환
+                            _blobTracker.ReleaseClosedBlobs(closedBlobs);
                         } // End BlobTracker
-                        
-                        // AI: Visualization Pixel Filtering (Noise Removal)
-                        // GC 최적화: 루프 밖에서 할당한 vizRow를 재사용 (Array.Fill만 수행)
-                        Array.Fill(vizRow, -1); // Default to background
-                        
-                        // Only draw pixels that belong to Valid Blobs (>= MinPixels)
-                        // A. Active Blobs
-                        foreach (var blob in snapshots)
+
+                        if (FrameProcessed != null)
                         {
-                             // Snapshots are already filtered by MinPixels above
-                             foreach(var seg in blob.CurrentSegments)
-                             {
-                                 // Copy original classification for this segment
-                                 // Note: We need to ensure we copy the correct class.
-                                 // But classificationRow has the class info.
-                                 // We can just copy from classificationRow at these positions.
-                                 for(int x = seg.Start; x <= seg.End; x++)
-                                 {
-                                     vizRow[x] = classificationRow[x];
-                                 }
-                             }
-                        }
-                        
-                        
-                        if (classificationRow != null)
-                        {
-                            FrameProcessed?.Invoke(vizRow, width, snapshots);
+                            contourData[0] = validBlobCount;
+                            FrameProcessed.Invoke(vizRow, width, contourData, contourLen);
                         }
                         frames++;
                         globalLineIndex++;
@@ -850,9 +924,9 @@ namespace FlashHSI.Core.Engine
                         {
                             Array.Copy(currentClassCounts, stats.ClassCounts, currentClassCounts.Length);
                             Array.Clear(currentClassCounts, 0, currentClassCounts.Length);
-                            
+
                             StatsUpdated?.Invoke(stats);
-                            
+
                             stats.Unknown = 0;
                             stats.Background = 0;
                             stats.Objects = 0;
@@ -860,7 +934,7 @@ namespace FlashHSI.Core.Engine
                             linesSinceLastUpdate = 0;
 
                             Array.Clear(stats.ClassCounts, 0, stats.ClassCounts.Length);
-                            
+
                             lastUiUpdate = frameTimer.ElapsedMilliseconds;
                         }
 
@@ -885,21 +959,21 @@ namespace FlashHSI.Core.Engine
 
         // GC 최적화: 이벤트 핸들러 누수 방지
         private bool _disposed;
-        
+
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-            
+
             // 정적 이벤트 구독 해제 (메모리 누수 방지)
             LinearClassifier.GlobalLog -= (msg) => LogMessage?.Invoke(msg);
-            
+
             // 다른 리소스 정리
             _pipeline = null;
             _cameraService = null;
             _blobTracker = null;
             _ejectionService = null;
-            
+
             GC.SuppressFinalize(this);
         }
     }
@@ -914,7 +988,7 @@ namespace FlashHSI.Core.Engine
         public long Fps;
         public long[] ClassCounts = Array.Empty<long>(); // Will be initialized in Engine
         public long ProcessedLines;
-        
+
         public EngineStats Copy()
         {
             return (EngineStats)this.MemberwiseClone();

@@ -279,7 +279,13 @@ namespace FlashHSI.Core.Control.Camera
 
             // AI가 추가함: 연결 끊김 감지를 위한 연속 오류 카운터
             int consecutiveErrors = 0;
-            const int MaxConsecutiveErrors = 10; // 10회 연속 오류 시 연결 끊김으로 판단
+            const int MaxConsecutiveErrors = 10;
+
+            // AI가 추가함: 프레임 수신 진단 카운터
+            int frameCount = 0;
+            int timeoutCount = 0;
+            int errorCount = 0;
+            var diagTimer = System.Diagnostics.Stopwatch.StartNew();
 
             while (_isAcquiring && _cancellationTokenSource != null && !_cancellationTokenSource.IsCancellationRequested)
             {
@@ -304,7 +310,8 @@ namespace FlashHSI.Core.Control.Camera
 
                 if (result.IsOK)
                 {
-                    consecutiveErrors = 0; // 성공 시 리셋
+                    consecutiveErrors = 0;
+                    frameCount++; // AI가 추가함: 프레임 수신 카운트
 
                     if (operationResult.IsOK)
                     {
@@ -317,8 +324,13 @@ namespace FlashHSI.Core.Control.Camera
                 else
                 {
                     // Timeout은 트리거 없을 때 정상, 다른 오류는 카운트
-                    if (result.Code != PvResultCode.TIMEOUT)
+                    if (result.Code == PvResultCode.TIMEOUT)
                     {
+                        timeoutCount++; // AI가 추가함
+                    }
+                    else
+                    {
+                        errorCount++; // AI가 추가함
                         consecutiveErrors++;
                         if (consecutiveErrors >= MaxConsecutiveErrors)
                         {
@@ -326,6 +338,17 @@ namespace FlashHSI.Core.Control.Camera
                             break;
                         }
                     }
+                }
+
+                // AI가 추가함: 5초마다 수신 상태 진단 로그
+                if (diagTimer.ElapsedMilliseconds >= 5000)
+                {
+                    Log.Information("📷 카메라 수신 진단: Frames={FrameCount}, Timeouts={TimeoutCount}, Errors={ErrorCount} (5초)",
+                        frameCount, timeoutCount, errorCount);
+                    frameCount = 0;
+                    timeoutCount = 0;
+                    errorCount = 0;
+                    diagTimer.Restart();
                 }
             }
         }

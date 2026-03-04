@@ -37,7 +37,7 @@ namespace FlashHSI.UI.ViewModels
 
         // Waterfall 이미지 (MainViewModel에서 이동)
         [ObservableProperty] private ImageSource? _waterfallImage;
-        
+
         // AI가 추가함: 캡처 프레임 버퍼 (GC 최적화: ArrayPool 사용)
         private readonly List<ushort[]> _captureBuffer = new();
         private int _captureWidth;
@@ -58,16 +58,38 @@ namespace FlashHSI.UI.ViewModels
 
             // 프레임 처리 이벤트 구독 (MainViewModel에서 이동)
             _hsiEngine.FrameProcessed += OnFrameProcessed;
-            
+
             // AI가 추가함: 카메라 프레임 이벤트 → 분류 파이프라인 연결
             _cameraService.FrameReceived += OnCameraFrameReceived;
-            
+
             // AI가 추가함: 카메라 연결 끊김 이벤트
             _cameraService.ConnectionLost += OnCameraConnectionLost;
 
             Log.Information("LiveViewModel 생성됨");
+
+            // AI가 추가함: 생성될 때 이미 카메라가 연결되어 있다면 상태 반영
+            SyncCameraState();
         }
-        
+
+        /// <summary>
+        /// AI가 추가함: 네비게이션 진입 또는 생성 시 카메라 연결 상태 동기화
+        /// </summary>
+        private void SyncCameraState()
+        {
+            if (_cameraService.IsConnected)
+            {
+                IsCameraConnected = true;
+                CameraName = "FX50 Connected"; // 또는 실제 정보 조회
+                StatusMessage = "카메라 연결됨";
+            }
+            else
+            {
+                IsCameraConnected = false;
+                CameraName = "연결 필요";
+                StatusMessage = "Ready";
+            }
+        }
+
         /// <summary>
         /// AI가 추가함: 카메라 프레임 수신 → 분류 처리 + 캡처 버퍼링
         /// </summary>
@@ -86,12 +108,12 @@ namespace FlashHSI.UI.ViewModels
                     CapturedFrameCount = _captureBuffer.Count;
                 }
             }
-            
+
             if (!IsPredicting) return; // 분류 모드가 아니면 무시
-            
+
             _hsiEngine.ProcessCameraFrame(data, width, height);
         }
-        
+
         /// <summary>
         /// AI가 추가함: 카메라 연결 끊김 처리
         /// </summary>
@@ -123,7 +145,7 @@ namespace FlashHSI.UI.ViewModels
                     CameraName = "연결 필요";
                     StatusMessage = "카메라 연결 해제됨";
                     Log.Information("카메라 연결 해제");
-                    
+
                     // AI: Ensure Live is also stopped if camera disconnects
                     if (IsLive)
                     {
@@ -135,7 +157,7 @@ namespace FlashHSI.UI.ViewModels
                 {
                     StatusMessage = "카메라 연결 중...";
                     bool connected = await _cameraService.ConnectAsync();
-                    
+
                     if (connected)
                     {
                         IsCameraConnected = true;
@@ -199,44 +221,47 @@ namespace FlashHSI.UI.ViewModels
         }
 
         /// <summary>
-        /// 프레임 처리 이벤트 핸들러 (MainViewModel에서 이동)
+        /// 프레임 처리 이벤트 핸들러 (Zero-Allocation 대응)
         /// </summary>
-        private void OnFrameProcessed(int[] data, int width, List<ActiveBlob.BlobSnapshot> blobs)
+        private void OnFrameProcessed(int[] data, int width, int[] contourData, int contourLen)
         {
-            // The original code had `if (Application.Current == null) return;`
-            // The provided snippet removed it and added `if (_isPaused) return;`
-            // Assuming `_isPaused` and `SelectedViewMode` are intended to be added later or are part of a larger context not provided.
-            // For now, I will keep the original `Application.Current` check and integrate the new logging and waterfall logic.
-            // If `_isPaused` or `SelectedViewMode` are critical, they need to be defined in LiveViewModel.
-
-            if (Application.Current == null) return;
-
-            // Debug Log
-            if (blobs.Count > 0 && DateTime.Now.Second % 2 == 0) 
+            if (Application.Current == null)
             {
-                 Log.Information($"[LiveViewModel] Frame Rx. Blobs={blobs.Count}");
+                if (contourData != null) ArrayPool<int>.Shared.Return(contourData);
+                return;
             }
+
+            // Debug Log (blobCount is at index 0)
+            int blobCount = (contourData != null && contourLen > 0) ? contourData[0] : 0;
+            // if (blobCount > 0 && DateTime.Now.Second % 2 == 0)
+            // {
+            //     Log.Information($"[LiveViewModel] Frame Rx. Blobs={blobCount}");
+            // }
 
             // Visualize (Waterfall) -> Thread Safe
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                // if (_isPaused) return; // Optional check
-                // if (SelectedViewMode == LiveViewMode.Classification)
-                // {
-                //     // Linear Mode
-                //     // Draw Line
-                // }
-
-                if (_waterfallService.DisplayImage == null)
+                try
                 {
-                    _waterfallService.Initialize(width, 400);
-                    WaterfallImage = _waterfallService.DisplayImage;
+                    if (_waterfallService.DisplayImage == null)
+                    {
+                        _waterfallService.Initialize(width, 400);
+                        WaterfallImage = _waterfallService.DisplayImage;
+                    }
+
+                    _waterfallService.AddLine(data, width, contourData, contourLen);
                 }
-                
-                _waterfallService.AddLine(data, width, blobs);
+                finally
+                {
+                    // 엔진에서 ArrayPool로 빌려온 버퍼를 UI 출력 후 즉시 반환 (Zero-Allocation 핵심)
+                    if (contourData != null)
+                    {
+                        ArrayPool<int>.Shared.Return(contourData);
+                    }
+                }
             }, DispatcherPriority.Render);
         }
-        
+
         /// <summary>
         /// AI가 추가함: 분류 예측 시작/정지 토글
         /// </summary>
@@ -248,12 +273,12 @@ namespace FlashHSI.UI.ViewModels
                 StatusMessage = "먼저 라이브 스트리밍을 시작하세요";
                 return;
             }
-            
+
             IsPredicting = !IsPredicting;
             StatusMessage = IsPredicting ? "🔮 분류 진행 중..." : "분류 중지됨";
             Log.Information("분류 상태 변경: {State}", IsPredicting);
         }
-        
+
         /// <summary>
         /// AI가 추가함: 캡처(프레임 데이터 저장) 시작/중지 토글
         /// 시작: 프레임 버퍼링 시작, 중지: 축적된 프레임을 바이너리 파일로 저장
@@ -267,14 +292,14 @@ namespace FlashHSI.UI.ViewModels
                 StatusMessage = "먼저 라이브 스트리밍을 시작하세요";
                 return;
             }
-            
+
             if (IsCapturing)
             {
                 // 캡처 중지 → 파일 저장
                 IsCapturing = false;
                 StatusMessage = "캡처 중지 — 파일 저장 중...";
                 Log.Information("캡처 중지, 프레임 수: {Count}", _captureBuffer.Count);
-                
+
                 await SaveCaptureBufferAsync();
             }
             else
@@ -290,7 +315,7 @@ namespace FlashHSI.UI.ViewModels
                 Log.Information("캡처 시작");
             }
         }
-        
+
         /// <summary>
         /// AI가 추가함: 캡처 버퍼를 바이너리 파일로 저장
         /// 형식: raw ushort16 데이터 (ENVI BSQ와 호환)
@@ -300,7 +325,7 @@ namespace FlashHSI.UI.ViewModels
         {
             List<ushort[]> frames;
             int width, height;
-            
+
             lock (_captureBuffer)
             {
                 if (_captureBuffer.Count == 0)
@@ -308,13 +333,13 @@ namespace FlashHSI.UI.ViewModels
                     StatusMessage = "캡처된 프레임이 없습니다";
                     return;
                 }
-                
+
                 frames = new List<ushort[]>(_captureBuffer);
                 width = _captureWidth;
                 height = _captureHeight;
                 _captureBuffer.Clear();
             }
-            
+
             try
             {
                 // 저장 경로 지정 (Documents/FlashHSI/Captures/)
@@ -322,17 +347,17 @@ namespace FlashHSI.UI.ViewModels
                     Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                     "FlashHSI", "Captures");
                 Directory.CreateDirectory(captureDir);
-                
+
                 var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 var dataPath = Path.Combine(captureDir, $"capture_{timestamp}.raw");
                 var headerPath = Path.Combine(captureDir, $"capture_{timestamp}.hdr");
-                
+
                 // 바이너리 데이터 저장 (백그라운드 스레드)
                 await Task.Run(() =>
                 {
                     using var fs = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536);
                     using var bw = new BinaryWriter(fs);
-                    
+
                     foreach (var frame in frames)
                     {
                         foreach (var val in frame)
@@ -341,7 +366,7 @@ namespace FlashHSI.UI.ViewModels
                         }
                     }
                 });
-                
+
                 // ENVI 호환 헤더 저장
                 var headerContent = $@"ENVI
 description = {{FlashHSI Capture {timestamp}}}
@@ -354,11 +379,11 @@ interleave = bil
 byte order = 0
 ";
                 await File.WriteAllTextAsync(headerPath, headerContent);
-                
+
                 StatusMessage = $"캡처 저장 완료: {frames.Count}프레임 → {Path.GetFileName(dataPath)}";
-                Log.Information("캡처 저장 완료: {Path}, 프레임: {Count}, {Width}x{Height}", 
+                Log.Information("캡처 저장 완료: {Path}, 프레임: {Count}, {Width}x{Height}",
                     dataPath, frames.Count, width, height);
-                
+
                 // Snackbar 알림
                 _messenger.Send(new SnackbarMessage($"캡처 저장: {frames.Count}프레임 → {Path.GetFileName(dataPath)}"));
             }

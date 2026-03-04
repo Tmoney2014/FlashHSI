@@ -83,7 +83,20 @@ namespace FlashHSI.Core.Control.Camera
                 var lSGEV = _stream as PvStreamGEV;
                 if (lDGEV != null && lSGEV != null)
                 {
-                    lDGEV.NegotiatePacketSize();
+                    try
+                    {
+                        lDGEV.NegotiatePacketSize();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Unable to negotiate streaming packet size. Trying fallback (1476 bytes)...");
+                        try
+                        {
+                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 1476);
+                        }
+                        catch { /* Ignored */ }
+                    }
+
                     lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
                 }
 

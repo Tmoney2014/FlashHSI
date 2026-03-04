@@ -20,6 +20,9 @@ namespace FlashHSI.Core.Control.Camera
 
         public event Action<ushort[], int, int>? FrameReceived;
 
+        // AI가 추가함: 연결 성공 이벤트
+        public event Action? Connected;
+
         // AI가 추가함: 연결 끊김 이벤트
         public event Action<string>? ConnectionLost;
 
@@ -128,6 +131,7 @@ namespace FlashHSI.Core.Control.Camera
                 }
 
                 _isConnected = true;
+                Connected?.Invoke(); // AI가 추가함: LiveViewModel 등에 상태 알림
                 Log.Information("Camera Connected Successfully.");
                 return true;
             }

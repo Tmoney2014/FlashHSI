@@ -65,6 +65,12 @@ namespace FlashHSI.UI.ViewModels
             // AI가 추가함: 카메라 연결 끊김 이벤트
             _cameraService.ConnectionLost += OnCameraConnectionLost;
 
+            // AI가 추가함: 카메라 연결 성공 이벤트 (홈에서 연결 시 Live 탭에도 반영)
+            _cameraService.Connected += () =>
+            {
+                Application.Current.Dispatcher.InvokeAsync(SyncCameraState);
+            };
+
             Log.Information("LiveViewModel 생성됨");
 
             // AI가 추가함: 생성될 때 이미 카메라가 연결되어 있다면 상태 반영

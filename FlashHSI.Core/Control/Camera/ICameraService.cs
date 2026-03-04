@@ -55,7 +55,12 @@ namespace FlashHSI.Core.Control.Camera
         /// Height: Spectral dimension (Band Count)
         /// </summary>
         event Action<ushort[], int, int>? FrameReceived;
-        
+
+        /// <summary>
+        /// AI가 추가함: 카메라 연결 성공 시 발생하는 이벤트
+        /// </summary>
+        event Action? Connected;
+
         /// <summary>
         /// AI가 추가함: Event raised when the camera connection is lost unexpectedly.
         /// </summary>

@@ -142,6 +142,7 @@ namespace FlashHSI.Core.Control.Camera
                     var sb = new System.Text.StringBuilder();
                     var parameters = _device.Parameters;
 
+                    // AI가 수정함: 쓰기 가능 여부(RW/RO) 및 범위(Min~Max) 정보 추가
                     for (uint i = 0; i < parameters.Count; i++)
                     {
                         var param = parameters.Get(i);
@@ -151,20 +152,31 @@ namespace FlashHSI.Core.Control.Camera
                             string type = param.Type.ToString();
                             string value = "";
                             string description = "";
+                            string access = "??";
+                            string range = "";
 
+                            try { access = param.IsWritable ? "RW" : "RO"; } catch { }
                             try { description = param.Description; } catch { }
 
                             try
                             {
-                                if (param is PvGenInteger gInt) value = gInt.Value.ToString();
-                                else if (param is PvGenFloat gFloat) value = gFloat.Value.ToString();
+                                if (param is PvGenInteger gInt)
+                                {
+                                    value = gInt.Value.ToString();
+                                    try { range = $"[{gInt.Min}~{gInt.Max}]"; } catch { }
+                                }
+                                else if (param is PvGenFloat gFloat)
+                                {
+                                    value = gFloat.Value.ToString();
+                                    try { range = $"[{gFloat.Min}~{gFloat.Max}]"; } catch { }
+                                }
                                 else if (param is PvGenString gStr) value = gStr.Value;
                                 else if (param is PvGenEnum gEnum) value = gEnum.ValueString;
                                 else if (param is PvGenBoolean gBool) value = gBool.Value.ToString();
                             }
                             catch { value = "<Unreadable>"; }
 
-                            sb.AppendLine($"[{type}] {name} = {value}");
+                            sb.AppendLine($"[{type}] [{access}] {name} = {value} {range}");
                             if (!string.IsNullOrEmpty(description))
                                 sb.AppendLine($"    Description: {description}");
                         }
@@ -172,6 +184,7 @@ namespace FlashHSI.Core.Control.Camera
                     var dumpPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Params.txt");
                     // System.IO.File.WriteAllText("Params.txt", sb.ToString()); // 워킹 디렉토리 기준
                     System.IO.File.WriteAllText("Params.txt", sb.ToString());
+                    await Task.Delay(1000);
                     Log.Information("Params.txt 에 전체 파라미터 저장 완료.");
                 }
                 catch (Exception pEx)
@@ -389,6 +402,11 @@ namespace FlashHSI.Core.Control.Camera
                 // AI가 추가함: 5초마다 수신 상태 진단 로그 제거 완료
                 if (diagTimer.ElapsedMilliseconds >= 5000)
                 {
+                    Log.Information("📷 카메라 수신 진단: Frames={FrameCount}, Timeouts={TimeoutCount}, Errors={ErrorCount} (5초)",
+                        frameCount, timeoutCount, errorCount);
+                    frameCount = 0;
+                    timeoutCount = 0;
+                    errorCount = 0;
                     diagTimer.Restart();
                 }
             }

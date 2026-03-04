@@ -74,6 +74,22 @@ namespace FlashHSI.Core.Control.Camera
                 _device = PvDevice.CreateAndConnect(deviceInfo);
                 if (_device == null) throw new Exception("Failed to connect to device.");
 
+                // AI가 임시 추가함: FX50 파라미터 트리 전체 구조 덤프
+                try
+                {
+                    var lines = new List<string>();
+                    foreach (PvGenParameter param in _device.Parameters)
+                    {
+                        if (param != null)
+                        {
+                            lines.Add($"[{param.GetType().Name}] {param.Name} - {param.Description}");
+                        }
+                    }
+                    System.IO.File.WriteAllLines(@"C:\Users\user16g\Desktop\FlashHSI\Params.txt", lines);
+                    Log.Information("✅ 카메라 파라미터 트리가 Params.txt 에 저장되었습니다.");
+                }
+                catch { }
+
                 // Open Stream
                 _stream = PvStream.CreateAndOpen(deviceInfo);
                 if (_stream == null) throw new Exception("Failed to open stream.");

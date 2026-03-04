@@ -131,8 +131,54 @@ namespace FlashHSI.Core.Control.Camera
                 }
 
                 _isConnected = true;
+                _isConnected = true;
                 Connected?.Invoke(); // AI가 추가함: LiveViewModel 등에 상태 알림
                 Log.Information("Camera Connected Successfully.");
+
+                // AI가 추가함: 카메라 전체 파라미터 덤프 (Params.txt)
+                try
+                {
+                    Log.Information("디바이스 파라미터 전체 덤프 시작...");
+                    var sb = new System.Text.StringBuilder();
+                    var parameters = _device.Parameters;
+
+                    for (uint i = 0; i < parameters.Count; i++)
+                    {
+                        var param = parameters.Get(i);
+                        if (param != null)
+                        {
+                            string name = param.Name;
+                            string type = param.Type.ToString();
+                            string value = "";
+                            string description = "";
+
+                            try { description = param.Description; } catch { }
+
+                            try
+                            {
+                                if (param is PvGenInteger gInt) value = gInt.Value.ToString();
+                                else if (param is PvGenFloat gFloat) value = gFloat.Value.ToString();
+                                else if (param is PvGenString gStr) value = gStr.Value;
+                                else if (param is PvGenEnum gEnum) value = gEnum.ValueString;
+                                else if (param is PvGenBoolean gBool) value = gBool.Value.ToString();
+                            }
+                            catch { value = "<Unreadable>"; }
+
+                            sb.AppendLine($"[{type}] {name} = {value}");
+                            if (!string.IsNullOrEmpty(description))
+                                sb.AppendLine($"    Description: {description}");
+                        }
+                    }
+                    var dumpPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Params.txt");
+                    // System.IO.File.WriteAllText("Params.txt", sb.ToString()); // 워킹 디렉토리 기준
+                    System.IO.File.WriteAllText("Params.txt", sb.ToString());
+                    Log.Information("Params.txt 에 전체 파라미터 저장 완료.");
+                }
+                catch (Exception pEx)
+                {
+                    Log.Warning($"파라미터 덤프 실패: {pEx.Message}");
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -340,14 +386,9 @@ namespace FlashHSI.Core.Control.Camera
                     }
                 }
 
-                // AI가 추가함: 5초마다 수신 상태 진단 로그
+                // AI가 추가함: 5초마다 수신 상태 진단 로그 제거 완료
                 if (diagTimer.ElapsedMilliseconds >= 5000)
                 {
-                    Log.Information("📷 카메라 수신 진단: Frames={FrameCount}, Timeouts={TimeoutCount}, Errors={ErrorCount} (5초)",
-                        frameCount, timeoutCount, errorCount);
-                    frameCount = 0;
-                    timeoutCount = 0;
-                    errorCount = 0;
                     diagTimer.Restart();
                 }
             }

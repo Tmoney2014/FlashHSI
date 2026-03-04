@@ -1,0 +1,364 @@
+[String] DeviceVendorName = Specim Spectral Imaging Ltd Oy
+    Description: Name of the manufacturer of the device.
+[String] DeviceModelName = fx50
+    Description: Model of the device.
+[String] DeviceManufacturerInfo = GigE Vision Camera
+    Description: Manufacturer information about the device.
+[String] DeviceVersion = 1.4.4.a73ee47f82
+    Description: Version of the device.
+[String] DeviceSerialNumber = 5300791
+    Description: Device's serial number. This string is a unique identifier of the device.
+[String] DeviceUserID = fx50-5300791
+    Description: User-programmable device identifier.
+[Enum] DeviceScanType = Areascan
+    Description: Scan type of the sensor.
+[Command] DeviceReset = 
+    Description: Resets the device to its power up state. After reset, the device must be rediscovered.
+[Integer] DeviceUpTime = 225
+    Description: Device uptime in minutes since manufacturing.
+[Integer] DeviceBootCount = 6
+    Description: Device boot count since manufacturing.
+[Boolean] DeviceReady = True
+    Description: Tells if the device is ready for use. If not the camera is still initializing
+[Integer] SensorWidth = 640
+    Description: Effective width of the sensor in pixels.
+[Integer] SensorHeight = 512
+    Description: Effective height of the sensor in pixels.
+[Integer] WidthMax = 640
+    Description: Maximum width (in pixels) of the image. The dimension is calculated after horizontal binning, decimation or any other function changing the horizontal dimensions of the image.
+[Integer] HeightMax = 256
+    Description: Maximum height (in pixels) of the image. This dimension is calculated after vertical binning, decimation or any other function changing the vertical dimensions of the image.
+[Integer] OutputImageWidth = 640
+    Description: The final output image width in pixels.
+[Integer] OutputImageHeight = 154
+    Description: The final output image height in pixels.
+[Integer] CalibrationWindowLeft = 0
+    Description: Left offset of the calibration window.
+[Integer] CalibrationWindowTop = 106
+    Description: Top offset of the calibration window.
+[Integer] CalibrationWindowWidth = 640
+    Description: Width of the calibration window.
+[Integer] CalibrationWindowHeight = 308
+    Description: Height of the calibration window.
+[Enum] CalibrationStatus = Ok
+    Description: Calibration status.
+[Enum] WindowingMode = Multiband
+    Description: Control the MROI mode.
+[Command] RegionClear = 
+    Description: Clears all regions.
+[Command] RegionApply = 
+    Description: Applies current region settings.
+[Integer] RegionSelector = 0
+    Description: Selects the Region of interest to control. The RegionSelector feature allows devices that are able to extract multiple regions out of an image, to configure the features of those individual regions independently.
+[Integer] RegionMode = 1
+    Description: Controls if the selected Region of interest is active and streaming.
+[Integer] Width = 640
+    Description: Width of the Image provided by the device (in pixels).
+[Integer] Height = 154
+    Description: Height of the image provided by the device (in pixels).
+[Integer] OffsetX = 0
+    Description: Horizontal offset from the origin to the AOI (in pixels).
+[Integer] OffsetY = 0
+    Description: Vertical offset from the origin to the AOI (in pixels).
+[Enum] PixelFormat = Mono16
+    Description: Format of the pixel to use for acquisition. It represents all the informations provided by PixelCoding, PixelSize, PixelColorFilter but combined in one single value.
+[Enum] OutputFormat = Mono16
+    Description: Changes the system output format and update PixelFormat.
+[Integer] OutputFormatMask = 1024
+[Enum] PixelSize = Bpp16
+    Description: Total size in bits of a pixel of the image.
+[Integer] BinningHorizontal = 1
+    Description: Number of horizontal photo-sensitive cells to combine together. This reduces the horizontal resolution (width) of the image.
+[Integer] BinningVertical = 2
+    Description: Number of vertical photo-sensitive cells to combine together. This reduces the vertical resolution (height) of the image.
+[Integer] WavelengthTableIndex = 0
+    Description: Index used to retrieve the wavelength in  WavelengthTableValue.
+[String] WavelengthTableValue = 2712.1300048828125
+    Description: Wavelength value at index WavelengthTableIndex.
+[Integer] WavelengthTableOriginalIndex = 0
+    Description: Index used to retrieve the unbinned wavelength in WavelengthTableValue.
+[String] WavelengthTableOriginalValue = 2707.93994140625
+    Description: Unbinned Wavelength value at index WavelengthTableIndex.
+[Integer] PixelDynamicRangeMin = 0
+    Description: Minimum value that can be returned during the digitization process. This corresponds to the darkest value of the camera. For color camera, this returns the smallest value that each color component can take.
+[Integer] PixelDynamicRangeMax = 65532
+    Description: Maximum value that will be returned during the digitization process. This corresponds to the brightest value of the camera. For color camera, this returns the biggest value that each color component can take.
+[Enum] AcquisitionMode = Continuous
+    Description: Sets the acquisition mode of the device. It defines mainly the number of frames to capture during an acquisition and the way the acquisition stops.
+[Command] AcquisitionStart = 
+    Description: Starts the Acquisition of the device. The number of frames captured is specified by AcquisitionMode.
+[Command] AcquisitionStop = 
+    Description: Stops the Acquisition of the device at the end of the current Frame. It is mainly used when AcquisitionMode is Continuous but can be used in any acquisition mode.
+[Integer] AcquisitionFrameCount = 1
+    Description: This value sets the number of frames acquired in the multiframe acquisition mode
+[Integer] AcquisitionTimeout = 5000
+    Description: Sets the acquisition timeout
+[Enum] ShutterState = Open
+    Description: Informs if the shutter is open or close.
+[Command] ShutterOpen = 
+    Description: Opens the shutter of the device.
+[Command] ShutterClose = 
+    Description: Closes the shutter of the device to measure the noise.
+[Integer] TriggerCapabilities = 3
+    Description: Reports the trigger capabilities
+[Enum] TriggerMode = Off
+    Description: Controls if the external trigger is active.
+[Enum] TriggerSource = Line0
+    Description: Specifies the mask mode of the trigger.
+[Integer] TriggerDivider = <Unreadable>
+    Description: Specifies a division factor for the incoming trigger pulses.
+[Enum] TriggerMask = <Unreadable>
+    Description: Specifies the mask mode of the trigger.
+[Enum] TriggerOutput1OperationMode = <Unreadable>
+    Description: Specifies the Operation Mode for Trigger Output 1.
+[Enum] TriggerInputsOperationMode = <Unreadable>
+    Description: Specifies the Operation Mode for Trigger Inputs.
+[Enum] ExposureMode = Timed
+    Description: Sets the operation mode of the Exposure.
+[Float] ExposureTime = 0.09997499734163284
+    Description: This value sets the simulated exposure time
+[Float] AcquisitionFrameRate = 269.1000061035156
+    Description: Sets the acquisition frame rate.
+[Float] AcquisitionFrameRateMeasured = 269.105224609375
+    Description: Measured framerate
+[Integer] ResendBufferSize = 100
+    Description: Size of the internal resend buffer in frames.
+[Enum] ReadoutMode = ITR
+    Description: Control the pixel readout mode.
+[String] CameraModel = fx50
+    Description: Camera Model.
+[Enum] Source = Detector
+    Description: Source of the sensor.
+[Boolean] TestImage = False
+    Description: Defines whether the camera is giving test image or not.
+[Boolean] PreprocessingEnabled = True
+    Description: Enable pre-processing.
+[Integer] PreprocessingTemperatureUpdateInterval = <Unreadable>
+    Description: Temperature update interval in seconds for temperature enabled preprocessors
+[Boolean] ApplicationsEnabled = <Unreadable>
+    Description: Enable/disable application processing.
+[Boolean] ApplicationRunning = <Unreadable>
+    Description: Specifies whether an application is running or not.
+[Boolean] ApplicationsSupported = False
+    Description: Specifies whether application processing is supported or not.
+[Integer] ApplicationBatchSize = <Unreadable>
+    Description: Size of the batches used by the application.
+[Integer] ApplicationCurrentIndex = <Unreadable>
+    Description: Index of the currently enabled application
+[Integer] ApplicationIndex = <Unreadable>
+    Description: Index used to retrieve the application name in ApplicationName.
+[String] ApplicationName = <Unreadable>
+    Description: Name of the application at index ApplicationIndex.
+[Integer] ApplicationMetadataClassIndex = <Unreadable>
+    Description: Index used to update other application class metadata features.
+[Integer] ApplicationMetadataClassId = <Unreadable>
+    Description: ClassID of ApplicationMetadataClassIndex.
+[Integer] ApplicationMetadataClassColor = <Unreadable>
+    Description: Class color of ApplicationMetadataClassIndex.
+[String] ApplicationMetadataClassName = <Unreadable>
+    Description: Class name of ApplicationMetadataClassIndex.
+[String] ApplicationMetadataClassDescription = <Unreadable>
+    Description: Class description of ApplicationMetadataClassIndex.
+[Integer] ApplicationMetadataVariableIndex = <Unreadable>
+    Description: Index used to update other application variable metadata features.
+[String] ApplicationMetadataVariableName = <Unreadable>
+    Description: Variable name of ApplicationMetadataVariableIndex.
+[Float] ApplicationMetadataVariableMinimum = <Unreadable>
+    Description: Minimum of ApplicationMetadataVariableIndex.
+[Float] ApplicationMetadataVariableMaximum = <Unreadable>
+    Description: Maximum of ApplicationMetadataVariableIndex.
+[Float] ApplicationMetadataVariableScaleFactor = <Unreadable>
+    Description: Scale factor of ApplicationMetadataVariableIndex.
+[Float] OutputStreamLatencyTarget = <Unreadable>
+    Description: The desired system latency in milliseconds. This excludes camera related timings.
+[Float] OutputStreamLatencyMeasured = 8.433759689331055
+    Description: The measured system latency in milliseconds. This excludes camera related timings.
+[Command] OutputStreamLatencyRecalculate = 
+    Description: Force recalculation of measured system latency.
+[Command] TemperatureUpdate = 
+    Description: Update the device temperatures.
+[Float] TemperatureFPA = 80.0199966430664
+    Description: Detector temperature in Kelvin
+[Float] TemperatureFPGA = 0
+    Description: Detector FPGA temperature in Celcius
+[Float] TemperatureBoard = 31
+    Description: telectrics board temperature in Celsius.
+[Float] TemperatureScb1 = 28.4375
+    Description: Hot plate temperature in Celsius.
+[Float] TemperatureScb2 = 20.1875
+    Description: Optics temperature in Celsius.
+[Float] TemperatureScb3 = 20.84375
+    Description: Shutter temperature in Celsius.
+[Boolean] NetworkingPerformanceEnabled = False
+    Description: When enabled automatic notifications are disabled to optimize network performance and jitter.
+[Boolean] NetworkingIdentityBroadcastEnabled = True
+    Description: When disabled custom protocol discovery UDP messages are not sent. Enable for jitter optimization purposes.
+[Boolean] CameraImageEmbeddingEnabled = False
+    Description: When enabled the image will contain embedded feature values at a specific row.
+[Integer] CameraImageEmbeddingRow = 0
+    Description: Specifies the row in image in which feature data is embedded.
+[String] CameraImageEmbeddingFeatureNames = 
+    Description: Specifies comma separated list of feature names to be embedded to image data.
+[Boolean] CameraStabilizationEnabled = False
+    Description: When enabled the procedure of camera stabilization detection will start.
+[Command] CameraStabilizationUpdate = 
+    Description: Update camera stabilization status.
+[Boolean] CameraStabilizationIsStable = False
+    Description: Defines whether the camera signal levels have stabilized.
+[Boolean] FrameSizeAsExpected = <Unreadable>
+    Description: Defines whether the camera window is configured properly.
+[Command] FrameSizeAsExpectedUpdate = 
+    Description: Update camera window configuration status.
+[Integer] NumberOfCoolDowns = 15
+    Description: Number of camera cool downs since manufacturing.
+[Integer] DurationUnderThreshold = 803
+    Description: Camera temperature below temperature threshold in minutes since manufacturing.
+[Boolean] ReferencesLock = False
+    Description: Lock the white and dark references to prevent accidental overrides.
+[Command] ReferencesDarkCreate = 
+    Description: Creates new dark reference.
+[Command] ReferencesDarkUpdate = 
+    Description: Updates currently active dark reference.
+[Integer] ReferencesDarkCurrentIndex = <Unreadable>
+    Description: Index of the currently active dark reference
+[Integer] ReferencesDarkIndex = <Unreadable>
+    Description: Index used to retrieve the dark reference name in ReferencesDarkName.
+[String] ReferencesDarkName = <Unreadable>
+    Description: Name of the dark reference at index ReferencesDarkIndex.
+[Command] ReferencesDarkRemove = 
+    Description: Removes dark reference at index ReferencesDarkIndex.
+[Command] ReferencesWhiteCreate = 
+    Description: Creates new white reference.
+[Command] ReferencesWhiteUpdate = 
+    Description: Updates currently active white reference.
+[Integer] ReferencesWhiteCurrentIndex = <Unreadable>
+    Description: Index of the currently active white reference
+[Integer] ReferencesWhiteIndex = <Unreadable>
+    Description: Index used to retrieve the white reference name in ReferencesWhiteName or remote a white reference with ReferencesWhiteRemove.
+[String] ReferencesWhiteName = <Unreadable>
+    Description: Name of the white reference at index ReferencesWhiteIndex.
+[Command] ReferencesWhiteRemove = 
+    Description: Removes white reference at index ReferencesWhiteIndex.
+[Integer] CalibrationPackSerialNumberIndex = 0
+    Description: Index used to retrieve the calibration pack serial number in CalibrationPackSerialNumber.
+[String] CalibrationPackSerialNumber = 5300791
+    Description: Serial number for the calibration pack at index CalibrationPackIndex.
+[Command] CalibrationPackRemove = 
+    Description: Remove the user calibration pack at index CalibrationPackIndex.
+[Command] CalibrationPackRestore = 
+    Description: Restore the factory calibration pack at index CalibrationPackIndex.
+[Enum] UserSetSelector = Default
+    Description: Source of the sensor.
+[Command] UserSetLoad = 
+    Description: Loads the User Set specified by UserSetSelector to the device and makes it active.
+[Command] UserSetSave = 
+    Description: Saves the User Set specified by UserSetSelector to the device and makes it active.
+[Integer] PayloadSize = 197120
+    Description: Provides the number of bytes transferred for each image or chunk on the stream channel. This includes any end-of-line, end-of-frame statistics or other stamp data. This is the total size of data payload for a data block.
+[Integer] GevVersionMajor = 2
+    Description: Major version of the specification.
+[Integer] GevVersionMinor = 0
+    Description: Minor version of the specification.
+[Boolean] GevDeviceModeIsBigEndian = True
+    Description: Endianess of the device registers.
+[Enum] GevDeviceModeCharacterSet = UTF8
+    Description: Character set used by all the strings of the bootstrap registers.
+[Integer] CommandRetryCount = 1
+    Description: Number of times a command is attempted before it is considered as failed.
+[Integer] GevInterfaceSelector = 0
+    Description: Selects which physical network interface to control.
+[Integer] GevMACAddress = 53883614324
+    Description: MAC address of the network interface.
+[Enum] GevSupportedOptionSelector = UserDefinedName
+    Description: Selects the GEV option to interrogate for existing support. 
+[Boolean] GevSupportedOption = True
+    Description: Returns if the selected GEV option is supported.
+[Boolean] GevCurrentIPConfigurationLLA = True
+    Description: Indicates if Link Local Address IP configuration scheme is activated on the given network interface.
+[Boolean] GevCurrentIPConfigurationDHCP = False
+    Description: Indicates if DHCP IP configuration scheme is activated on the given network interface.
+[Boolean] GevCurrentIPConfigurationPersistentIP = True
+    Description: Indicates if PersistentIP configuration scheme is activated on the given network interface.
+[Integer] GevCurrentIPAddress = 3232240946
+    Description: Reports the IP address for the given network interface.
+[Integer] GevCurrentSubnetMask = 4294901760
+    Description: Provides the subnet mask of the given interface.
+[Integer] GevCurrentDefaultGateway = 0
+    Description: Indicates the default gateway IP address to be used on the given network interface.
+[String] GevFirstURL = Local:gev-server.xml;FF800000;0003EE99
+    Description: Indicates the first URL to the XML device description file. The First URL is used as the first choice by the application to retrieve the XML device description file.
+[String] GevSecondURL = File:gev-server.xml
+    Description: Indicates the second URL to the XML device description file. This URL is an alternative if the application was unsuccessful to retrieve the device description file using the first URL.
+[Integer] GevNumberOfInterfaces = 1
+    Description: Indicates the number of physical network interfaces supported by this device.
+[Integer] GevPersistentIPAddress = 3232240946
+    Description: Indicates the Persistent IP address for this network interface. It is only used when the device boots with the Persistent IP configuration scheme.
+[Integer] GevPersistentSubnetMask = 4294901760
+    Description: Indicates the Persistent subnet mask associated with the Persistent IP address on this network interface. It is only used when the device boots with the Persistent IP configuration scheme.
+[Integer] GevPersistentDefaultGateway = 0
+    Description: Indicates the persistent default gateway for this network interface. It is only used when the device boots with the Persistent IP configuration scheme.
+[Integer] GevMessageChannelCount = 1
+    Description: Indicates the number of message channels supported by this device.
+[Integer] GevStreamChannelCount = 1
+    Description: Indicates the number of stream channels supported by this device.
+[Integer] GevHeartbeatTimeout = 5000
+    Description: Indicates the current heartbeat timeout in milliseconds.
+[Integer] GevTimestampTickFrequency = 1000
+    Description: Indicates the number of timestamp ticks during 1 second (frequency in Hz).
+[Command] GevTimestampControlLatch = 
+    Description: Latches current timestamp counter into GevTimestampValue.
+[Command] GevTimestampControlReset = 
+    Description: Resets the Timestamp counter to 0.
+[Integer] GevTimestampValue = 0
+    Description: Returns the latched 64-bit value of the timestamp counter.
+[Enum] GevCCP = ControlAccess
+    Description: Controls the device access privilege of an application.
+[Integer] GevMCPHostPort = 60587
+    Description: Indicates the port to which the device must send messages. Setting this value to 0 closes the message channel.
+[Integer] GevMCDA = 3232241078
+    Description: Indicates the destination IP address for the message channel.
+[Integer] GevMCTT = 400
+    Description: Provides the transmission timeout value in milliseconds.
+[Integer] GevMCRC = 3
+    Description: Indicates the number of retransmissions allowed when a message channel message times out.
+[Integer] GevMCSP = 54527
+    Description: This feature indicates the source port for the message channel.
+[Integer] GevStreamChannelSelector = 0
+    Description: Selects the stream channel to control.
+[Integer] GevSCPInterfaceIndex = 0
+    Description: Index of network interface to use (from 0 to 3).
+[Integer] GevSCPHostPort = 60589
+    Description: Indicates the port to which the device must send data stream. Setting this value to 0 closes the stream channel.
+[Boolean] GevSCPSFireTestPacket = False
+    Description: Sends a test packet. When this feature is set, the device will fire one test packet.
+[Boolean] GevSCPSDoNotFragment = True
+    Description: The state of this feature is copied into the "do not fragment" bit of IP header of each stream packet. It can be used by the application to prevent IP fragmentation of packets on the stream channel.
+[Boolean] GevSCPSBigEndian = False
+    Description: Endianess of multi-byte pixel data for this stream.
+[Integer] GevSCPSPacketSize = 8192
+    Description: Specifies the stream packet size in bytes to send on this channel.
+[Integer] GevSCPD = 0
+    Description: Indicates the delay (in timestamp counter unit) to insert between each packet for this stream channel. This can be used as a crude flow-control mechanism if the application or the network infrastructure cannot keep up with the packets coming from the device.
+[Integer] GevSCDA = 3232241078
+    Description: Indicates the destination IP address for this stream channel.
+[Enum] FileSelector = Application
+    Description: Selects the target file in the device.
+[Enum] FileOperationSelector = Open
+    Description: Selects the target operation for the selected file in the device. This Operation is executed when the FileOperationExecute feature is called.
+[Command] FileOperationExecute = 
+    Description: Executes the operation selected by FileOperationSelector on the selected file.
+[Enum] FileOpenMode = Read
+    Description: Selects the access mode in which a file is opened in the device.
+[Register] FileAccessBuffer = 
+    Description: Defines the intermediate access buffer that allows the exchange of data between the device file storage and the application.
+[Integer] FileAccessOffset = <Unreadable>
+    Description: Controls the Offset of the mapping between the device file storage and the FileAccessBuffer.
+[Integer] FileAccessLength = <Unreadable>
+    Description: Controls the Length of the mapping between the device file storage and the FileAccessBuffer.
+[Enum] FileOperationStatus = Success
+    Description: Represents the file operation execution status.
+[Integer] FileOperationResult = 0
+    Description: Represents the file operation result. For Read or Write operations, the number of successfully read/written bytes is returned.
+[Integer] FileSize = 0
+    Description: Represents the size of the selected file in bytes.
+[Integer] TLParamsLocked = 0

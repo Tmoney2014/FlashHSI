@@ -186,7 +186,7 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         // Popup에 최종 값 표시 (DependencyProperty Format 사용)
         if (_popupText != null)
         {
-            string format = GetFormat(this);
+            string format = AssociatedObject != null ? GetFormat(AssociatedObject) : GetFormat(this);
             _popupText.Text = finalValue.ToString(format);
         }
 
@@ -229,7 +229,7 @@ public class SliderValuePopupBehavior : Behavior<Slider>
         if (_popupText != null)
         {
             // DependencyProperty로 등록된 Format 속성 활용 (기본값 N0)
-            string format = GetFormat(this);
+            string format = AssociatedObject != null ? GetFormat(AssociatedObject) : GetFormat(this);
             _popupText.Text = _lastDragValue.ToString(format);
         }
     }

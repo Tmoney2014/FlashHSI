@@ -52,7 +52,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -64,6 +64,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -180,6 +181,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -221,7 +223,8 @@
                                                                 <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                                                     <i:Interaction.Behaviors>
                                                                         <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
+                                                                        <behaviors:SliderValuePopupBehavior/>
+                                                                        <behaviors:SliderButtonBehavior/>
                                                                     </i:Interaction.Behaviors>
                                                                 </Slider>
                                                             </DockPanel>
@@ -233,7 +236,8 @@
                                                                 <Slider Minimum="-20" Maximum="20" Value="{Binding CorrectionMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                                                     <i:Interaction.Behaviors>
                                                                         <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
+                                                                        <behaviors:SliderValuePopupBehavior/>
+                                                                        <behaviors:SliderButtonBehavior/>
                                                                     </i:Interaction.Behaviors>
                                                                 </Slider>
                                                             </DockPanel>
@@ -253,6 +257,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -265,6 +270,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -298,6 +304,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -310,6 +317,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -322,6 +330,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -334,6 +343,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -377,6 +387,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -388,6 +399,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -399,6 +411,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -422,6 +435,7 @@
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
@@ -456,7 +470,7 @@
                                     <TextBox Text="{Binding ConfidenceThreshold, StringFormat=N2}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="0" Maximum="1" Value="{Binding ConfidenceThreshold, UpdateSourceTrigger=Explicit}" TickFrequency="0.01" IsSnapToTickEnabled="False"
-                                            behaviors:SliderValuePopupBehavior.Format="N2" VerticalAlignment="Center">
+                                            VerticalAlignment="Center" behaviors:SliderValuePopupBehavior.Format="F2">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -513,7 +527,7 @@
                                              behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="10" Opacity="1"/>
                                     <Slider x:Name="BackgroundThresholdSlider" Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" 
                                             TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center"
-                                            SmallChange="1" LargeChange="100">
+                                            SmallChange="1" LargeChange="100" behaviors:SliderValuePopupBehavior.Format="F2">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -1028,7 +1042,13 @@
                                     <TextBlock Text="Target FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TargetFps, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                    <Slider Minimum="10" Maximum="1000" Value="{Binding TargetFps}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
                                 </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>

@@ -559,16 +559,13 @@ namespace FlashHSI.Core.Engine
                                 contourData[contourLen++] = pCount;
                                 foreach (var seg in b.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
                                 foreach (var seg in b.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
-
-                                // Set vizRow according to valid blob positions
-                                foreach (var seg in b.CurrentSegments)
-                                {
-                                    for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
-                                }
                             }
                         }
                     }
                     contourData[0] = validBlobCount;
+
+                    // AI가 수정함: vizRow에 전체 프레임 분류 결과 복사 (LiveView에서 보이도록 강제 렌더링)
+                    Array.Copy(classificationRow, vizRow, width);
 
                     // UI 렌더링 측에서 사용 후 반환해야 함
                     FrameProcessed.Invoke(vizRow, width, contourData, contourLen);

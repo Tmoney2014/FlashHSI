@@ -28,6 +28,18 @@ namespace FlashHSI.UI
             Log.Logger = LoggingConfig.CreateLogger();
             Log.Information("=== FlashHSI Application Starting ===");
 
+            // AI가 추가함: 2ms(500FPS) 실시간 처리를 지연시키는 백그라운드 GC 스파이크 억제
+            // SustainedLowLatency: Gen 2 GC 발생을 최대한 막아 Stop-The-World 시간을 최소화합니다.
+            try
+            {
+                System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+                Log.Information($"GC Latency Mode set to: {System.Runtime.GCSettings.LatencyMode}, IsServerGC: {System.Runtime.GCSettings.IsServerGC}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to set GC Latency Mode to SustainedLowLatency.");
+            }
+
             // 2. Set Process Priority (Legacy Logic Re-applied)
             /// <ai>AI가 작성함: 실시간성 보장을 위해 프로세스 우선순위 상향</ai>
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
@@ -63,7 +75,7 @@ namespace FlashHSI.UI
             services.AddSingleton<WaterfallService>();
             services.AddSingleton<IEtherCATService, EtherCATService>();
             services.AddSingleton<SerialCommandService>();
-            
+
             // Camera Service (Pleora Driver)
             services.AddSingleton<ICameraService, PleoraCameraService>();
 

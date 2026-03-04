@@ -483,10 +483,21 @@ namespace FlashHSI.Core.Control.Camera
             });
         }
 
-        private void ExecuteCommand(string cmdName)
+        // AI가 수정함: 외부에서 MROI 등 커맨드(예: RegionClear, RegionApply)를 호출할 수 있도록 public 개방
+        public async Task ExecuteCommandAsync(string cmdName)
         {
             if (_device == null) return;
-            _device.Parameters.ExecuteCommand(cmdName);
+            await Task.Run(() =>
+            {
+                try
+                {
+                    _device.Parameters.ExecuteCommand(cmdName);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Failed to execute command {cmdName}: {ex.Message}");
+                }
+            });
         }
 
         public void Dispose()

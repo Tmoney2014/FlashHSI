@@ -10,9 +10,9 @@ namespace FlashHSI.UI.Services
     {
         public WriteableBitmap? DisplayImage { get; private set; }
         private Dictionary<int, (byte B, byte G, byte R)> _colorMap = new();
-        
+
         // Default color for unknown/background
-        private (byte B, byte G, byte R) _defaultColor = (0, 0, 0); 
+        private (byte B, byte G, byte R) _defaultColor = (0, 0, 0);
 
         public void Initialize(int width, int height)
         {
@@ -34,10 +34,10 @@ namespace FlashHSI.UI.Services
             // Add default or special handling if needed
         }
 
-        public unsafe void AddLine(int[] classificationRow, int width, List<ActiveBlob.BlobSnapshot>? blobs = null)
+        public unsafe void AddLine(int[] classificationRow, int width, int[]? contourData, int contourLen)
         {
             if (DisplayImage == null) return;
-            if (width != DisplayImage.PixelWidth) 
+            if (width != DisplayImage.PixelWidth)
             {
                 // Re-init if dimension changes? Or just safety check
                 Initialize(width, DisplayImage.PixelHeight);
@@ -58,7 +58,7 @@ namespace FlashHSI.UI.Services
                 // Length = (Height - 1) * Stride
                 // Source = Line 1 (backBuffer + stride)
                 // Dest = Line 0 (backBuffer)
-                
+
                 int copyLength = (height - 1) * stride;
                 if (copyLength > 0)
                 {
@@ -72,7 +72,7 @@ namespace FlashHSI.UI.Services
 
                 // 2. Draw New Line at Bottom (Height - 1)
                 byte* bottomLine = backBuffer + copyLength; // This effectively points to the last line start
-                
+
                 for (int x = 0; x < width; x++)
                 {
                     int cls = classificationRow[x];
@@ -104,40 +104,56 @@ namespace FlashHSI.UI.Services
                     }
                 }
 
-                // 3. AI: Precise Contour Rendering (Pixel-Perfect)
-                // Using Range Difference between CurrentSegments and PrevSegments
-                
-                if (blobs != null && height >= 2)
+                // 3. AI: Precise Contour Rendering (Pixel-Perfect, Zero-Allocation)
+                // Using Range Difference extracted from packed contourData array
+
+                if (contourData != null && contourLen > 0 && height >= 2)
                 {
                     byte* prevLine = backBuffer + (height - 2) * stride;
                     byte* currLine = backBuffer + (height - 1) * stride;
-                    
-                    foreach (var blob in blobs)
+
+                    int blobCount = contourData[0];
+                    int idx = 1;
+
+                    for (int b = 0; b < blobCount; b++)
                     {
-                        // A. Top Edge: Parts of Current that are NOT in Prev -> Draw on PrevLine (y-1)
-                        foreach (var currSeg in blob.CurrentSegments)
+                        if (idx >= contourLen) break;
+
+                        int cCount = contourData[idx++];
+                        int pCount = contourData[idx++];
+
+                        // Span으로 래핑하여 할당 없이 슬라이싱
+                        ReadOnlySpan<int> cSegs = new ReadOnlySpan<int>(contourData, idx, cCount * 2);
+                        idx += cCount * 2;
+                        ReadOnlySpan<int> pSegs = new ReadOnlySpan<int>(contourData, idx, pCount * 2);
+                        idx += pCount * 2;
+
+                        // A. Top Edge & Side Walls (CurrentSegments 기준)
+                        for (int i = 0; i < cCount; i++)
                         {
-                            for (int x = currSeg.Start; x <= currSeg.End; x++)
+                            int start = cSegs[i * 2];
+                            int end = cSegs[i * 2 + 1];
+                            for (int x = start; x <= end; x++)
                             {
-                                if (!IsContained(x, blob.PrevSegments))
+                                if (!IsContainedZeroAlloc(x, pSegs))
                                 {
                                     DrawPixel(prevLine, x, stride, bytesPerPixel, width);
                                 }
                             }
-                            
-                            // Side Walls (Current) - Draw on CurrLine
-                            DrawPixel(currLine, currSeg.Start - 1, stride, bytesPerPixel, width);
-                            DrawPixel(currLine, currSeg.End + 1, stride, bytesPerPixel, width);
+
+                            // Side Walls
+                            DrawPixel(currLine, start - 1, stride, bytesPerPixel, width);
+                            DrawPixel(currLine, end + 1, stride, bytesPerPixel, width);
                         }
-                        
-                        // B. Bottom Edge: Parts of Prev that are NOT in Current -> Draw on CurrLine (y)
-                        // This handles Closed Blobs effectively because their CurrentSegments will be empty, causing PrevSegments to be drawn fully.
-                        foreach (var prevSeg in blob.PrevSegments)
+
+                        // B. Bottom Edge (PrevSegments 기준)
+                        for (int i = 0; i < pCount; i++)
                         {
-                            for (int x = prevSeg.Start; x <= prevSeg.End; x++)
+                            int start = pSegs[i * 2];
+                            int end = pSegs[i * 2 + 1];
+                            for (int x = start; x <= end; x++)
                             {
-                                // If CurrentSegments is empty (Closed Blob), this condition is always true.
-                                if (!IsContained(x, blob.CurrentSegments))
+                                if (!IsContainedZeroAlloc(x, cSegs))
                                 {
                                     DrawPixel(currLine, x, stride, bytesPerPixel, width);
                                 }
@@ -145,8 +161,6 @@ namespace FlashHSI.UI.Services
                         }
                     }
                 }
-
-                
                 bitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
             }
             finally
@@ -154,7 +168,7 @@ namespace FlashHSI.UI.Services
                 bitmap.Unlock();
             }
         }
-        
+
         private bool IsContained(int x, List<ActiveBlob.BlobSegment> segments)
         {
             foreach (var seg in segments)
@@ -163,11 +177,22 @@ namespace FlashHSI.UI.Services
             }
             return false;
         }
-        
+
+        private bool IsContainedZeroAlloc(int x, ReadOnlySpan<int> segments)
+        {
+            for (int i = 0; i < segments.Length / 2; i++)
+            {
+                int start = segments[i * 2];
+                int end = segments[i * 2 + 1];
+                if (x >= start && x <= end) return true;
+            }
+            return false;
+        }
+
         private unsafe void DrawPixel(byte* linePtr, int x, int stride, int bpp, int width)
         {
             if (x < 0 || x >= width) return;
-            
+
             int offset = x * bpp;
             if (offset + 2 < stride)
             {
@@ -197,7 +222,7 @@ namespace FlashHSI.UI.Services
                 g = Convert.ToByte(hex.Substring(4, 2), 16);
                 b = Convert.ToByte(hex.Substring(6, 2), 16);
             }
-            
+
             return (b, g, r);
         }
     }

@@ -71,57 +71,54 @@
 
                                 <!-- AI가 추가함: MROI (Region of Interest) -->
                                 <Separator Margin="0,12"/>
-                                <TextBlock Text="MROI (Region of Interest)" FontWeight="Medium" Margin="0,0,0,10"/>
-                                
-                                <DockPanel Margin="0,0,0,10">
-                                    <TextBlock Text="Offset X (px)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraOffsetX}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <!-- Maximum은 대략적으로 크게 잡거나, 향후 SensorSize 등과 바인딩 가능 -->
-                                    <Slider Minimum="0" Maximum="2048" Value="{Binding CameraOffsetX, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
-                                        <i:Interaction.Behaviors>
-                                            <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderButtonBehavior/>
-                                        </i:Interaction.Behaviors>
-                                    </Slider>
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock Text="MROI Band Regions (FX50 Multi-Zones)" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                        <Button Command="{Binding AddMroiRegionCommand}" Content="+ Add Band" 
+                                                Style="{StaticResource MaterialDesignFlatButton}" 
+                                                Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                                Height="24" Padding="8,0" FontSize="11" Margin="0,0,8,0"/>
+                                        <Button Command="{Binding ApplyMroiSettingsAsyncCommand}" Content="Apply to Camera" 
+                                                Style="{StaticResource MaterialDesignRaisedButton}" 
+                                                Height="28" Padding="12,0" FontSize="11"/>
+                                    </StackPanel>
                                 </DockPanel>
-                                <DockPanel Margin="0,0,0,10">
-                                    <TextBlock Text="Offset Y (px)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraOffsetY}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="0" Maximum="2048" Value="{Binding CameraOffsetY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
-                                        <i:Interaction.Behaviors>
-                                            <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderButtonBehavior/>
-                                        </i:Interaction.Behaviors>
-                                    </Slider>
-                                </DockPanel>
-                                <DockPanel Margin="0,0,0,10">
-                                    <TextBlock Text="Width (px)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraWidth}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="2048" Value="{Binding CameraWidth, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
-                                        <i:Interaction.Behaviors>
-                                            <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderButtonBehavior/>
-                                        </i:Interaction.Behaviors>
-                                    </Slider>
-                                </DockPanel>
-                                <DockPanel>
-                                    <TextBlock Text="Height (px)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraHeight}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="2048" Value="{Binding CameraHeight, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
-                                        <i:Interaction.Behaviors>
-                                            <behaviors:SliderDragCompletedBehavior/>
-                                            <behaviors:SliderValuePopupBehavior/>
-                                            <behaviors:SliderButtonBehavior/>
-                                        </i:Interaction.Behaviors>
-                                    </Slider>
-                                </DockPanel>
+
+                                <!-- 여러 MROI 밴드를 리스트로 보여줌 -->
+                                <ItemsControl ItemsSource="{Binding MroiRegions}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <materialDesign:Card Margin="0,0,0,8" Padding="8" Background="#2A2A2A">
+                                                <DockPanel>
+                                                    <TextBlock Text="{Binding RegionIndex, StringFormat='Zone {0}'}" 
+                                                             VerticalAlignment="Center" FontWeight="Bold" Foreground="LightBlue" Width="50" Margin="0,0,8,0"/>
+                                                    
+                                                    <!-- Delete Button -->
+                                                    <Button Command="{Binding DataContext.RemoveMroiRegionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconForegroundButton}"
+                                                            Width="24" Height="24"
+                                                            DockPanel.Dock="Right"
+                                                            ToolTip="Remove Band Region">
+                                                        <materialDesign:PackIcon Kind="Close" Width="16" Height="16"/>
+                                                    </Button>
+
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <!-- OffsetY (Start Band) -->
+                                                        <TextBlock Text="Start Band (OffsetY): " FontSize="11" Foreground="Gray" VerticalAlignment="Center"/>
+                                                        <TextBox Text="{Binding StartBand, UpdateSourceTrigger=LostFocus}" Width="40" TextAlignment="Center" Margin="0,0,16,0"
+                                                                 behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                                        
+                                                        <!-- Height (Band Count) -->
+                                                        <TextBlock Text="Count (Height): " FontSize="11" Foreground="Gray" VerticalAlignment="Center"/>
+                                                        <TextBox Text="{Binding BandCount, UpdateSourceTrigger=LostFocus}" Width="40" TextAlignment="Center"
+                                                                 behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </materialDesign:Card>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </materialDesign:Card>
                         

@@ -76,11 +76,8 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private double _cameraExposureTime = 1000.0;  // μs
         [ObservableProperty] private double _cameraFrameRate = 100.0;      // FPS
 
-        // AI가 추가함: GigE Vision MROI 파라미터
-        [ObservableProperty] private int _cameraOffsetX = 0;
-        [ObservableProperty] private int _cameraOffsetY = 0;
-        [ObservableProperty] private int _cameraWidth = 1024;
-        [ObservableProperty] private int _cameraHeight = 1024;
+        // AI가 수정함: GigE Vision MROI 리스트 관리
+        public ObservableCollection<SystemSettings.MroiRegionConfig> MroiRegions { get; } = new();
 
         // AI가 추가함: Blob Tracking 파라미터
         [ObservableProperty] private int _blobMinPixels = 5;
@@ -146,10 +143,14 @@ namespace FlashHSI.UI.ViewModels
             // 카메라 설정 로드
             _cameraExposureTime = s.CameraExposureTime > 0 ? s.CameraExposureTime : 1000.0;
             _cameraFrameRate = s.CameraFrameRate > 0 ? s.CameraFrameRate : 100.0;
-            _cameraOffsetX = s.CameraOffsetX;
-            _cameraOffsetY = s.CameraOffsetY;
-            _cameraWidth = s.CameraWidth > 0 ? s.CameraWidth : 1024;
-            _cameraHeight = s.CameraHeight > 0 ? s.CameraHeight : 1024;
+            // AI가 수정함: MROI 설정 로드
+            if (s.MroiRegions != null)
+            {
+                foreach (var region in s.MroiRegions)
+                {
+                    MroiRegions.Add(region);
+                }
+            }
 
             // Blob 설정 로드
             _blobMinPixels = s.BlobMinPixels;
@@ -667,29 +668,93 @@ namespace FlashHSI.UI.ViewModels
             }
         }
 
-        // AI가 추가함: MROI 파라미터 변경 시 적용
-        partial void OnCameraOffsetXChanged(int value) => _ = ApplyCameraMROISettingAsync("OffsetX", value, nameof(SystemSettings.CameraOffsetX), s => s.CameraOffsetX = value);
-        partial void OnCameraOffsetYChanged(int value) => _ = ApplyCameraMROISettingAsync("OffsetY", value, nameof(SystemSettings.CameraOffsetY), s => s.CameraOffsetY = value);
-        partial void OnCameraWidthChanged(int value) => _ = ApplyCameraMROISettingAsync("Width", value, nameof(SystemSettings.CameraWidth), s => s.CameraWidth = value);
-        partial void OnCameraHeightChanged(int value) => _ = ApplyCameraMROISettingAsync("Height", value, nameof(SystemSettings.CameraHeight), s => s.CameraHeight = value);
-
-        private async Task ApplyCameraMROISettingAsync(string nodeName, int value, string propertyName, Action<SystemSettings> updateSetting)
+        // AI가 수정함: 다중 MROI 밴드 추가 커맨드
+        [RelayCommand]
+        private void AddMroiRegion()
         {
+            // 빈 영역 1개 추가 (기본값 설정)
+            MroiRegions.Add(new SystemSettings.MroiRegionConfig
+            {
+                RegionIndex = MroiRegions.Count,
+                StartBand = 10,
+                BandCount = 20
+            });
+            SaveMroiSettings();
+        }
+
+        // AI가 수정함: 다중 MROI 밴드 삭제 커맨드
+        [RelayCommand]
+        private void RemoveMroiRegion(SystemSettings.MroiRegionConfig region)
+        {
+            if (region != null && MroiRegions.Contains(region))
+            {
+                MroiRegions.Remove(region);
+                // 인덱스 재정렬
+                for (int i = 0; i < MroiRegions.Count; i++)
+                {
+                    MroiRegions[i].RegionIndex = i;
+                }
+                SaveMroiSettings();
+            }
+        }
+
+        private void SaveMroiSettings()
+        {
+            SettingsService.Instance.Settings.MroiRegions.Clear();
+            foreach (var r in MroiRegions)
+            {
+                SettingsService.Instance.Settings.MroiRegions.Add(r);
+            }
+            SettingsService.Instance.Save();
+        }
+
+        // AI가 수정함: 설정된 여러 밴드 대역의 MROI 값들을 한 번에 카메라로 전송 및 적용
+        [RelayCommand]
+        private async Task ApplyMroiSettingsAsync()
+        {
+            SaveMroiSettings(); // 적용 전 저장
+
+            if (!_cameraService.IsConnected)
+            {
+                Log.Warning("MROI 설정 실패: 카메라가 연결되어 있지 않습니다.");
+                return;
+            }
+
             try
             {
-                if (_cameraService.IsConnected)
+                // 1. MROI 활성화 (설정 리스트가 1개 이상일 경우 활성화, 0개면 비활성화)
+                if (MroiRegions.Count > 0)
                 {
-                    // 일부 카메라에서는 스트리밍 도중 MROI 변경 시 에러가 날 수 있으나 우선 적용 시도
-                    await _cameraService.SetParameterAsync(nodeName, value);
-                    Log.Information("카메라 MROI 노드 '{NodeName}' 설정: {Value}", nodeName, value);
+                    await _cameraService.SetParameterAsync("WindowingMode", "MultiZones"); // FX50의 다중 영역 모드 Enum 확인 필요
+                    Log.Information("WindowingMode Set: MultiZones");
+
+                    // 2. 기존 설정 지우기 커맨드
+                    await _cameraService.ExecuteCommandAsync("RegionClear");
+
+                    // 3. 루프 돌며 파라미터 등록
+                    foreach (var region in MroiRegions)
+                    {
+                        await _cameraService.SetParameterAsync("RegionSelector", region.RegionIndex);
+                        await _cameraService.SetParameterAsync("RegionMode", true); // 활성화
+                        await _cameraService.SetParameterAsync("OffsetY", region.StartBand);
+                        await _cameraService.SetParameterAsync("Height", region.BandCount);
+                        Log.Information($"MROI Zone {region.RegionIndex} Configured: Start={region.StartBand}, Height={region.BandCount}");
+                    }
+
+                    // 4. 적용 커맨드
+                    await _cameraService.ExecuteCommandAsync("RegionApply");
+                    Log.Information("MROI RegionApply Executed Successfully.");
                 }
-                updateSetting(SettingsService.Instance.Settings);
-                SettingsService.Instance.Save();
-                WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(propertyName, value));
+                else
+                {
+                    // 0개인 경우 기본 모드(단일 존 또는 전체 존)로 되돌림 (필요 시)
+                    await _cameraService.SetParameterAsync("WindowingMode", "SingleZone"); // TODO: 올바른 Enum 값 필요
+                    Log.Information("WindowingMode Set: SingleZone (MROI Disabled)");
+                }
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "카메라 MROI 설정 실패 ({NodeName})", nodeName);
+                Log.Error(ex, "MROI 멀티 밴드 적용 실패");
             }
         }
 

@@ -26,11 +26,15 @@ namespace FlashHSI.Core.Settings
         public double CameraFrameRate { get; set; } = 100.0;       // FPS
         public int CameraSensorSize { get; set; } = 1024; // Default Sensor Width
 
-        // AI가 추가함: GigE Vision MROI 파라미터
-        public int CameraOffsetX { get; set; } = 0;
-        public int CameraOffsetY { get; set; } = 0;
-        public int CameraWidth { get; set; } = 1024;
-        public int CameraHeight { get; set; } = 1024;
+        // AI가 수정함: FX50 멀티 밴드 MROI 제어 지원
+        public List<MroiRegionConfig> MroiRegions { get; set; } = new List<MroiRegionConfig>();
+
+        public class MroiRegionConfig
+        {
+            public int RegionIndex { get; set; }
+            public int StartBand { get; set; } // FX50 OffsetY
+            public int BandCount { get; set; } // FX50 Height
+        }
 
         // AI가 추가함: Ejection Logic Parameters
         public int EjectionDelayMs { get; set; } = 300; // Legacy 'BlowDelay'

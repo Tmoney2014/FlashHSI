@@ -21,12 +21,19 @@ public class MemoryMonitoringService : IDisposable
     private bool _disposed;
     private bool _isEnabled;
 
+    // AI가 추가함: 실시간 GC 정밀 추적용 폴링 스레드
+    private Thread? _gcPollThread;
+    private double _periodMaxGcPauseMs;
+    private double _periodTotalGcPauseMs;
+    private long _periodTotalGcCount;
+
     // 메모리 메트릭
     private long _lastGen0Collections;
     private long _lastGen1Collections;
     private long _lastGen2Collections;
     private long _lastTotalMemory;
     private long _peakMemoryUsage;
+    private TimeSpan _lastGCPauseTime; // AI가 추가함: 2ms 실시간 모니터링용
 
     public MemoryMonitoringService(int intervalMs = 30000, long thresholdMb = 1000)
     {
@@ -37,6 +44,8 @@ public class MemoryMonitoringService : IDisposable
         _monitoringTimer.Elapsed += OnMonitoringTick;
 
         InitializeBaseline();
+        StartGcPollingThread(); // AI가 추가함: 1ms 폴링 모니터링 시작
+
         Log.Information(
             "MemoryMonitoringService initialized with {IntervalMs}ms interval and {ThresholdMB}MB threshold",
             intervalMs, thresholdMb);
@@ -101,6 +110,7 @@ public class MemoryMonitoringService : IDisposable
     {
         var process = Process.GetCurrentProcess();
         var totalMemory = GC.GetTotalMemory(false);
+        var gcInfo = GC.GetGCMemoryInfo(); // AI가 추가함: GC 상세 정보 가져오기
 
         return new MemoryStats
         {
@@ -112,7 +122,9 @@ public class MemoryMonitoringService : IDisposable
             Gen2Collections = GC.CollectionCount(2),
             PeakMemoryBytes = _peakMemoryUsage,
             BufferPoolStats = BufferPool.Instance.Stats,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.UtcNow,
+            GCPauseTimeMs = gcInfo.PauseTimePercentage, // .NET 8에서는 %로 제공됨, 런타임 지연 추산용
+            GCTotalPauseDuration = gcInfo.PauseDurations.ToArray() // AI가 추가함: 최근 GC의 실제 STW(Stop-The-World) 시간들
         };
     }
 
@@ -160,6 +172,58 @@ public class MemoryMonitoringService : IDisposable
         _lastGen2Collections = GC.CollectionCount(2);
         _lastTotalMemory = GC.GetTotalMemory(false);
         _peakMemoryUsage = _lastTotalMemory;
+
+        var gcInfo = GC.GetGCMemoryInfo();
+        if (gcInfo.PauseDurations.Length > 0)
+        {
+            _lastGCPauseTime = gcInfo.PauseDurations[^1]; // 가장 마지막 GC 일시정지 시간
+        }
+    }
+
+    /// <summary>
+    /// AI가 추가함: 1ms마다 GC.Index를 확인하여 GC 발생 시점과 STW 시간을 정밀 포착합니다.
+    /// </summary>
+    private void StartGcPollingThread()
+    {
+        _gcPollThread = new Thread(() =>
+        {
+            long lastGcIndex = GC.GetGCMemoryInfo().Index;
+            while (!_disposed)
+            {
+                var info = GC.GetGCMemoryInfo();
+                if (info.Index > lastGcIndex)
+                {
+                    double currentPauseMs = 0;
+                    var durations = info.PauseDurations;
+                    for (int i = 0; i < durations.Length; i++)
+                    {
+                        currentPauseMs += durations[i].TotalMilliseconds;
+                    }
+
+                    lock (_lock)
+                    {
+                        if (currentPauseMs > _periodMaxGcPauseMs) _periodMaxGcPauseMs = currentPauseMs;
+                        _periodTotalGcPauseMs += currentPauseMs;
+                        _periodTotalGcCount += (info.Index - lastGcIndex);
+                    }
+
+                    // 치명적 스파이크 감지 시 0.001초 내로 즉각 로깅
+                    if (currentPauseMs > 2.0)
+                    {
+                        Log.Error("🚨 [2ms Violation] GC #{Index} (Gen {Generation}) STW: {PauseMs:F4} ms! (Concurrent: {IsConcurrent})",
+                            info.Index, info.Generation, currentPauseMs, info.Concurrent);
+                    }
+
+                    lastGcIndex = info.Index;
+                }
+                Thread.Sleep(1);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "GCPollingThread"
+        };
+        _gcPollThread.Start();
     }
 
     private void OnMonitoringTick(object sender, ElapsedEventArgs e)
@@ -182,17 +246,34 @@ public class MemoryMonitoringService : IDisposable
             var memoryDelta = stats.TotalMemoryBytes - _lastTotalMemory;
 
             // Log periodic summary with detailed explanations
+            double maxPause, totalPause;
+            long realGcCount;
+            lock (_lock)
+            {
+                maxPause = _periodMaxGcPauseMs;
+                totalPause = _periodTotalGcPauseMs;
+                realGcCount = _periodTotalGcCount;
+
+                // 버퍼 초기화
+                _periodMaxGcPauseMs = 0;
+                _periodTotalGcPauseMs = 0;
+                _periodTotalGcCount = 0;
+            }
+
             Log.Information("Memory Monitor:\r\n" +
                             "  • Total: {TotalMB}MB (.NET GC 관리 힙 메모리)\r\n" +
                             "  • Working Set: {WorkingMB}MB (프로세스 전체 물리 RAM 사용량)\r\n" +
                             "  • GC Gen0: {Gen0Delta}회 (작은 객체 정리 횟수)\r\n" +
                             "  • GC Gen1: {Gen1Delta}회 (중간 생존 객체 정리 횟수)\r\n" +
                             "  • GC Gen2: {Gen2Delta}회 (장수 객체 정리 횟수 - 0이면 메모리 누수 없음)\r\n" +
+                            "  • ⚠️ 30초 내 실제 포착된 GC: {RealGcCount}회\r\n" +
+                            "  • ⚠️ 30초 내 최대 STW: {MaxPause:F4} ms (총합: {TotalPause:F4} ms)\r\n" +
                             "  • Active Buffers: {ActiveBuffers}개 (현재 반환안된 버퍼 수)\r\n" +
                             "  • Memory Delta: {MemoryDelta}MB (GC힙 메모리 증감량)",
                 stats.TotalMemoryBytes / (1024 * 1024),
                 stats.WorkingSetBytes / (1024 * 1024),
                 gen0Delta, gen1Delta, gen2Delta,
+                realGcCount, maxPause, totalPause,
                 stats.BufferPoolStats.ActiveBuffers,
                 memoryDelta / (1024 * 1024));
 
@@ -245,4 +326,8 @@ public readonly struct MemoryStats
     public long Gen2Collections { get; init; }
     public BufferPoolStats BufferPoolStats { get; init; }
     public DateTime Timestamp { get; init; }
+
+    // AI가 추가함: GC 지연 분석용
+    public double GCPauseTimeMs { get; init; }
+    public TimeSpan[] GCTotalPauseDuration { get; init; }
 }

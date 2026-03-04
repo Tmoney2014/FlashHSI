@@ -368,20 +368,42 @@ namespace FlashHSI.Core.Control.Camera
         private ushort[]? _cachedFrameBuffer;
         private int _cachedBufferSize;
 
+        private static int _dropLogCount = 0;
+
         private unsafe void ProcessBuffer(PvBuffer? buffer)
         {
-            if (buffer == null) return;
+            if (buffer == null)
+            {
+                if (_dropLogCount++ < 10) Log.Warning("ProcessBuffer: buffer is null");
+                return;
+            }
+
             // PayloadType check - AI가 수정함: SDK 표준 enum 값 사용
-            if (buffer.PayloadType != PvPayloadType.Image) return;
+            if (buffer.PayloadType != PvPayloadType.Image)
+            {
+                if (_dropLogCount++ < 10) Log.Warning($"ProcessBuffer: PayloadType isn't Image (Current: {buffer.PayloadType})");
+                return;
+            }
 
             var image = buffer.Image;
             long width = image.Width;
             long height = image.Height;
 
-            if (width <= 0 || height <= 0) return;
+            if (width <= 0 || height <= 0)
+            {
+                if (_dropLogCount++ < 10) Log.Warning($"ProcessBuffer: Invalid Size {width}x{height}");
+                return;
+            }
 
             byte* pData = buffer.DataPointer;
-            if (pData == null) return;
+            if (pData == null)
+            {
+                if (_dropLogCount++ < 10) Log.Warning("ProcessBuffer: DataPointer is null");
+                return;
+            }
+
+            // 로그 폭주 방지용. 정상 프레임 진입 시 리셋.
+            _dropLogCount = 0;
 
             int totalPixels = (int)(width * height);
 

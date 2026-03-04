@@ -74,57 +74,38 @@ namespace FlashHSI.Core.Control.Camera
                 _device = PvDevice.CreateAndConnect(deviceInfo);
                 if (_device == null) throw new Exception("Failed to connect to device.");
 
-                // AI가 임시 추가함: FX50 파라미터 트리 전체 구조 덤프
-                try
-                {
-                    var lines = new List<string>();
-                    foreach (PvGenParameter param in _device.Parameters)
-                    {
-                        if (param != null)
-                        {
-                            lines.Add($"[{param.GetType().Name}] {param.Name} - {param.Description}");
-                        }
-                    }
-                    System.IO.File.WriteAllLines(@"C:\Users\user16g\Desktop\FlashHSI\Params.txt", lines);
-                    Log.Information("✅ 카메라 파라미터 트리가 Params.txt 에 저장되었습니다.");
-                }
-                catch { }
+
 
                 // Open Stream
                 _stream = PvStream.CreateAndOpen(deviceInfo);
                 if (_stream == null) throw new Exception("Failed to open stream.");
 
                 // Configure Stream (GigE Vision only)
+                // AI가 수정함: FX50은 NegotiatePacketSize()를 지원하지 않으므로 직접 패킷 사이즈 설정
                 var lDGEV = _device as PvDeviceGEV;
                 var lSGEV = _stream as PvStreamGEV;
                 if (lDGEV != null && lSGEV != null)
                 {
+                    // FX50: NegotiatePacketSize() 미지원 → GevSCPSPacketSize 직접 설정
                     try
                     {
-                        lDGEV.NegotiatePacketSize();
+                        lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 8192);
+                        Log.Information("GevSCPSPacketSize set to 8192 (Jumbo Frame).");
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Log.Warning(ex, "NegotiatePacketSize failed. Forcing Jumbo Frame packet size (8192 bytes)...");
                         try
                         {
-                            // FX50 고속 전송을 지원하기 위해 1476 대신 점보 프레임(8192) 단위로 강제 할당
-                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 8192);
+                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 1476);
+                            Log.Warning("Jumbo Frame 미지원. GevSCPSPacketSize를 1476으로 설정.");
                         }
-                        catch (Exception innerEx)
+                        catch (Exception ex)
                         {
-                            Log.Error(innerEx, "Failed to force Jumbo Frame packet size.");
+                            Log.Error(ex, "GevSCPSPacketSize 설정 실패.");
                         }
                     }
 
-                    try
-                    {
-                        lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "SetStreamDestination Failed. Check IP/Subnet configurations.");
-                    }
+                    lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
                 }
 
                 // Buffer Management (Manual)

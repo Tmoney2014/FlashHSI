@@ -105,15 +105,26 @@ namespace FlashHSI.Core.Control.Camera
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning(ex, "Unable to negotiate streaming packet size. Trying fallback (1476 bytes)...");
+                        Log.Warning(ex, "NegotiatePacketSize failed. Forcing Jumbo Frame packet size (8192 bytes)...");
                         try
                         {
-                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 1476);
+                            // FX50 고속 전송을 지원하기 위해 1476 대신 점보 프레임(8192) 단위로 강제 할당
+                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 8192);
                         }
-                        catch { /* Ignored */ }
+                        catch (Exception innerEx)
+                        {
+                            Log.Error(innerEx, "Failed to force Jumbo Frame packet size.");
+                        }
                     }
 
-                    lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
+                    try
+                    {
+                        lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "SetStreamDestination Failed. Check IP/Subnet configurations.");
+                    }
                 }
 
                 // Buffer Management (Manual)

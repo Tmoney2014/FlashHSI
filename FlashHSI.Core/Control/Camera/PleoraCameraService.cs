@@ -11,7 +11,7 @@ namespace FlashHSI.Core.Control.Camera
         private PvStream? _stream;
         private Thread? _acquisitionThread;
         private CancellationTokenSource? _cancellationTokenSource;
-        
+
         private volatile bool _isConnected;
         private volatile bool _isAcquiring;
 
@@ -19,7 +19,7 @@ namespace FlashHSI.Core.Control.Camera
         public bool IsAcquiring => _isAcquiring;
 
         public event Action<ushort[], int, int>? FrameReceived;
-        
+
         // AI가 추가함: 연결 끊김 이벤트
         public event Action<string>? ConnectionLost;
 
@@ -38,7 +38,7 @@ namespace FlashHSI.Core.Control.Camera
                 _system?.Find();
 
                 PvDeviceInfo? deviceInfo = null;
-                
+
                 // Auto-find first available GigE Vision device
                 if (deviceInfo == null)
                 {
@@ -90,7 +90,7 @@ namespace FlashHSI.Core.Control.Camera
                 // Buffer Management (Manual)
                 // Read payload size
                 long lPayloadSize = _device.PayloadSize;
-                
+
                 // Allocate buffers
                 uint lBufferCount = 16;
                 _buffers = new PvBuffer[lBufferCount];
@@ -105,7 +105,7 @@ namespace FlashHSI.Core.Control.Camera
                 {
                     _stream.QueueBuffer(_buffers[i]);
                 }
-                
+
                 _isConnected = true;
                 Log.Information("Camera Connected Successfully.");
                 return true;
@@ -117,7 +117,7 @@ namespace FlashHSI.Core.Control.Camera
                 return false;
             }
         }
-        
+
         // Additional field for buffers
         private PvBuffer[]? _buffers;
 
@@ -139,7 +139,7 @@ namespace FlashHSI.Core.Control.Camera
                 _device.Dispose();
                 _device = null;
             }
-            
+
             _buffers = null;
             _isConnected = false;
             Log.Information("Camera Disconnected.");
@@ -169,7 +169,7 @@ namespace FlashHSI.Core.Control.Camera
                 };
                 _isAcquiring = true;
                 _acquisitionThread.Start();
-                
+
                 Log.Information("Acquisition Started.");
             }
             catch (Exception ex)
@@ -185,7 +185,7 @@ namespace FlashHSI.Core.Control.Camera
 
             Log.Information("Stopping Acquisition...");
             _cancellationTokenSource?.Cancel();
-            
+
             // Wait for thread
             if (_acquisitionThread != null && _acquisitionThread.IsAlive)
             {
@@ -209,16 +209,16 @@ namespace FlashHSI.Core.Control.Camera
 
                 while (_stream.QueuedBufferCount > 0)
                 {
-                     // Retrieve blindly to clear
-                     _stream.RetrieveBuffer(ref lBuffer, ref lOpResult, 0);
-                     lBuffer = null;
+                    // Retrieve blindly to clear
+                    _stream.RetrieveBuffer(ref lBuffer, ref lOpResult, 0);
+                    lBuffer = null;
                 }
-                
+
                 // Re-queue for next time? Or re-allocate on Connect?
                 // For simplicity, we re-queue on Connect or we keep them alive.
                 // Actually if we Stop, we should probably just flush. 
                 // If we want to Start again without Connect, we need to re-queue.
-                
+
                 // Let's re-queue them here if we plan to restart? 
                 // Connect allocates. Disconnect clears. Stop just stops.
                 // So Stop should ideally leave buffers ready or we re-queue in Start.
@@ -228,7 +228,7 @@ namespace FlashHSI.Core.Control.Camera
                 // Step2Configuring allocates and queues. 
                 // So if we Stop, we are empty. We need to re-queue in Start?
                 // Or we can just re-queue them here immediately after retrieving.
-                
+
                 if (_buffers != null)
                 {
                     foreach (var buf in _buffers)
@@ -245,13 +245,13 @@ namespace FlashHSI.Core.Control.Camera
         private void AcquisitionLoop()
         {
             if (_stream == null) return;
-            
+
             Log.Information("Acquisition Loop Running...");
 
             PvBuffer? buffer = null;
             PvResult operationResult = new PvResult(PvResultCode.OK);
             PvResult result;
-            
+
             // AI가 추가함: 연결 끊김 감지를 위한 연속 오류 카운터
             int consecutiveErrors = 0;
             const int MaxConsecutiveErrors = 10; // 10회 연속 오류 시 연결 끊김으로 판단
@@ -280,12 +280,12 @@ namespace FlashHSI.Core.Control.Camera
                 if (result.IsOK)
                 {
                     consecutiveErrors = 0; // 성공 시 리셋
-                    
+
                     if (operationResult.IsOK)
                     {
                         ProcessBuffer(buffer);
                     }
-                    
+
                     // Re-queue
                     _stream.QueueBuffer(buffer);
                 }
@@ -304,7 +304,7 @@ namespace FlashHSI.Core.Control.Camera
                 }
             }
         }
-        
+
         /// <summary>
         /// AI가 추가함: 연결 끊김 처리
         /// </summary>
@@ -328,20 +328,20 @@ namespace FlashHSI.Core.Control.Camera
 
             var image = buffer.Image;
             long width = image.Width;
-            long height = image.Height; 
-            
+            long height = image.Height;
+
             if (width <= 0 || height <= 0) return;
 
             byte* pData = buffer.DataPointer;
             if (pData == null) return;
 
             int totalPixels = (int)(width * height);
-            
+
             // AI가 수정함: ArrayPool 기반 버퍼 풀링 (700FPS 최적화)
             // 기존: ushort[] frameData = new ushort[totalPixels]; // 매 프레임 힙 할당 (GC 부하)
             // 개선: 캐시된 버퍼가 충분하면 재사용, 아니면 Pool에서 대여
             ushort[] frameData;
-            
+
             if (_cachedFrameBuffer != null && _cachedBufferSize >= totalPixels)
             {
                 // 캐시된 버퍼 재사용
@@ -351,7 +351,7 @@ namespace FlashHSI.Core.Control.Camera
             {
                 // Pool에서 대여 (최소 크기 보장)
                 frameData = ArrayPool<ushort>.Shared.Rent(totalPixels);
-                
+
                 // 이전 버퍼 반환
                 if (_cachedFrameBuffer != null)
                 {
@@ -377,12 +377,13 @@ namespace FlashHSI.Core.Control.Camera
         public async Task SetParameterAsync<T>(string name, T value)
         {
             if (_device == null) return;
-            await Task.Run(() => 
+            await Task.Run(() =>
             {
                 try
                 {
                     var paramsList = _device.Parameters;
                     if (value is long lVal) paramsList.SetIntegerValue(name, lVal);
+                    else if (value is int iVal) paramsList.SetIntegerValue(name, iVal); // AI가 추가함: MROI 등 int형 파라미터 지원
                     else if (value is float fVal) paramsList.SetFloatValue(name, fVal);
                     else if (value is double dVal) paramsList.SetFloatValue(name, (float)dVal); // Float/Double conversion
                     else if (value is string sVal) paramsList.SetStringValue(name, sVal);
@@ -406,16 +407,16 @@ namespace FlashHSI.Core.Control.Camera
                     var paramsList = _device.Parameters;
                     // Generic handling is tricky with Pleora non-generic API
                     // Return zero/null for now basically
-                    return default(T); 
+                    return default(T);
                 }
                 catch { return default(T); }
             });
         }
-        
+
         private void ExecuteCommand(string cmdName)
         {
-             if (_device == null) return;
-             _device.Parameters.ExecuteCommand(cmdName);
+            if (_device == null) return;
+            _device.Parameters.ExecuteCommand(cmdName);
         }
 
         public void Dispose()

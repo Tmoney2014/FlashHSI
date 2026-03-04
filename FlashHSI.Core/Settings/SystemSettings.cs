@@ -15,7 +15,7 @@ namespace FlashHSI.Core.Settings
         public double BackgroundThreshold { get; set; } = 0.0;
 
         public int AirGunChannelCount { get; set; } = 32;
-        
+
         // AI가 추가함: Blob Tracking Parameters
         public int BlobMinPixels { get; set; } = 5;
         public int BlobLineGap { get; set; } = 5;
@@ -25,6 +25,12 @@ namespace FlashHSI.Core.Settings
         public double CameraExposureTime { get; set; } = 1000.0;   // μs
         public double CameraFrameRate { get; set; } = 100.0;       // FPS
         public int CameraSensorSize { get; set; } = 1024; // Default Sensor Width
+
+        // AI가 추가함: GigE Vision MROI 파라미터
+        public int CameraOffsetX { get; set; } = 0;
+        public int CameraOffsetY { get; set; } = 0;
+        public int CameraWidth { get; set; } = 1024;
+        public int CameraHeight { get; set; } = 1024;
 
         // AI가 추가함: Ejection Logic Parameters
         public int EjectionDelayMs { get; set; } = 300; // Legacy 'BlowDelay'
@@ -63,7 +69,7 @@ namespace FlashHSI.Core.Settings
         public double LampHeatUpTimeMinutes { get; set; } = 10.0;
         /// <summary>램프 냉각 소요 시간 (분, 100%→0%까지)</summary>
         public double LampCoolDownTimeMinutes { get; set; } = 5.0;
-        
+
         // AI가 추가함: 카메라 재시도 타이머 설정
         /// <summary>카메라 재시도 타이머 (분, 앱 시작 시 카운트다운 후 카메라 초기화 재시도)</summary>
         public int CameraRetryTimerMinutes { get; set; } = 5;

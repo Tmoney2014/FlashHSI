@@ -43,21 +43,21 @@ namespace FlashHSI.UI.ViewModels
         private readonly SerialCommandService _serialCommandService; // AI가 추가함: 시리얼(피더) 서비스
         private readonly IMessenger _messenger;
         private CancellationTokenSource? _ctsTest; // AI가 추가함: 테스트 취소용
-        
+
         // 시뮬레이션/엔진 설정
         [ObservableProperty] private string _headerPath = "";
         [ObservableProperty] private double _targetFps = 100.0;
         [ObservableProperty] private double _confidenceThreshold = 0.75;
         [ObservableProperty] private double _backgroundThreshold = 3000.0;
-        
+
         // AI가 추가함: Mask Mode 설정
         [ObservableProperty] private MaskMode _selectedMaskMode = MaskMode.Mean;
         [ObservableProperty] private int _maskBandIndex = 80;
         [ObservableProperty] private bool _maskLessThan = true;
-        
+
         [ObservableProperty] private bool _isWhiteRefLoaded;
         [ObservableProperty] private bool _isDarkRefLoaded;
-        
+
         // AI가 추가함: 레퍼런스 파일 경로 표시용 바인딩 프로퍼티
         [ObservableProperty] private string _whiteRefPath = "";
         [ObservableProperty] private string _darkRefPath = "";
@@ -65,16 +65,22 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private string _lastDarkRefPath = "";
         [ObservableProperty] private string _lastModelPath = "";
         [ObservableProperty] private string _lastHeaderPath = "";
-        
+
         // AI가 추가함: SVM 모델 시 Confidence 슬라이더 비활성화
         [ObservableProperty] private bool _isConfidenceEnabled = true;
-        
+
         // AI가 추가함: 모델의 MaskRule 활성화 여부 (슬라이더 제어용)
         [ObservableProperty] private bool _isMaskRuleActive;
-        
+
         // AI가 추가함: 카메라 파라미터
         [ObservableProperty] private double _cameraExposureTime = 1000.0;  // μs
         [ObservableProperty] private double _cameraFrameRate = 100.0;      // FPS
+
+        // AI가 추가함: GigE Vision MROI 파라미터
+        [ObservableProperty] private int _cameraOffsetX = 0;
+        [ObservableProperty] private int _cameraOffsetY = 0;
+        [ObservableProperty] private int _cameraWidth = 1024;
+        [ObservableProperty] private int _cameraHeight = 1024;
 
         // AI가 추가함: Blob Tracking 파라미터
         [ObservableProperty] private int _blobMinPixels = 5;
@@ -97,7 +103,7 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private int _testDelay = 200;
         [ObservableProperty] private int _testSingleChannel = 1;
         [ObservableProperty] private string _airGunStatusText = "Disconnected";
-        
+
         /// <ai>AI가 작성함: 네트워크 인터페이스 목록</ai>
         public ObservableCollection<string> NetworkInterfaces { get; } = new();
 
@@ -124,28 +130,32 @@ namespace FlashHSI.UI.ViewModels
 
             // 구독: 프로퍼티 변경 시 설정 저장 및 메시지 전파
             PropertyChanged += OnPropertyChangedHandler;
-            
+
             var s = SettingsService.Instance.Settings;
             _headerPath = s.LastHeaderPath;
             _targetFps = s.TargetFps;
             _confidenceThreshold = s.ConfidenceThreshold;
             _backgroundThreshold = s.BackgroundThreshold;
-            
+
             _isWhiteRefLoaded = !string.IsNullOrEmpty(s.LastWhiteRefPath);
             _isDarkRefLoaded = !string.IsNullOrEmpty(s.LastDarkRefPath);
             // AI가 추가함: 저장된 레퍼런스 경로 복원
             _whiteRefPath = s.LastWhiteRefPath;
             _darkRefPath = s.LastDarkRefPath;
-            
+
             // 카메라 설정 로드
             _cameraExposureTime = s.CameraExposureTime > 0 ? s.CameraExposureTime : 1000.0;
             _cameraFrameRate = s.CameraFrameRate > 0 ? s.CameraFrameRate : 100.0;
-            
+            _cameraOffsetX = s.CameraOffsetX;
+            _cameraOffsetY = s.CameraOffsetY;
+            _cameraWidth = s.CameraWidth > 0 ? s.CameraWidth : 1024;
+            _cameraHeight = s.CameraHeight > 0 ? s.CameraHeight : 1024;
+
             // Blob 설정 로드
             _blobMinPixels = s.BlobMinPixels;
             _blobLineGap = s.BlobLineGap;
             _blobPixelGap = s.BlobPixelGap;
-            
+
             // AI가 추가함: EtherCAT / 센서 매핑 설정 로드
             _fieldOfView = s.FieldOfView;
             _isChannelReverse = s.IsChannelReverse;
@@ -154,10 +164,10 @@ namespace FlashHSI.UI.ViewModels
             _esiDirectoryPath = s.EsiDirectoryPath;
             _airGunChannelCount = s.AirGunChannelCount;
             _cameraSensorSize = s.CameraSensorSize;
-            
+
             // AI가 추가함: 네트워크 인터페이스 목록 초기화
             LoadNetworkInterfaces();
-            
+
             // AI가 추가함: EtherCAT 서비스 로그 구독
             _etherCATService.LogMessage += msg =>
             {
@@ -174,7 +184,7 @@ namespace FlashHSI.UI.ViewModels
             _ejectionDelayMs = s.EjectionDelayMs;
             _ejectionDurationMs = s.EjectionDurationMs;
             _ejectionBlowMargin = s.EjectionBlowMargin;
-            
+
             if (s.YCorrectionRules != null)
             {
                 foreach (var rule in s.YCorrectionRules)
@@ -238,7 +248,7 @@ namespace FlashHSI.UI.ViewModels
                         _hsiEngine.LoadModel(s.LastModelPath);
                         PopulateSortClasses(config);
                         ModelLoaded?.Invoke(s.LastModelPath);
-                        
+
                         // AI가 수정함: 모델 로드 직후 MaskRule 설정 복원 (async 타이밍 버그 수정)
                         LoadMaskRuleSettings();
                     }
@@ -339,7 +349,7 @@ namespace FlashHSI.UI.ViewModels
                         SettingsService.Instance.Settings.LastModelPath = dlg.FileName;
                         SettingsService.Instance.Save();
                         ModelLoaded?.Invoke(dlg.FileName);
-                        
+
                         // AI가 추가함: 모델 로드 직후 MaskRule 설정 복원
                         LoadMaskRuleSettings();
                     }
@@ -373,19 +383,19 @@ namespace FlashHSI.UI.ViewModels
             SettingsService.Instance.Settings.TargetFps = value;
             SettingsService.Instance.Save();
         }
-        
+
         partial void OnConfidenceThresholdChanged(double value)
         {
             _hsiEngine.SetConfidenceThreshold(value);
             SettingsService.Instance.Settings.ConfidenceThreshold = value;
             SettingsService.Instance.Save();
         }
-        
+
         partial void OnBackgroundThresholdChanged(double value)
         {
             // 소수점 3번째 자리까지 유지해서 적용
-            Debug.WriteLine($"[SettingVM] BackgroundThreshold 적용됨: {value}");
-            
+            // Debug.WriteLine($"[SettingVM] BackgroundThreshold 적용됨: {value}");
+
             // AI가 수정함: SetMaskSettings를 통해 전체 설정 업데이트
             _hsiEngine.SetMaskSettings(SelectedMaskMode, null, MaskBandIndex, MaskLessThan, value);
             SettingsService.Instance.Settings.BackgroundThreshold = value;
@@ -401,31 +411,31 @@ namespace FlashHSI.UI.ViewModels
             {
                 var config = _hsiEngine.CurrentConfig;
                 var prep = config?.Preprocessing;
-                
+
                 // JSON에 C# 전용 필드가 저장되어 있으면 우선 사용
                 if (prep?.MaskMode != null)
                 {
                     if (Enum.TryParse<MaskMode>(prep.MaskMode, out var savedMode))
                         _selectedMaskMode = savedMode;
-                    
+
                     if (prep.MaskBandIndex.HasValue)
                         _maskBandIndex = prep.MaskBandIndex.Value;
-                    
+
                     if (prep.MaskLessThan.HasValue)
                         _maskLessThan = prep.MaskLessThan.Value;
-                    
+
                     if (prep.IsMaskRuleActive.HasValue)
                         _isMaskRuleActive = prep.IsMaskRuleActive.Value;
-                    
+
                     // Threshold는 C# 전용 필드(MaskThreshold)에서 우선 읽고, 없으면 기존 Threshold 폴백
                     if (prep.MaskThreshold.HasValue)
                         _backgroundThreshold = prep.MaskThreshold.Value;
                     else if (double.TryParse(prep.Threshold, CultureInfo.InvariantCulture, out double thresh))
                         _backgroundThreshold = thresh;
-                    
+
                     // MaskRule 2중 구조 컨디션 복원
                     RestoreMaskRuleConditions(prep);
-                    
+
                     // 엔진에도 복원된 설정 적용
                     if (_selectedMaskMode == MaskMode.MaskRule && MaskRuleConditions.ConditionGroups.Count > 0)
                     {
@@ -443,11 +453,11 @@ namespace FlashHSI.UI.ViewModels
                     _maskBandIndex = maskInfo.bandIndex;
                     _maskLessThan = maskInfo.isLess;
                     _backgroundThreshold = maskInfo.threshold;
-                    
+
                     var currentMode = _hsiEngine.GetMaskSettings().mode;
                     _selectedMaskMode = currentMode;
                 }
-                
+
                 OnPropertyChanged(nameof(MaskBandIndex));
                 OnPropertyChanged(nameof(MaskLessThan));
                 OnPropertyChanged(nameof(BackgroundThreshold));
@@ -467,17 +477,17 @@ namespace FlashHSI.UI.ViewModels
         {
             // 기존 컨디션 초기화 (이벤트 발화 방지를 위해 직접 Clear)
             MaskRuleConditions.ConditionGroups.Clear();
-            
+
             if (prep.MaskRuleConditionsData == null || prep.MaskRuleConditionsData.Count == 0)
                 return;
-            
+
             foreach (var groupData in prep.MaskRuleConditionsData)
             {
                 var group = new MaskRuleConditionGroup();
-                
+
                 if (Enum.TryParse<MaskRuleLogicalOperator>(groupData.GroupOperator, out var groupOp))
                     group.GroupOperator = groupOp;
-                
+
                 foreach (var condData in groupData.Conditions)
                 {
                     var condition = new MaskRuleCondition
@@ -486,13 +496,13 @@ namespace FlashHSI.UI.ViewModels
                         Threshold = condData.Threshold,
                         IsLess = condData.IsLess
                     };
-                    
+
                     if (Enum.TryParse<MaskRuleLogicalOperator>(condData.NextOperator, out var nextOp))
                         condition.NextOperator = nextOp;
-                    
+
                     group.Conditions.Add(condition);
                 }
-                
+
                 MaskRuleConditions.ConditionGroups.Add(group);
             }
         }
@@ -564,21 +574,21 @@ namespace FlashHSI.UI.ViewModels
 
                 var json = File.ReadAllText(modelPath);
                 var jObj = JObject.Parse(json);
-                
+
                 var prep = jObj["Preprocessing"] as JObject;
                 if (prep == null)
                 {
                     prep = new JObject();
                     jObj["Preprocessing"] = prep;
                 }
-                
+
                 // C# 전용 필드만 추가/덮어쓰기 (기존 Python 필드는 그대로 유지)
                 prep["MaskMode"] = SelectedMaskMode.ToString();
                 prep["MaskBandIndex"] = MaskBandIndex;
                 prep["MaskLessThan"] = MaskLessThan;
                 prep["IsMaskRuleActive"] = IsMaskRuleActive;
                 prep["MaskThreshold"] = BackgroundThreshold;
-                
+
                 // MaskRule 2중 구조 컨디션 저장
                 var groupsArray = new JArray();
                 foreach (var group in MaskRuleConditions.ConditionGroups)
@@ -601,7 +611,7 @@ namespace FlashHSI.UI.ViewModels
                     });
                 }
                 prep["MaskRuleConditionsData"] = groupsArray;
-                
+
                 File.WriteAllText(modelPath, jObj.ToString(Formatting.Indented));
             }
             catch (Exception ex)
@@ -609,18 +619,18 @@ namespace FlashHSI.UI.ViewModels
                 Log.Warning(ex, "Failed to save mask settings to model config");
             }
         }
-        
+
         // AI가 추가함: 카메라 파라미터 변경 시 적용
         partial void OnCameraExposureTimeChanged(double value)
         {
             _ = ApplyCameraExposureAsync(value);
         }
-        
+
         partial void OnCameraFrameRateChanged(double value)
         {
             _ = ApplyCameraFrameRateAsync(value);
         }
-        
+
         private async Task ApplyCameraExposureAsync(double value)
         {
             try
@@ -638,7 +648,7 @@ namespace FlashHSI.UI.ViewModels
                 Log.Warning(ex, "카메라 ExposureTime 설정 실패");
             }
         }
-        
+
         private async Task ApplyCameraFrameRateAsync(double value)
         {
             try
@@ -656,7 +666,33 @@ namespace FlashHSI.UI.ViewModels
                 Log.Warning(ex, "카메라 FrameRate 설정 실패");
             }
         }
-        
+
+        // AI가 추가함: MROI 파라미터 변경 시 적용
+        partial void OnCameraOffsetXChanged(int value) => _ = ApplyCameraMROISettingAsync("OffsetX", value, nameof(SystemSettings.CameraOffsetX), s => s.CameraOffsetX = value);
+        partial void OnCameraOffsetYChanged(int value) => _ = ApplyCameraMROISettingAsync("OffsetY", value, nameof(SystemSettings.CameraOffsetY), s => s.CameraOffsetY = value);
+        partial void OnCameraWidthChanged(int value) => _ = ApplyCameraMROISettingAsync("Width", value, nameof(SystemSettings.CameraWidth), s => s.CameraWidth = value);
+        partial void OnCameraHeightChanged(int value) => _ = ApplyCameraMROISettingAsync("Height", value, nameof(SystemSettings.CameraHeight), s => s.CameraHeight = value);
+
+        private async Task ApplyCameraMROISettingAsync(string nodeName, int value, string propertyName, Action<SystemSettings> updateSetting)
+        {
+            try
+            {
+                if (_cameraService.IsConnected)
+                {
+                    // 일부 카메라에서는 스트리밍 도중 MROI 변경 시 에러가 날 수 있으나 우선 적용 시도
+                    await _cameraService.SetParameterAsync(nodeName, value);
+                    Log.Information("카메라 MROI 노드 '{NodeName}' 설정: {Value}", nodeName, value);
+                }
+                updateSetting(SettingsService.Instance.Settings);
+                SettingsService.Instance.Save();
+                WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<int>(propertyName, value));
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "카메라 MROI 설정 실패 ({NodeName})", nodeName);
+            }
+        }
+
         // AI가 추가함: Blob 파라미터 변경 핸들러
         partial void OnBlobMinPixelsChanged(int value) => UpdateBlobSettings();
         partial void OnBlobLineGapChanged(int value) => UpdateBlobSettings();
@@ -689,7 +725,7 @@ namespace FlashHSI.UI.ViewModels
         public SettingViewModel()
         {
             // ... existing constructor code ...
-            
+
             // MaskRuleCondition 변경 시 자동으로 HsiEngine에 적용
             MaskRuleConditions.OnConditionChanged += ApplyMaskRuleConditions;
         }
@@ -731,7 +767,7 @@ namespace FlashHSI.UI.ViewModels
                 SettingsService.Instance.Save();
             }
         }
-        
+
         [RelayCommand]
         private void SaveYCorrectionRules()
         {
@@ -833,7 +869,7 @@ namespace FlashHSI.UI.ViewModels
                     WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(SystemSettings.ConfidenceThreshold), ConfidenceThreshold));
                     break;
                 case nameof(BackgroundThreshold):
-                    Debug.WriteLine($"[SettingVM] BackgroundThreshold changed: {BackgroundThreshold}");
+                    // Debug.WriteLine($"[SettingVM] BackgroundThreshold changed: {BackgroundThreshold}");
                     SettingsService.Instance.Settings.BackgroundThreshold = BackgroundThreshold;
                     SettingsService.Instance.Save();
                     WeakReferenceMessenger.Default.Send(new SettingsChangedMessage<double>(nameof(SystemSettings.BackgroundThreshold), BackgroundThreshold));
@@ -980,7 +1016,7 @@ namespace FlashHSI.UI.ViewModels
         private async Task TestAllChannelsAsync()
         {
             if (!_etherCATService.IsConnected || !_etherCATService.IsMasterOn) return;
-            
+
             IsTestRunning = true;
             _ctsTest = new CancellationTokenSource();
             try
@@ -1164,7 +1200,7 @@ namespace FlashHSI.UI.ViewModels
 
             foreach (var feeder in FeederList)
                 feeder.FeederValue = value;
-            
+
             // 메시지로 전송
             var feederValues = FeederList.Select(f => f.FeederValue).ToList();
             SettingsService.Instance.Settings.FeederValues = feederValues;

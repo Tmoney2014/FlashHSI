@@ -56,11 +56,65 @@
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
-                                <DockPanel>
+                                <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
                                     <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+
+                                <!-- AI가 추가함: MROI (Region of Interest) -->
+                                <Separator Margin="0,12"/>
+                                <TextBlock Text="MROI (Region of Interest)" FontWeight="Medium" Margin="0,0,0,10"/>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Offset X (px)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraOffsetX}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <!-- Maximum은 대략적으로 크게 잡거나, 향후 SensorSize 등과 바인딩 가능 -->
+                                    <Slider Minimum="0" Maximum="2048" Value="{Binding CameraOffsetX, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Offset Y (px)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraOffsetY}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <Slider Minimum="0" Maximum="2048" Value="{Binding CameraOffsetY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Width (px)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraWidth}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <Slider Minimum="1" Maximum="2048" Value="{Binding CameraWidth, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel>
+                                    <TextBlock Text="Height (px)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraHeight}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <Slider Minimum="1" Maximum="2048" Value="{Binding CameraHeight, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>

@@ -62,6 +62,8 @@ namespace FlashHSI.Core.Engine
         // GC 최적화: ProcessCameraFrame에서 재사용할 버퍼 (field-level)
         private int[]? _classificationRowBuffer;
         private int _lastWidth;
+        // AI가 수정함: 라이브 모드에서 파이프라인 Configure 자동 호출용
+        private int _lastConfiguredBandCount;
 
         // GC 최적화: 스냅샷 리스트 제거 (ArrayPool 기반 Zero-Allocation으로 대체)
 
@@ -395,6 +397,15 @@ namespace FlashHSI.Core.Engine
 
             int bandCount = height; // HSI에서 height = band count
 
+            // AI가 수정함: 라이브 모드에서 파이프라인 Configure가 누락되는 문제 수정
+            // bandCount가 변경되거나 처음 호출 시 자동으로 Configure
+            if (_lastConfiguredBandCount != bandCount)
+            {
+                _pipeline.Configure(bandCount, CurrentConfig.SelectedBands);
+                _lastConfiguredBandCount = bandCount;
+                LogMessage?.Invoke($"[Live] Pipeline Configure: bandCount={bandCount}, features={CurrentConfig.SelectedBands.Count}");
+            }
+
             // GC 최적화: field-level 버퍼 재사용 (width가 같으면 새 할당 없이 재사용)
             if (_classificationRowBuffer == null || _lastWidth != width)
             {
@@ -410,6 +421,7 @@ namespace FlashHSI.Core.Engine
             // GC 최적화: UI 표시용 버퍼 (필터링된 결과값 전달)
             int[] vizRow = ArrayPool<int>.Shared.Rent(width);
             Array.Fill(vizRow, -1); // Default to background
+            bool vizRowSentToUI = false; // AI가 수정함: UI 전달 여부 추적 (finally에서 조건부 반환)
 
             try
             {
@@ -567,8 +579,9 @@ namespace FlashHSI.Core.Engine
                     // AI가 수정함: vizRow에 전체 프레임 분류 결과 복사 (LiveView에서 보이도록 강제 렌더링)
                     Array.Copy(classificationRow, vizRow, width);
 
-                    // UI 렌더링 측에서 사용 후 반환해야 함
+                    // vizRow와 contourData는 UI 렌더링 측(LiveViewModel.OnFrameProcessed)에서 사용 후 반환
                     FrameProcessed.Invoke(vizRow, width, contourData, contourLen);
+                    vizRowSentToUI = true;
                 }
 
                 // Live Stats Update (Throttle 30fps)
@@ -599,10 +612,16 @@ namespace FlashHSI.Core.Engine
             } // try 블록 종료
 
             // ArrayPool 반환 (GC 최적화)
+            // AI가 수정함: vizRow는 UI 측(Dispatcher.InvokeAsync)에서 사용 완료 후 반환해야 함
+            // 여기서 반환하면 다음 프레임의 Array.Fill(-1)로 덮어써지는 레이스 컨디션 발생
             finally
             {
                 ArrayPool<long>.Shared.Return(classCounts);
-                ArrayPool<int>.Shared.Return(vizRow);
+                // vizRow: UI에 전달했으면 UI에서 반환, 전달 안 했으면 여기서 직접 반환
+                if (!vizRowSentToUI)
+                {
+                    ArrayPool<int>.Shared.Return(vizRow);
+                }
             }
         }
 
@@ -635,7 +654,8 @@ namespace FlashHSI.Core.Engine
 
             _runMode = RunMode.Live;
             _isRunning = true;
-            SimulationStateChanged?.Invoke(true);
+            // AI가 수정함: Live 모드에서는 SimulationStateChanged를 발생시키지 않음
+            // (시뮬레이션과 혼동 방지)
 
             // 참고: ProcessCameraFrame()은 PleoraCameraService.AcquisitionLoop() 콜백에서 호출됨
             // 별도 스레드 필요 없음
@@ -704,7 +724,9 @@ namespace FlashHSI.Core.Engine
             ushort[] lineBuffer = new ushort[width * bandCount];
             int[] classificationRow = new int[width];
             long[] currentClassCounts = new long[CurrentConfig?.Weights.Count ?? 32];
-            int[] vizRow = new int[width]; // GC 최적화: while 루프 밖에서 한 번만 할당
+            // AI가 수정함: vizRow를 루프 밖에서 할당하면 Dispatcher.InvokeAsync 비동기 특성으로
+            // UI가 읽기 전에 Array.Fill(-1)로 덮어써지는 레이스 컨디션 발생
+            // → 매 프레임 ArrayPool.Rent로 변경, UI에서 사용 후 Return
 
             // Timing
             var frameTimer = Stopwatch.StartNew();
@@ -820,7 +842,10 @@ namespace FlashHSI.Core.Engine
                         }
 
                         // 2. Tracking
+                        // AI가 수정함: 매 프레임 ArrayPool.Rent → UI 전달 후 UI에서 반환
+                        int[] vizRow = ArrayPool<int>.Shared.Rent(width);
                         Array.Fill(vizRow, -1); // Default to background
+                        bool vizRowSentToUI = false;
                         int validBlobCount = 0;
 
                         if (_blobTracker != null)
@@ -902,6 +927,12 @@ namespace FlashHSI.Core.Engine
                         {
                             contourData[0] = validBlobCount;
                             FrameProcessed.Invoke(vizRow, width, contourData, contourLen);
+                            vizRowSentToUI = true;
+                        }
+                        // AI가 수정함: UI에 전달하지 않은 경우 vizRow 직접 반환
+                        if (!vizRowSentToUI)
+                        {
+                            ArrayPool<int>.Shared.Return(vizRow);
                         }
                         frames++;
                         globalLineIndex++;

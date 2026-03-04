@@ -230,20 +230,16 @@ namespace FlashHSI.UI.ViewModels
         /// <summary>
         /// 프레임 처리 이벤트 핸들러 (Zero-Allocation 대응)
         /// </summary>
+        // AI가 수정함: vizRow(data)도 ArrayPool에서 대여한 버퍼이므로 UI 사용 후 반환 필요
         private void OnFrameProcessed(int[] data, int width, int[] contourData, int contourLen)
         {
             if (Application.Current == null)
             {
+                // AI가 수정함: data(vizRow)도 반환해야 함
+                if (data != null) ArrayPool<int>.Shared.Return(data);
                 if (contourData != null) ArrayPool<int>.Shared.Return(contourData);
                 return;
             }
-
-            // Debug Log (blobCount is at index 0)
-            int blobCount = (contourData != null && contourLen > 0) ? contourData[0] : 0;
-            // if (blobCount > 0 && DateTime.Now.Second % 2 == 0)
-            // {
-            //     Log.Information($"[LiveViewModel] Frame Rx. Blobs={blobCount}");
-            // }
 
             // Visualize (Waterfall) -> Thread Safe
             Application.Current.Dispatcher.InvokeAsync(() =>
@@ -260,7 +256,11 @@ namespace FlashHSI.UI.ViewModels
                 }
                 finally
                 {
-                    // 엔진에서 ArrayPool로 빌려온 버퍼를 UI 출력 후 즉시 반환 (Zero-Allocation 핵심)
+                    // AI가 수정함: 엔진에서 ArrayPool로 빌려온 버퍼를 UI 출력 후 즉시 반환 (Zero-Allocation 핵심)
+                    if (data != null)
+                    {
+                        ArrayPool<int>.Shared.Return(data);
+                    }
                     if (contourData != null)
                     {
                         ArrayPool<int>.Shared.Return(contourData);

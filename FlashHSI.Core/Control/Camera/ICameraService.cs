@@ -51,6 +51,14 @@ namespace FlashHSI.Core.Control.Camera
         // AI가 추가함: MROI 설정을 적용하기 위한 커맨드 (RegionApply 등) 전송 인터페이스
         Task ExecuteCommandAsync(string cmdName);
 
+        // AI가 추가함: 카메라 메타데이터 (ENVI 캡처용)
+        double[]? Wavelengths { get; }
+        int ParameterWidth { get; }
+        int ParameterHeight { get; }
+        string CameraName { get; }
+        string CameraType { get; }
+        double ExposureTime { get; }
+
         /// <summary>
         /// Event raised when a new frame is received.
         /// Buffer: Full frame data (Band * Width)

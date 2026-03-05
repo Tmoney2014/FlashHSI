@@ -26,6 +26,14 @@ namespace FlashHSI.Core.Control.Camera
         // AI가 추가함: 연결 끊김 이벤트
         public event Action<string>? ConnectionLost;
 
+        // AI가 추가함: ICameraService 메타데이터 구현
+        public double[]? Wavelengths { get; private set; }
+        public int ParameterWidth { get; private set; }
+        public int ParameterHeight { get; private set; }
+        public string CameraName { get; private set; } = "Unknown Camera";
+        public string CameraType { get; private set; } = "Unknown Type";
+        public double ExposureTime { get; private set; } = 0.0;
+
         public PleoraCameraService()
         {
             _system = new PvSystem();
@@ -134,6 +142,43 @@ namespace FlashHSI.Core.Control.Camera
                 _isConnected = true;
                 Connected?.Invoke(); // AI가 추가함: LiveViewModel 등에 상태 알림
                 Log.Information("Camera Connected Successfully.");
+
+                // AI가 추가함: 카메라 메타데이터(Wavelength 등) 동적 추출 캐싱
+                try
+                {
+                    Log.Information("카메라 메타데이터(Wavelength, Name 등) 동적 추출 시작...");
+
+                    // Name, Type, ExposureTime 추출
+                    try { CameraName = _device.Parameters.GetStringValue("DeviceModelName"); } catch { CameraName = "Unknown Camera"; }
+                    try { CameraType = _device.Parameters.GetStringValue("DeviceUserID"); } catch { CameraType = "Unknown Type"; }
+                    try { ExposureTime = _device.Parameters.GetFloatValue("ExposureTime"); } catch { ExposureTime = 0.0; }
+
+                    ParameterWidth = (int)_device.Parameters.GetIntegerValue("Width");
+                    ParameterHeight = (int)_device.Parameters.GetIntegerValue("Height"); // 밴드 수 (154 예상)
+
+                    // Wavelength 테이블 순회하여 캐싱
+                    if (ParameterHeight > 0)
+                    {
+                        Wavelengths = new double[ParameterHeight];
+                        for (long idx = 0; idx < ParameterHeight; idx++)
+                        {
+                            _device.Parameters.SetIntegerValue("WavelengthTableIndex", idx);
+                            // WavelengthTableValue는 2712.1300048828125 같은 String 형태 (GenICam 규격)
+                            string wavStr = _device.Parameters.GetStringValue("WavelengthTableValue");
+                            if (double.TryParse(wavStr, out double wavVal))
+                            {
+                                Wavelengths[idx] = wavVal;
+                            }
+                        }
+                        Log.Information("Wavelength 배열 추출 완료: 0번={First}, {Count}번={Last}",
+                            Wavelengths[0], ParameterHeight - 1, Wavelengths[ParameterHeight - 1]);
+                    }
+                }
+                catch (Exception metaEx)
+                {
+                    Log.Error(metaEx, "카메라 메타데이터(Wavelength) 추출 실패!");
+                    Wavelengths = null;
+                }
 
                 // AI가 추가함: 카메라 전체 파라미터 덤프 (Params.txt)
                 try

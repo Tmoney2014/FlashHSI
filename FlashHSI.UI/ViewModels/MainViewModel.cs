@@ -161,7 +161,7 @@ namespace FlashHSI.UI.ViewModels
                             await _hardwareService.FireChannelAsync(log.ValveId, durationMs);
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // Log error silently
                     }

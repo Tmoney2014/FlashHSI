@@ -82,3 +82,7 @@ BenchmarkDotNet.Artifacts/
 
 # OmniSharp / LSP
 omnisharp.json
+
+# Params.txt
+Params.*
+FlashHSI.UI/Params.txt

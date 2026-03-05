@@ -30,7 +30,7 @@
     Description: Maximum height (in pixels) of the image. This dimension is calculated after vertical binning, decimation or any other function changing the vertical dimensions of the image.
 [Integer] [RO] OutputImageWidth = 640 [0~4294967295]
     Description: The final output image width in pixels.
-[Integer] [RO] OutputImageHeight = 20 [0~4294967295]
+[Integer] [RO] OutputImageHeight = 10 [0~4294967295]
     Description: The final output image height in pixels.
 [Integer] [RO] CalibrationWindowLeft = 0 [0~4294967295]
     Description: Left offset of the calibration window.
@@ -48,17 +48,17 @@
     Description: Clears all regions.
 [Command] [RW] RegionApply =  
     Description: Applies current region settings.
-[Integer] [RW] RegionSelector = 19 [0~308]
+[Integer] [RW] RegionSelector = 9 [0~308]
     Description: Selects the Region of interest to control. The RegionSelector feature allows devices that are able to extract multiple regions out of an image, to configure the features of those individual regions independently.
 [Integer] [RW] RegionMode = 1 [0~4294967295]
     Description: Controls if the selected Region of interest is active and streaming.
 [Integer] [RO] Width = 640 [4~640]
     Description: Width of the Image provided by the device (in pixels).
-[Integer] [RW] Height = 1 [0~15]
+[Integer] [RW] Height = 1 [0~103]
     Description: Height of the image provided by the device (in pixels).
 [Integer] [RO] OffsetX = 0 [0~0]
     Description: Horizontal offset from the origin to the AOI (in pixels).
-[Integer] [RW] OffsetY = 139 [0~153]
+[Integer] [RW] OffsetY = 51 [0~153]
     Description: Vertical offset from the origin to the AOI (in pixels).
 [Enum] [RO] PixelFormat = Mono16 [Mono16]
     Description: Format of the pixel to use for acquisition. It represents all the informations provided by PixelCoding, PixelSize, PixelColorFilter but combined in one single value.
@@ -71,9 +71,9 @@
     Description: Number of horizontal photo-sensitive cells to combine together. This reduces the horizontal resolution (width) of the image.
 [Integer] [RW] BinningVertical = 2 [1~4]
     Description: Number of vertical photo-sensitive cells to combine together. This reduces the vertical resolution (height) of the image.
-[Integer] [RW] WavelengthTableIndex = 0 [0~19]
+[Integer] [RW] WavelengthTableIndex = 0 [0~9]
     Description: Index used to retrieve the wavelength in  WavelengthTableValue.
-[String] [RO] WavelengthTableValue = 2712.1300048828125 
+[String] [RO] WavelengthTableValue = 3164.2900390625 
     Description: Wavelength value at index WavelengthTableIndex.
 [Integer] [RW] WavelengthTableOriginalIndex = 0 [0~307]
     Description: Index used to retrieve the unbinned wavelength in WavelengthTableValue.
@@ -115,11 +115,11 @@
     Description: Specifies the Operation Mode for Trigger Inputs.
 [Enum] [RW] ExposureMode = Timed [Timed]
     Description: Sets the operation mode of the Exposure.
-[Float] [RW] ExposureTime = 0.9999750256538391 [7.500000356230885E-05~10]
+[Float] [RW] ExposureTime = 0.09997499734163284 [7.500000356230885E-05~1.0299500226974487]
     Description: This value sets the simulated exposure time
-[Float] [RW] AcquisitionFrameRate = 49.68000030517578 [3~417]
+[Float] [RW] AcquisitionFrameRate = 699.2999877929688 [3~1802]
     Description: Sets the acquisition frame rate.
-[Float] [RO] AcquisitionFrameRateMeasured = 49.689762115478516 [0~10000]
+[Float] [RO] AcquisitionFrameRateMeasured = 699.3840942382812 [0~10000]
     Description: Measured framerate
 [Integer] [RW] ResendBufferSize = 100 [10~1000]
     Description: Size of the internal resend buffer in frames.
@@ -171,7 +171,7 @@
     Description: Scale factor of ApplicationMetadataVariableIndex.
 [Float] [RO] OutputStreamLatencyTarget = <Unreadable> 
     Description: The desired system latency in milliseconds. This excludes camera related timings.
-[Float] [RO] OutputStreamLatencyMeasured = 5.514495849609375 [0~1000]
+[Float] [RO] OutputStreamLatencyMeasured = 1.64409601688385 [0~1000]
     Description: The measured system latency in milliseconds. This excludes camera related timings.
 [Command] [RO] OutputStreamLatencyRecalculate =  
     Description: Force recalculation of measured system latency.
@@ -187,7 +187,7 @@
     Description: Hot plate temperature in Celsius.
 [Float] [RO] TemperatureScb2 = 20.125 [-3.4028234663852886E+38~3.4028234663852886E+38]
     Description: Optics temperature in Celsius.
-[Float] [RO] TemperatureScb3 = 20.8125 [-3.4028234663852886E+38~3.4028234663852886E+38]
+[Float] [RO] TemperatureScb3 = 20.828125 [-3.4028234663852886E+38~3.4028234663852886E+38]
     Description: Shutter temperature in Celsius.
 [Boolean] [RW] NetworkingPerformanceEnabled = False 
     Description: When enabled automatic notifications are disabled to optimize network performance and jitter.
@@ -195,7 +195,7 @@
     Description: When disabled custom protocol discovery UDP messages are not sent. Enable for jitter optimization purposes.
 [Boolean] [RW] CameraImageEmbeddingEnabled = False 
     Description: When enabled the image will contain embedded feature values at a specific row.
-[Integer] [RW] CameraImageEmbeddingRow = 0 [0~19]
+[Integer] [RW] CameraImageEmbeddingRow = 0 [0~9]
     Description: Specifies the row in image in which feature data is embedded.
 [String] [RW] CameraImageEmbeddingFeatureNames =  
     Description: Specifies comma separated list of feature names to be embedded to image data.
@@ -211,7 +211,7 @@
     Description: Update camera window configuration status.
 [Integer] [RO] NumberOfCoolDowns = 17 [0~4294967295]
     Description: Number of camera cool downs since manufacturing.
-[Integer] [RO] DurationUnderThreshold = 952 [0~4294967295]
+[Integer] [RO] DurationUnderThreshold = 1018 [0~4294967295]
     Description: Camera temperature below temperature threshold in minutes since manufacturing.
 [Boolean] [RW] ReferencesLock = False 
     Description: Lock the white and dark references to prevent accidental overrides.
@@ -253,7 +253,7 @@
     Description: Loads the User Set specified by UserSetSelector to the device and makes it active.
 [Command] [RW] UserSetSave =  
     Description: Saves the User Set specified by UserSetSelector to the device and makes it active.
-[Integer] [RO] PayloadSize = 25600 [0~4294967295]
+[Integer] [RO] PayloadSize = 12800 [0~4294967295]
     Description: Provides the number of bytes transferred for each image or chunk on the stream channel. This includes any end-of-line, end-of-frame statistics or other stamp data. This is the total size of data payload for a data block.
 [Integer] [RO] GevVersionMajor = 2 [0~65535]
     Description: Major version of the specification.
@@ -313,7 +313,7 @@
     Description: Returns the latched 64-bit value of the timestamp counter.
 [Enum] [RW] GevCCP = ControlAccess [OpenAccess, ExclusiveAccess, ControlAccess]
     Description: Controls the device access privilege of an application.
-[Integer] [RW] GevMCPHostPort = 65230 [0~65535]
+[Integer] [RW] GevMCPHostPort = 57864 [0~65535]
     Description: Indicates the port to which the device must send messages. Setting this value to 0 closes the message channel.
 [Integer] [RW] GevMCDA = 3232241020 [0~4294967295]
     Description: Indicates the destination IP address for the message channel.
@@ -321,13 +321,13 @@
     Description: Provides the transmission timeout value in milliseconds.
 [Integer] [RW] GevMCRC = 3 [0~4294967295]
     Description: Indicates the number of retransmissions allowed when a message channel message times out.
-[Integer] [RO] GevMCSP = 33763 [0~65535]
+[Integer] [RO] GevMCSP = 57963 [0~65535]
     Description: This feature indicates the source port for the message channel.
 [Integer] [RW] GevStreamChannelSelector = 0 [0~0]
     Description: Selects the stream channel to control.
 [Integer] [RW] GevSCPInterfaceIndex = 0 [0~15]
     Description: Index of network interface to use (from 0 to 3).
-[Integer] [RW] GevSCPHostPort = 65232 [0~65535]
+[Integer] [RW] GevSCPHostPort = 57866 [0~65535]
     Description: Indicates the port to which the device must send data stream. Setting this value to 0 closes the stream channel.
 [Boolean] [RW] GevSCPSFireTestPacket = False 
     Description: Sends a test packet. When this feature is set, the device will fire one test packet.

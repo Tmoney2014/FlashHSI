@@ -76,9 +76,14 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: 모델의 MaskRule 활성화 여부 (슬라이더 제어용)
         [ObservableProperty] private bool _isMaskRuleActive;
 
-        // AI가 추가함: 카메라 파라미터
-        [ObservableProperty] private double _cameraExposureTime = 1000.0;  // μs
+        // AI가 추가함: 카메라 파라미터 및 동적 범위 설정
+        [ObservableProperty] private double _cameraExposureTime = 1.0;     // μs -> ms 등으로 유닛 변경/조정됨
+        [ObservableProperty] private double _cameraExposureMin = 0.001;    // 최소
+        [ObservableProperty] private double _cameraExposureMax = 3.0;      // 최대
+
         [ObservableProperty] private double _cameraFrameRate = 100.0;      // FPS
+        [ObservableProperty] private double _cameraFpsMin = 3.0;
+        [ObservableProperty] private double _cameraFpsMax = 380.0;
 
         // AI가 수정함: MROI 구조 개편 — 텍스트 기반 개별 밴드 관리
         [ObservableProperty] private bool _isMroiEnabled;
@@ -132,6 +137,9 @@ namespace FlashHSI.UI.ViewModels
 
             // 구독: 프로퍼티 변경 시 설정 저장 및 메시지 전파
             PropertyChanged += OnPropertyChangedHandler;
+
+            // AI가 추가함: 카메라 연결 성공 시 동적 허용 범위(Min, Max) 로드
+            _cameraService.Connected += async () => await UpdateCameraParameterRangesAsync();
 
             var s = SettingsService.Instance.Settings;
             _headerPath = s.LastHeaderPath;
@@ -682,6 +690,8 @@ namespace FlashHSI.UI.ViewModels
                 {
                     await _cameraService.SetParameterAsync("ExposureTime", value);
                     Log.Information("카메라 ExposureTime 설정: {Value} μs", value);
+                    // AI가 추가함: ExposureTime 변경 후 FPS와 서로 영향을 주므로 범위 다시 스캔
+                    await UpdateCameraParameterRangesAsync();
                 }
                 SettingsService.Instance.Settings.CameraExposureTime = value;
                 SettingsService.Instance.Save();
@@ -700,6 +710,8 @@ namespace FlashHSI.UI.ViewModels
                 {
                     await _cameraService.SetParameterAsync("AcquisitionFrameRate", value);
                     Log.Information("카메라 FrameRate 설정: {Value} FPS", value);
+                    // AI가 추가함: FPS 변경 후 ExposureTime과 서로 영향을 주므로 범위 다시 스캔
+                    await UpdateCameraParameterRangesAsync();
                 }
                 SettingsService.Instance.Settings.CameraFrameRate = value;
                 SettingsService.Instance.Save();
@@ -708,6 +720,31 @@ namespace FlashHSI.UI.ViewModels
             {
                 Log.Warning(ex, "카메라 FrameRate 설정 실패");
             }
+        }
+
+        // AI가 추가함: 카메라에서 동적으로 노출 및 FPS 허용 범위를 조회 및 UI 갱신
+        private async Task UpdateCameraParameterRangesAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+
+            var exposureRange = await _cameraService.GetFloatParameterRangeAsync("ExposureTime");
+            var fpsRange = await _cameraService.GetFloatParameterRangeAsync("AcquisitionFrameRate");
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (exposureRange.Max > 0)
+                {
+                    CameraExposureMin = exposureRange.Min;
+                    CameraExposureMax = exposureRange.Max;
+                }
+                if (fpsRange.Max > 0)
+                {
+                    CameraFpsMin = fpsRange.Min;
+                    CameraFpsMax = fpsRange.Max;
+                }
+                Log.Information("카메라 파라미터 제약범위 갱신: Exposure [{E_Min}~{E_Max}], FPS [{F_Min}~{F_Max}]",
+                    CameraExposureMin, CameraExposureMax, CameraFpsMin, CameraFpsMax);
+            });
         }
 
         // AI가 수정함: MROI 밴드 텍스트 파싱 → List<int>
@@ -780,6 +817,12 @@ namespace FlashHSI.UI.ViewModels
                 await Task.Delay(500); // AI가 추가함: 레지스터 접근 가능 대기
                 Log.Information("MROI 적용: AcquisitionStop");
 
+                // AI가 추가함: WindowingMode(MROI <-> Single) 전환 시 기존의 높은 ExposureTime/FPS 설정이 새 모드의 Maximum 한계를 초과하여 에러나는 것을 방지하기 위해 임시 안전값 할당
+                await _cameraService.SetParameterAsync("ExposureTime", 1.0);
+                await _cameraService.SetParameterAsync("AcquisitionFrameRate", 10.0);
+                await Task.Delay(100);
+                Log.Information("MROI 전환 전 Parameter 충돌 방지를 위해 임시 최저값 할당 (Exposure: 1.0, FPS: 10.0)");
+
                 if (IsMroiEnabled && bands.Count > 0)
                 {
                     // AI가 수정함: Multiband 먼저 설정 → RegionClear → Zone 설정 → RegionApply
@@ -793,7 +836,7 @@ namespace FlashHSI.UI.ViewModels
                     {
                         await _cameraService.SetParameterAsync("RegionSelector", i);
                         await _cameraService.SetParameterAsync("RegionMode", 1);   // Integer: 1=활성
-                        // AI가 수정함: Height 먼저 설정 → OffsetY 범위 확장
+                        // AI가 수정함: Height 먼저 설정 → OffsetY 범위 에러 방지
                         await _cameraService.SetParameterAsync("Height", 1);
                         await _cameraService.SetParameterAsync("OffsetY", bands[i]);
                         Log.Information("MROI Zone {Index}: Band={Band}, Height=1", i, bands[i]);
@@ -808,6 +851,21 @@ namespace FlashHSI.UI.ViewModels
                     await _cameraService.SetParameterAsync("WindowingMode", "Single");
                     Log.Information("WindowingMode Set: Single (MROI Disabled)");
                 }
+
+                // AI가 추가함: 설정된 MROI 모드의 새로운 최대/최소 한도 내에서 사용자 지정 노출/FPS를 다시 안전하게 복원
+                await Task.Delay(100);
+                await UpdateCameraParameterRangesAsync(); // 변경된 모드의 Limit 다시 조회
+
+                // 타겟 값 범위 클램핑 (UI 슬라이더 값 갱신)
+                double clampedExposure = Math.Clamp(_cameraExposureTime, CameraExposureMin, CameraExposureMax);
+                double clampedFps = Math.Clamp(_cameraFrameRate, CameraFpsMin, CameraFpsMax);
+
+                if (clampedExposure != _cameraExposureTime) CameraExposureTime = clampedExposure;
+                if (clampedFps != _cameraFrameRate) CameraFrameRate = clampedFps;
+
+                await _cameraService.SetParameterAsync("ExposureTime", clampedExposure);
+                await _cameraService.SetParameterAsync("AcquisitionFrameRate", clampedFps);
+                Log.Information("MROI 전환 후 사용자 설정 복원 타겟 (Exposure: {Exposure}, FPS: {FPS})", clampedExposure, clampedFps);
 
                 // AI가 수정함: 설정 완료 후 Acquisition 재시작
                 await _cameraService.ExecuteCommandAsync("AcquisitionStart");
@@ -850,7 +908,12 @@ namespace FlashHSI.UI.ViewModels
         // AI가 추가함: MaskRuleCondition 변경 시 자동으로 엔진에 적용
         public SettingViewModel()
         {
-            // ... existing constructor code ...
+            // CS8618 방지용 빈 생성자 (디자인타임 용도 등으로 쓰일 때 사용)
+            _hsiEngine = null!;
+            _cameraService = null!;
+            _messenger = null!;
+            _etherCATService = null!;
+            _serialCommandService = null!;
 
             // MaskRuleCondition 변경 시 자동으로 HsiEngine에 적용
             MaskRuleConditions.OnConditionChanged += ApplyMaskRuleConditions;

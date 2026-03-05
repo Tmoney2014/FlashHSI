@@ -46,9 +46,10 @@
                                 <TextBlock Text="Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Exposure Time (μs)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraExposureTime, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
+                                    <TextBox Text="{Binding CameraExposureTime, StringFormat=N3}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
+                                    <Slider Minimum="{Binding CameraExposureMin}" Maximum="{Binding CameraExposureMax}" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="0.001" IsSnapToTickEnabled="False" VerticalAlignment="Center"
+                                            behaviors:SliderValuePopupBehavior.Format="N3">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -60,7 +61,7 @@
                                     <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
+                                    <Slider Minimum="{Binding CameraFpsMin}" Maximum="{Binding CameraFpsMax}" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>

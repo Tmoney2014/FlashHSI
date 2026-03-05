@@ -51,6 +51,9 @@ namespace FlashHSI.Core.Control.Camera
         // AI가 추가함: MROI 설정을 적용하기 위한 커맨드 (RegionApply 등) 전송 인터페이스
         Task ExecuteCommandAsync(string cmdName);
 
+        // AI가 추가함: 카메라 파라미터 제한 범위(Minimum, Maximum)를 동적으로 조회
+        Task<(double Min, double Max)> GetFloatParameterRangeAsync(string name);
+
         // AI가 추가함: 카메라 메타데이터 (ENVI 캡처용)
         double[]? Wavelengths { get; }
         int ParameterWidth { get; }

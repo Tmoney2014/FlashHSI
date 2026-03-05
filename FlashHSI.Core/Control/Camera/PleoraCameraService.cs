@@ -616,6 +616,29 @@ namespace FlashHSI.Core.Control.Camera
             });
         }
 
+        // AI가 추가함: 지정된 이름의 Float형 카메라 파라미터의 허용 범위(Min, Max)를 조회
+        public async Task<(double Min, double Max)> GetFloatParameterRangeAsync(string name)
+        {
+            if (_device == null) return (0.0, 0.0);
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var param = _device.Parameters.Get(name);
+                    if (param is PvGenFloat gFloat)
+                    {
+                        return (gFloat.Min, gFloat.Max);
+                    }
+                    return (0.0, 0.0);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Failed to get range for {name}: {ex.Message}");
+                    return (0.0, 0.0);
+                }
+            });
+        }
+
         // AI가 수정함: 외부에서 MROI 등 커맨드(예: RegionClear, RegionApply)를 호출할 수 있도록 public 개방
         public async Task ExecuteCommandAsync(string cmdName)
         {

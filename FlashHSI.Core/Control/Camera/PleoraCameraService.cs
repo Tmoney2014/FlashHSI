@@ -39,205 +39,228 @@ namespace FlashHSI.Core.Control.Camera
             _system = new PvSystem();
         }
 
+        // AI가 수정함: 내부 블로킹 호출을 Task.Run으로 래핑하여 UI 프리징 방지
         public async Task<bool> ConnectAsync(string? deviceId = null)
         {
             if (_isConnected) return true;
 
             try
             {
-                Log.Information("Searching for GigE Vision cameras...");
-                _system?.Find();
-
-                PvDeviceInfo? deviceInfo = null;
-
-                // Auto-find first available GigE Vision device
-                if (deviceInfo == null)
+                // AI가 수정함: 무거운 동기 API(Find, CreateAndConnect, CreateAndOpen 등)를
+                // 백그라운드 스레드에서 실행하여 UI 스레드 블로킹 방지
+                await Task.Run(() =>
                 {
-                    var interfaceCount = _system?.InterfaceCount ?? 0;
-                    for (uint i = 0; i < interfaceCount; i++)
-                    {
-                        var iface = _system?.GetInterface(i);
-                        if (iface == null) continue;
+                    Log.Information("Searching for GigE Vision cameras...");
+                    _system?.Find();
 
-                        var devCount = iface.DeviceCount;
-                        for (uint j = 0; j < devCount; j++)
+                    PvDeviceInfo? deviceInfo = null;
+
+                    // Auto-find first available GigE Vision device
+                    if (deviceInfo == null)
+                    {
+                        var interfaceCount = _system?.InterfaceCount ?? 0;
+                        for (uint i = 0; i < interfaceCount; i++)
                         {
-                            var dev = iface.GetDeviceInfo(j);
-                            if (dev != null)
+                            var iface = _system?.GetInterface(i);
+                            if (iface == null) continue;
+
+                            var devCount = iface.DeviceCount;
+                            for (uint j = 0; j < devCount; j++)
                             {
-                                deviceInfo = dev;
-                                break;
+                                var dev = iface.GetDeviceInfo(j);
+                                if (dev != null)
+                                {
+                                    deviceInfo = dev;
+                                    break;
+                                }
                             }
+                            if (deviceInfo != null) break;
                         }
-                        if (deviceInfo != null) break;
                     }
-                }
 
-                if (deviceInfo == null)
-                {
-                    Log.Warning("No GigE Vision camera found.");
-                    return false;
-                }
-
-                Log.Information($"Connecting to {deviceInfo.ModelName} ({deviceInfo.UniqueID})...");
-
-                // Connect to Device
-                _device = PvDevice.CreateAndConnect(deviceInfo);
-                if (_device == null) throw new Exception("Failed to connect to device.");
-
-
-
-                // Open Stream
-                _stream = PvStream.CreateAndOpen(deviceInfo);
-                if (_stream == null) throw new Exception("Failed to open stream.");
-
-                // Configure Stream (GigE Vision only)
-                // AI가 수정함: FX50은 NegotiatePacketSize()를 지원하지 않으므로 직접 패킷 사이즈 설정
-                var lDGEV = _device as PvDeviceGEV;
-                var lSGEV = _stream as PvStreamGEV;
-                if (lDGEV != null && lSGEV != null)
-                {
-                    // FX50: NegotiatePacketSize() 미지원 → GevSCPSPacketSize 직접 설정
-                    try
+                    if (deviceInfo == null)
                     {
-                        lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 8192);
-                        Log.Information("GevSCPSPacketSize set to 8192 (Jumbo Frame).");
+                        Log.Warning("No GigE Vision camera found.");
+                        throw new InvalidOperationException("NO_CAMERA_FOUND");
                     }
-                    catch
+
+                    Log.Information($"Connecting to {deviceInfo.ModelName} ({deviceInfo.UniqueID})...");
+
+                    // Connect to Device
+                    _device = PvDevice.CreateAndConnect(deviceInfo);
+                    if (_device == null) throw new Exception("Failed to connect to device.");
+
+                    // Open Stream
+                    _stream = PvStream.CreateAndOpen(deviceInfo);
+                    if (_stream == null) throw new Exception("Failed to open stream.");
+
+                    // Configure Stream (GigE Vision only)
+                    // AI가 수정함: FX50은 NegotiatePacketSize()를 지원하지 않으므로 직접 패킷 사이즈 설정
+                    var lDGEV = _device as PvDeviceGEV;
+                    var lSGEV = _stream as PvStreamGEV;
+                    if (lDGEV != null && lSGEV != null)
                     {
+                        // FX50: NegotiatePacketSize() 미지원 → GevSCPSPacketSize 직접 설정
                         try
                         {
-                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 1476);
-                            Log.Warning("Jumbo Frame 미지원. GevSCPSPacketSize를 1476으로 설정.");
+                            lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 8192);
+                            Log.Information("GevSCPSPacketSize set to 8192 (Jumbo Frame).");
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            Log.Error(ex, "GevSCPSPacketSize 설정 실패.");
-                        }
-                    }
-
-                    lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
-                }
-
-                // Buffer Management (Manual)
-                // Read payload size
-                long lPayloadSize = _device.PayloadSize;
-
-                // Allocate buffers
-                uint lBufferCount = 16;
-                _buffers = new PvBuffer[lBufferCount];
-                for (uint i = 0; i < lBufferCount; i++)
-                {
-                    _buffers[i] = new PvBuffer();
-                    _buffers[i].Alloc((uint)lPayloadSize);
-                }
-
-                // Queue all buffers
-                for (uint i = 0; i < lBufferCount; i++)
-                {
-                    _stream.QueueBuffer(_buffers[i]);
-                }
-
-                _isConnected = true;
-                _isConnected = true;
-                Connected?.Invoke(); // AI가 추가함: LiveViewModel 등에 상태 알림
-                Log.Information("Camera Connected Successfully.");
-
-                // AI가 추가함: 카메라 메타데이터(Wavelength 등) 동적 추출 캐싱
-                try
-                {
-                    Log.Information("카메라 메타데이터(Wavelength, Name 등) 동적 추출 시작...");
-
-                    // Name, Type, ExposureTime 추출
-                    try { CameraName = _device.Parameters.GetStringValue("DeviceModelName"); } catch { CameraName = "Unknown Camera"; }
-                    try { CameraType = _device.Parameters.GetStringValue("DeviceUserID"); } catch { CameraType = "Unknown Type"; }
-                    try { ExposureTime = _device.Parameters.GetFloatValue("ExposureTime"); } catch { ExposureTime = 0.0; }
-
-                    ParameterWidth = (int)_device.Parameters.GetIntegerValue("Width");
-                    ParameterHeight = (int)_device.Parameters.GetIntegerValue("Height"); // 밴드 수 (154 예상)
-
-                    // Wavelength 테이블 순회하여 캐싱
-                    if (ParameterHeight > 0)
-                    {
-                        Wavelengths = new double[ParameterHeight];
-                        for (long idx = 0; idx < ParameterHeight; idx++)
-                        {
-                            _device.Parameters.SetIntegerValue("WavelengthTableIndex", idx);
-                            // WavelengthTableValue는 2712.1300048828125 같은 String 형태 (GenICam 규격)
-                            string wavStr = _device.Parameters.GetStringValue("WavelengthTableValue");
-                            if (double.TryParse(wavStr, out double wavVal))
-                            {
-                                Wavelengths[idx] = wavVal;
-                            }
-                        }
-                        Log.Information("Wavelength 배열 추출 완료: 0번={First}, {Count}번={Last}",
-                            Wavelengths[0], ParameterHeight - 1, Wavelengths[ParameterHeight - 1]);
-                    }
-                }
-                catch (Exception metaEx)
-                {
-                    Log.Error(metaEx, "카메라 메타데이터(Wavelength) 추출 실패!");
-                    Wavelengths = null;
-                }
-
-                // AI가 추가함: 카메라 전체 파라미터 덤프 (Params.txt)
-                try
-                {
-                    Log.Information("디바이스 파라미터 전체 덤프 시작...");
-                    var sb = new System.Text.StringBuilder();
-                    var parameters = _device.Parameters;
-
-                    // AI가 수정함: 쓰기 가능 여부(RW/RO) 및 범위(Min~Max) 정보 추가
-                    for (uint i = 0; i < parameters.Count; i++)
-                    {
-                        var param = parameters.Get(i);
-                        if (param != null)
-                        {
-                            string name = param.Name;
-                            string type = param.Type.ToString();
-                            string value = "";
-                            string description = "";
-                            string access = "??";
-                            string range = "";
-
-                            try { access = param.IsWritable ? "RW" : "RO"; } catch { }
-                            try { description = param.Description; } catch { }
-
                             try
                             {
-                                if (param is PvGenInteger gInt)
-                                {
-                                    value = gInt.Value.ToString();
-                                    try { range = $"[{gInt.Min}~{gInt.Max}]"; } catch { }
-                                }
-                                else if (param is PvGenFloat gFloat)
-                                {
-                                    value = gFloat.Value.ToString();
-                                    try { range = $"[{gFloat.Min}~{gFloat.Max}]"; } catch { }
-                                }
-                                else if (param is PvGenString gStr) value = gStr.Value;
-                                else if (param is PvGenEnum gEnum) value = gEnum.ValueString;
-                                else if (param is PvGenBoolean gBool) value = gBool.Value.ToString();
+                                lDGEV.Parameters.SetIntegerValue("GevSCPSPacketSize", 1476);
+                                Log.Warning("Jumbo Frame 미지원. GevSCPSPacketSize를 1476으로 설정.");
                             }
-                            catch { value = "<Unreadable>"; }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, "GevSCPSPacketSize 설정 실패.");
+                            }
+                        }
 
-                            sb.AppendLine($"[{type}] [{access}] {name} = {value} {range}");
-                            if (!string.IsNullOrEmpty(description))
-                                sb.AppendLine($"    Description: {description}");
+                        lDGEV.SetStreamDestination(lSGEV.LocalIPAddress, lSGEV.LocalPort);
+                    }
+
+                    // Buffer Management (Manual)
+                    // Read payload size
+                    long lPayloadSize = _device.PayloadSize;
+
+                    // Allocate buffers
+                    uint lBufferCount = 16;
+                    _buffers = new PvBuffer[lBufferCount];
+                    for (uint i = 0; i < lBufferCount; i++)
+                    {
+                        _buffers[i] = new PvBuffer();
+                        _buffers[i].Alloc((uint)lPayloadSize);
+                    }
+
+                    // Queue all buffers
+                    for (uint i = 0; i < lBufferCount; i++)
+                    {
+                        _stream.QueueBuffer(_buffers[i]);
+                    }
+
+                    _isConnected = true;
+                    Log.Information("Camera Connected Successfully.");
+
+                    // AI가 추가함: 카메라 메타데이터(Wavelength 등) 동적 추출 캐싱
+                    try
+                    {
+                        Log.Information("카메라 메타데이터(Wavelength, Name 등) 동적 추출 시작...");
+
+                        // Name, Type, ExposureTime 추출
+                        try { CameraName = _device.Parameters.GetStringValue("DeviceModelName"); } catch { CameraName = "Unknown Camera"; }
+                        try { CameraType = _device.Parameters.GetStringValue("DeviceUserID"); } catch { CameraType = "Unknown Type"; }
+                        try { ExposureTime = _device.Parameters.GetFloatValue("ExposureTime"); } catch { ExposureTime = 0.0; }
+
+                        ParameterWidth = (int)_device.Parameters.GetIntegerValue("Width");
+                        ParameterHeight = (int)_device.Parameters.GetIntegerValue("Height"); // 밴드 수 (154 예상)
+
+                        // Wavelength 테이블 순회하여 캐싱
+                        if (ParameterHeight > 0)
+                        {
+                            Wavelengths = new double[ParameterHeight];
+                            for (long idx = 0; idx < ParameterHeight; idx++)
+                            {
+                                _device.Parameters.SetIntegerValue("WavelengthTableIndex", idx);
+                                // WavelengthTableValue는 2712.1300048828125 같은 String 형태 (GenICam 규격)
+                                string wavStr = _device.Parameters.GetStringValue("WavelengthTableValue");
+                                if (double.TryParse(wavStr, out double wavVal))
+                                {
+                                    Wavelengths[idx] = wavVal;
+                                }
+                            }
+                            Log.Information("Wavelength 배열 추출 완료: 0번={First}, {Count}번={Last}",
+                                Wavelengths[0], ParameterHeight - 1, Wavelengths[ParameterHeight - 1]);
                         }
                     }
-                    var dumpPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Params.txt");
-                    // System.IO.File.WriteAllText("Params.txt", sb.ToString()); // 워킹 디렉토리 기준
-                    System.IO.File.WriteAllText("Params.txt", sb.ToString());
-                    await Task.Delay(1000);
-                    Log.Information("Params.txt 에 전체 파라미터 저장 완료.");
-                }
-                catch (Exception pEx)
-                {
-                    Log.Warning($"파라미터 덤프 실패: {pEx.Message}");
-                }
+                    catch (Exception metaEx)
+                    {
+                        Log.Error(metaEx, "카메라 메타데이터(Wavelength) 추출 실패!");
+                        Wavelengths = null;
+                    }
+
+                    // AI가 추가함: 카메라 전체 파라미터 덤프 (Params.txt)
+                    try
+                    {
+                        Log.Information("디바이스 파라미터 전체 덤프 시작...");
+                        var sb = new System.Text.StringBuilder();
+                        var parameters = _device.Parameters;
+
+                        // AI가 수정함: 쓰기 가능 여부(RW/RO) 및 범위(Min~Max) 정보 추가
+                        for (uint i = 0; i < parameters.Count; i++)
+                        {
+                            var param = parameters.Get(i);
+                            if (param != null)
+                            {
+                                string name = param.Name;
+                                string type = param.Type.ToString();
+                                string value = "";
+                                string description = "";
+                                string access = "??";
+                                string range = "";
+
+                                try { access = param.IsWritable ? "RW" : "RO"; } catch { }
+                                try { description = param.Description; } catch { }
+
+                                try
+                                {
+                                    if (param is PvGenInteger gInt)
+                                    {
+                                        value = gInt.Value.ToString();
+                                        try { range = $"[{gInt.Min}~{gInt.Max}]"; } catch { }
+                                    }
+                                    else if (param is PvGenFloat gFloat)
+                                    {
+                                        value = gFloat.Value.ToString();
+                                        try { range = $"[{gFloat.Min}~{gFloat.Max}]"; } catch { }
+                                    }
+                                    else if (param is PvGenString gStr) value = gStr.Value;
+                                    else if (param is PvGenEnum gEnum)
+                                    {
+                                        value = gEnum.ValueString;
+                                        // AI가 추가함: Enum 항목 목록 추가 (WindowingMode 등 디버깅용)
+                                        try
+                                        {
+                                            var entries = new System.Collections.Generic.List<string>();
+                                            for (long ei = 0; ei < gEnum.EntriesCount; ei++)
+                                            {
+                                                var entry = gEnum.GetEntryByIndex(ei);
+                                                if (entry != null && entry.IsAvailable)
+                                                    entries.Add(entry.ValueString);
+                                            }
+                                            if (entries.Count > 0)
+                                                range = $"[{string.Join(", ", entries)}]";
+                                        }
+                                        catch { }
+                                    }
+                                    else if (param is PvGenBoolean gBool) value = gBool.Value.ToString();
+                                }
+                                catch { value = "<Unreadable>"; }
+
+                                sb.AppendLine($"[{type}] [{access}] {name} = {value} {range}");
+                                if (!string.IsNullOrEmpty(description))
+                                    sb.AppendLine($"    Description: {description}");
+                            }
+                        }
+                        System.IO.File.WriteAllText("Params.txt", sb.ToString());
+                        Log.Information("Params.txt 에 전체 파라미터 저장 완료.");
+                    }
+                    catch (Exception pEx)
+                    {
+                        Log.Warning($"파라미터 덤프 실패: {pEx.Message}");
+                    }
+                });
+
+                // AI가 수정함: Task.Run 밖에서 이벤트 발생 (UI 스레드 컨텍스트)
+                Connected?.Invoke();
 
                 return true;
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "NO_CAMERA_FOUND")
+            {
+                return false;
             }
             catch (Exception ex)
             {
@@ -560,7 +583,13 @@ namespace FlashHSI.Core.Control.Camera
                     else if (value is int iVal) paramsList.SetIntegerValue(name, iVal); // AI가 추가함: MROI 등 int형 파라미터 지원
                     else if (value is float fVal) paramsList.SetFloatValue(name, fVal);
                     else if (value is double dVal) paramsList.SetFloatValue(name, (float)dVal); // Float/Double conversion
-                    else if (value is string sVal) paramsList.SetStringValue(name, sVal);
+                    else if (value is string sVal)
+                    {
+                        // AI가 수정함: Enum 파라미터(예: WindowingMode)를 string으로 넘기는 경우 대응
+                        // SetEnumValue를 먼저 시도하고, 실패 시 SetStringValue로 fallback
+                        try { paramsList.SetEnumValue(name, sVal); }
+                        catch { paramsList.SetStringValue(name, sVal); }
+                    }
                     else if (value is bool bVal) paramsList.SetBooleanValue(name, bVal);
                     else if (value is Enum eVal) paramsList.SetEnumValue(name, eVal.ToString());
                 }

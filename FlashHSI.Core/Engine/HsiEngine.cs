@@ -520,26 +520,90 @@ namespace FlashHSI.Core.Engine
 
 
 
-                // AI가 추가함: Blob Tracking & Ejection (Live Mode)
+                // AI가 수정함: 시뮬레이션(RunLoop)과 동일하게 시각화 버퍼(vizRow)와 윤곽선(contourData)을 Blob 필터링 처리
+                int[] contourData = null!;
+                int contourLen = 0;
+                if (FrameProcessed != null)
+                {
+                    contourData = ArrayPool<int>.Shared.Rent(1024);
+                    contourData[contourLen++] = 0; // index 0: 유효 Blob 개수 기록용
+                }
+
+                int validBlobCount = 0;
+
                 if (_blobTracker != null)
                 {
                     var closedBlobs = _blobTracker.ProcessLine(_globalLineIndex++, classificationRow);
-                    // FIX: Process blobs BEFORE releasing to pool (이전: ReleaseClosedBlobs가 foreach 전에 호출되어 리스트가 비어짐)
+
+                    // 1. Active Blobs (시각화 렌더링용)
+                    foreach (var b in _blobTracker.GetActiveBlobs())
+                    {
+                        if (b.TotalPixels >= _cachedMinPixels)
+                        {
+                            validBlobCount++;
+                            if (FrameProcessed != null)
+                            {
+                                int cCount = b.CurrentSegments.Count;
+                                int pCount = b.PrevSegments.Count;
+                                if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
+                                {
+                                    int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
+                                    Array.Copy(contourData, newArr, contourLen);
+                                    ArrayPool<int>.Shared.Return(contourData);
+                                    contourData = newArr;
+                                }
+                                contourData[contourLen++] = cCount;
+                                contourData[contourLen++] = pCount;
+                                foreach (var seg in b.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                                foreach (var seg in b.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                            }
+
+                            // AI가 수정함: _cachedMinPixels 를 만족하는 유효한 Blob의 데이터만 vizRow에 전달 (노이즈 필터링)
+                            foreach (var seg in b.CurrentSegments)
+                            {
+                                for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
+                            }
+                        }
+                    }
+
+                    // 2. Closed Blobs (시야에서 사라지는 객체 처리 및 사출)
                     foreach (var blob in closedBlobs)
                     {
+                        // 닫히는 순간에도 시각화 전달 (마지막 캡 영역)
+                        validBlobCount++;
+                        if (FrameProcessed != null)
+                        {
+                            int cCount = blob.CurrentSegments.Count;
+                            int pCount = blob.PrevSegments.Count;
+                            if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
+                            {
+                                int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
+                                Array.Copy(contourData, newArr, contourLen);
+                                ArrayPool<int>.Shared.Return(contourData);
+                                contourData = newArr;
+                            }
+                            contourData[contourLen++] = cCount;
+                            contourData[contourLen++] = pCount;
+                            foreach (var seg in blob.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                            foreach (var seg in blob.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
+                        }
+
+                        foreach (var seg in blob.CurrentSegments)
+                        {
+                            for (int x = seg.Start; x <= seg.End; x++) vizRow[x] = classificationRow[x];
+                        }
+
+                        // 분류 및 사출 연산
                         int bestClass = blob.GetBestClass();
                         if (bestClass >= 0)
                         {
-                            // Ejection Service
                             _ejectionService?.Process(blob);
 
-                            // Live Stats Accumulation
                             if (_liveClassCounts != null && bestClass < _liveClassCounts.Length)
                                 _liveClassCounts[bestClass]++;
                             if (_liveStats != null)
                                 _liveStats.Objects++;
 
-                            // Logging
                             if (LogMessage != null)
                             {
                                 string key = bestClass.ToString();
@@ -550,51 +614,15 @@ namespace FlashHSI.Core.Engine
                             }
                         }
                     }
+
                     // 처리 완료 후 pool에 반환
-                    _blobTracker?.ReleaseClosedBlobs(closedBlobs);
+                    _blobTracker.ReleaseClosedBlobs(closedBlobs);
                 }
 
-                // AI Refactor: Create Snapshots and Invoke Event AFTER updates
-                // GC 최적화: BlobSnapshot(객체) 대신 ArrayPool을 사용해 int[]로 윤곽선 정보 전체를 압축 직렬화하여 전달
                 if (FrameProcessed != null)
                 {
-                    int[] contourData = ArrayPool<int>.Shared.Rent(1024);
-                    int contourLen = 0;
-                    contourData[contourLen++] = 0; // index 0: 유효 Blob 개수 기록용
-
-                    int validBlobCount = 0;
-                    if (_blobTracker != null)
-                    {
-                        foreach (var b in _blobTracker.GetActiveBlobs())
-                        {
-                            if (b.TotalPixels >= _cachedMinPixels)
-                            {
-                                validBlobCount++;
-                                int cCount = b.CurrentSegments.Count;
-                                int pCount = b.PrevSegments.Count;
-
-                                // Buffer size check (safely expand if needed)
-                                if (contourLen + 2 + (cCount + pCount) * 2 >= contourData.Length)
-                                {
-                                    int[] newArr = ArrayPool<int>.Shared.Rent(contourData.Length * 2);
-                                    Array.Copy(contourData, newArr, contourLen);
-                                    ArrayPool<int>.Shared.Return(contourData);
-                                    contourData = newArr;
-                                }
-
-                                contourData[contourLen++] = cCount;
-                                contourData[contourLen++] = pCount;
-                                foreach (var seg in b.CurrentSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
-                                foreach (var seg in b.PrevSegments) { contourData[contourLen++] = seg.Start; contourData[contourLen++] = seg.End; }
-                            }
-                        }
-                    }
                     contourData[0] = validBlobCount;
-
-                    // AI가 수정함: vizRow에 전체 프레임 분류 결과 복사 (LiveView에서 보이도록 강제 렌더링)
-                    Array.Copy(classificationRow, vizRow, width);
-
-                    // vizRow와 contourData는 UI 렌더링 측(LiveViewModel.OnFrameProcessed)에서 사용 후 반환
+                    // vizRow와 contourData는 UI 렌더링 측에서 사용 후 반환
                     FrameProcessed.Invoke(vizRow, width, contourData, contourLen);
                     vizRowSentToUI = true;
                 }

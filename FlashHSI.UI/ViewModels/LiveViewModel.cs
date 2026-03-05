@@ -307,6 +307,14 @@ namespace FlashHSI.UI.ViewModels
                 return;
             }
 
+            // AI가 추가함: MROI 활성 시 캡처 차단 (캡처는 전체 밴드가 필요)
+            if (FlashHSI.Core.Settings.SettingsService.Instance.Settings.IsMroiEnabled)
+            {
+                StatusMessage = "MROI 활성 상태에서는 캡처할 수 없습니다. 설정에서 MROI를 OFF 하세요.";
+                Log.Warning("MROI 활성 상태에서 캡처 시도 차단");
+                return;
+            }
+
             if (IsCapturing)
             {
                 // 캡처 중지 → 파일 저장

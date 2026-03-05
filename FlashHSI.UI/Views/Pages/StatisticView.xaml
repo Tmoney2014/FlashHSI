@@ -46,10 +46,11 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                          <materialDesign:Card Margin="4" Padding="16" Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}">
+                            <!-- AI가 수정함: 밝은 배경에서 가독성 향상을 위해 검은색 Bold + 크기 3배 확대 -->
                             <StackPanel>
-                                <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding Count, StringFormat=N0}" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Foreground="White"/>
-                                <TextBlock Text="{Binding Percentage}" Foreground="#EEE" HorizontalAlignment="Right"/>
+                                <TextBlock Text="{Binding Name}" Foreground="Black" FontWeight="Bold" FontSize="36"/>
+                                <TextBlock Text="{Binding Count, StringFormat=N0}" Foreground="Black" FontWeight="Bold" FontSize="72"/>
+                                <TextBlock Text="{Binding Percentage}" Foreground="Black" FontWeight="Bold" FontSize="36" HorizontalAlignment="Right"/>
                             </StackPanel>
                         </materialDesign:Card>
                     </DataTemplate>

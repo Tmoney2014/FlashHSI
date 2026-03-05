@@ -1073,6 +1073,28 @@
                     <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
                         <TextBlock Text="Paths &amp; Models" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
                         
+                        <!-- AI가 추가함: 캡처 설정 카드 -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Capture Settings" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Save Directory" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <Button DockPanel.Dock="Right" Command="{Binding SelectCaptureDirectoryCommand}" Content="Select Folder"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding CaptureDirectoryPath}" TextAlignment="Left" materialDesign:HintAssist.Hint="C:\Capture" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Base Filename" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <TextBox Text="{Binding CaptureBaseName, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Left" materialDesign:HintAssist.Hint="capture_data" VerticalAlignment="Center" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
+                                </DockPanel>
+                                
+                                <TextBlock Text="※ 데이터 캡처 시 지정된 폴더 하위에 [BaseName]_[Timestamp] 폴더가 자동 생성되며, 현재 로드된 레퍼런스 원본(White/Dark)이 일괄 복사·저장됩니다." 
+                                           Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
                         <materialDesign:Card Padding="16" Margin="0,0,0,16">
                             <StackPanel>
                                 <TextBlock Text="HSI Model" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>

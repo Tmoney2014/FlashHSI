@@ -153,7 +153,6 @@
                                     <!-- 파일 경로 표시 -->
                                     <TextBox Text="{Binding WhiteRefPath, Mode=OneWay}" IsReadOnly="True" 
                                              VerticalAlignment="Center"
-                                             materialDesign:HintAssist.Hint="파일을 선택해주세요"
                                              Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                              FontSize="12" Height="30" Padding="4,4"/>
                                 </DockPanel>
@@ -185,7 +184,6 @@
                                     <!-- 파일 경로 표시 -->
                                     <TextBox Text="{Binding DarkRefPath, Mode=OneWay}" IsReadOnly="True" 
                                              VerticalAlignment="Center"
-                                             materialDesign:HintAssist.Hint="파일을 선택해주세요"
                                              Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                              FontSize="12" Height="30" Padding="4,4"/>
                                 </DockPanel>
@@ -1082,12 +1080,12 @@
                                     <TextBlock Text="Save Directory" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <Button DockPanel.Dock="Right" Command="{Binding SelectCaptureDirectoryCommand}" Content="Select Folder"
                                             Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
-                                    <TextBox Text="{Binding CaptureDirectoryPath}" TextAlignment="Left" materialDesign:HintAssist.Hint="C:\Capture" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
+                                    <TextBox Text="{Binding CaptureDirectoryPath}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
 
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Base Filename" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
-                                    <TextBox Text="{Binding CaptureBaseName, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Left" materialDesign:HintAssist.Hint="capture_data" VerticalAlignment="Center" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
+                                    <TextBox Text="{Binding CaptureBaseName, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Left" VerticalAlignment="Center" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
                                 
                                 <TextBlock Text="※ 데이터 캡처 시 지정된 폴더 하위에 [BaseName]_[Timestamp] 폴더가 자동 생성되며, 현재 로드된 레퍼런스 원본(White/Dark)이 일괄 복사·저장됩니다." 
@@ -1095,16 +1093,17 @@
                             </StackPanel>
                         </materialDesign:Card>
 
+                        <!-- AI가 수정함: HSI Model 로드 버튼 제거, Simulation Data를 캡처 설정과 동일 스타일로 변경 -->
                         <materialDesign:Card Padding="16" Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock Text="HSI Model" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                                <Button Command="{Binding LoadModelCommand}" Content="Load Model JSON" Margin="0,0,0,8" HorizontalAlignment="Left"/>
-                                
-                                <Separator Margin="0,16"/>
-                                
                                 <TextBlock Text="Simulation Data" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                                <Button Command="{Binding SelectDataFileCommand}" Content="Select ENVI Header (*.hdr)" Style="{StaticResource MaterialDesignOutlinedButton}" HorizontalAlignment="Left"/>
-                                <TextBlock Text="{Binding HeaderPath}" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="Gray"/>
+                                
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="ENVI Header" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <Button DockPanel.Dock="Right" Command="{Binding SelectDataFileCommand}" Content="Select File"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding HeaderPath, Mode=OneWay}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
+                                </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>
                         

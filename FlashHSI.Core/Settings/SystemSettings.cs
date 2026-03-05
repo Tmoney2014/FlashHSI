@@ -30,15 +30,11 @@ namespace FlashHSI.Core.Settings
         public double CameraFrameRate { get; set; } = 100.0;       // FPS
         public int CameraSensorSize { get; set; } = 1024; // Default Sensor Width
 
-        // AI가 수정함: FX50 멀티 밴드 MROI 제어 지원
-        public List<MroiRegionConfig> MroiRegions { get; set; } = new List<MroiRegionConfig>();
-
-        public class MroiRegionConfig
-        {
-            public int RegionIndex { get; set; }
-            public int StartBand { get; set; } // FX50 OffsetY
-            public int BandCount { get; set; } // FX50 Height
-        }
+        // AI가 수정함: MROI 구조 개편 — 범위 기반(MroiRegionConfig) → 개별 밴드 인덱스 리스트
+        /// <summary>MROI 활성화 여부 (ON/OFF 토글 영속화)</summary>
+        public bool IsMroiEnabled { get; set; } = false;
+        /// <summary>MROI에 사용할 개별 밴드 인덱스 목록 (모델 RequiredRawBands에서 자동 구성)</summary>
+        public List<int> MroiBands { get; set; } = new List<int>();
 
         // AI가 추가함: Ejection Logic Parameters
         public int EjectionDelayMs { get; set; } = 300; // Legacy 'BlowDelay'

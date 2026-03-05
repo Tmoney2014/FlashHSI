@@ -5,6 +5,8 @@ namespace FlashHSI.Core
         public string ModelType { get; set; } = string.Empty;
         public string OriginalType { get; set; } = string.Empty;
         public List<int> SelectedBands { get; set; } = new();
+        // AI가 추가함: 모델이 필요로 하는 정확한 Raw 밴드 인덱스 (MROI 자동 구성용)
+        public List<int> RequiredRawBands { get; set; } = new();
         public string ExcludeBands { get; set; } = string.Empty;
         public List<List<double>> Weights { get; set; } = new();
         public List<double> Bias { get; set; } = new();

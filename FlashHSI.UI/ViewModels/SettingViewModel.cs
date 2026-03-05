@@ -80,8 +80,9 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private double _cameraExposureTime = 1000.0;  // μs
         [ObservableProperty] private double _cameraFrameRate = 100.0;      // FPS
 
-        // AI가 수정함: GigE Vision MROI 리스트 관리
-        public ObservableCollection<SystemSettings.MroiRegionConfig> MroiRegions { get; } = new();
+        // AI가 수정함: MROI 구조 개편 — 텍스트 기반 개별 밴드 관리
+        [ObservableProperty] private bool _isMroiEnabled;
+        [ObservableProperty] private string _mroiBandsText = "";
 
         // AI가 추가함: Blob Tracking 파라미터
         [ObservableProperty] private int _blobMinPixels = 5;
@@ -151,13 +152,11 @@ namespace FlashHSI.UI.ViewModels
             // 카메라 설정 로드
             _cameraExposureTime = s.CameraExposureTime > 0 ? s.CameraExposureTime : 1000.0;
             _cameraFrameRate = s.CameraFrameRate > 0 ? s.CameraFrameRate : 100.0;
-            // AI가 수정함: MROI 설정 로드
-            if (s.MroiRegions != null)
+            // AI가 수정함: MROI 설정 로드 (개별 밴드 인덱스 리스트)
+            _isMroiEnabled = s.IsMroiEnabled;
+            if (s.MroiBands != null && s.MroiBands.Count > 0)
             {
-                foreach (var region in s.MroiRegions)
-                {
-                    MroiRegions.Add(region);
-                }
+                _mroiBandsText = string.Join(", ", s.MroiBands.OrderBy(b => b));
             }
 
             // Blob 설정 로드
@@ -711,51 +710,60 @@ namespace FlashHSI.UI.ViewModels
             }
         }
 
-        // AI가 수정함: 다중 MROI 밴드 추가 커맨드
-        [RelayCommand]
-        private void AddMroiRegion()
+        // AI가 수정함: MROI 밴드 텍스트 파싱 → List<int>
+        private List<int> ParseMroiBands()
         {
-            // 빈 영역 1개 추가 (기본값 설정)
-            MroiRegions.Add(new SystemSettings.MroiRegionConfig
-            {
-                RegionIndex = MroiRegions.Count,
-                StartBand = 10,
-                BandCount = 20
-            });
-            SaveMroiSettings();
+            if (string.IsNullOrWhiteSpace(MroiBandsText)) return new List<int>();
+            return MroiBandsText
+                .Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => int.TryParse(s.Trim(), out var v) ? v : -1)
+                .Where(v => v >= 0)
+                .Distinct()
+                .OrderBy(v => v)
+                .ToList();
         }
 
-        // AI가 수정함: 다중 MROI 밴드 삭제 커맨드
-        [RelayCommand]
-        private void RemoveMroiRegion(SystemSettings.MroiRegionConfig region)
-        {
-            if (region != null && MroiRegions.Contains(region))
-            {
-                MroiRegions.Remove(region);
-                // 인덱스 재정렬
-                for (int i = 0; i < MroiRegions.Count; i++)
-                {
-                    MroiRegions[i].RegionIndex = i;
-                }
-                SaveMroiSettings();
-            }
-        }
-
+        // AI가 수정함: MROI 설정 저장
         private void SaveMroiSettings()
         {
-            SettingsService.Instance.Settings.MroiRegions.Clear();
-            foreach (var r in MroiRegions)
-            {
-                SettingsService.Instance.Settings.MroiRegions.Add(r);
-            }
+            var bands = ParseMroiBands();
+            SettingsService.Instance.Settings.MroiBands = bands;
+            SettingsService.Instance.Settings.IsMroiEnabled = IsMroiEnabled;
             SettingsService.Instance.Save();
         }
 
-        // AI가 수정함: 설정된 여러 밴드 대역의 MROI 값들을 한 번에 카메라로 전송 및 적용
+        /// <ai>AI가 작성함</ai>
+        partial void OnIsMroiEnabledChanged(bool value)
+        {
+            SaveMroiSettings();
+        }
+
+        /// <summary>
+        /// 모델 로드 시 RequiredRawBands로부터 MROI 밴드 자동 구성
+        /// </summary>
+        /// <ai>AI가 작성함</ai>
+        public void PopulateMroiFromModel(ModelConfig config)
+        {
+            if (config.RequiredRawBands == null || config.RequiredRawBands.Count == 0)
+            {
+                Log.Information("모델에 RequiredRawBands가 없어 MROI 자동 구성을 건너뜁니다.");
+                return;
+            }
+
+            var sorted = config.RequiredRawBands.Distinct().OrderBy(b => b).ToList();
+            MroiBandsText = string.Join(", ", sorted);
+            SaveMroiSettings();
+            Log.Information("모델에서 MROI 밴드 자동 구성: {Bands} ({Count}개)", MroiBandsText, sorted.Count);
+        }
+
+        // AI가 수정함: FX50 카메라 파라미터에 맞게 MROI 적용
+        // - WindowingMode: "Multiband" / "Singleband" (FX50 전용 Enum)
+        // - RegionMode: Integer (1=활성, 0=비활성)
+        // - Acquisition 중에는 파라미터 변경 불가 → Stop 후 설정 → Start
         [RelayCommand]
         private async Task ApplyMroiSettingsAsync()
         {
-            SaveMroiSettings(); // 적용 전 저장
+            SaveMroiSettings();
 
             if (!_cameraService.IsConnected)
             {
@@ -765,39 +773,49 @@ namespace FlashHSI.UI.ViewModels
 
             try
             {
-                // 1. MROI 활성화 (설정 리스트가 1개 이상일 경우 활성화, 0개면 비활성화)
-                if (MroiRegions.Count > 0)
+                var bands = ParseMroiBands();
+
+                // AI가 수정함: 스트리밍 중에는 Region 파라미터 변경 불가 → 먼저 중지
+                await _cameraService.ExecuteCommandAsync("AcquisitionStop");
+                await Task.Delay(500); // AI가 추가함: 레지스터 접근 가능 대기
+                Log.Information("MROI 적용: AcquisitionStop");
+
+                if (IsMroiEnabled && bands.Count > 0)
                 {
-                    await _cameraService.SetParameterAsync("WindowingMode", "MultiZones"); // FX50의 다중 영역 모드 Enum 확인 필요
-                    Log.Information("WindowingMode Set: MultiZones");
+                    // AI가 수정함: Multiband 먼저 설정 → RegionClear → Zone 설정 → RegionApply
+                    await _cameraService.SetParameterAsync("WindowingMode", "Multiband");
+                    Log.Information("WindowingMode Set: Multiband");
 
-                    // 2. 기존 설정 지우기 커맨드
                     await _cameraService.ExecuteCommandAsync("RegionClear");
+                    await Task.Delay(100); // 레지스터 정리 대기
 
-                    // 3. 루프 돌며 파라미터 등록
-                    foreach (var region in MroiRegions)
+                    for (int i = 0; i < bands.Count; i++)
                     {
-                        await _cameraService.SetParameterAsync("RegionSelector", region.RegionIndex);
-                        await _cameraService.SetParameterAsync("RegionMode", true); // 활성화
-                        await _cameraService.SetParameterAsync("OffsetY", region.StartBand);
-                        await _cameraService.SetParameterAsync("Height", region.BandCount);
-                        Log.Information($"MROI Zone {region.RegionIndex} Configured: Start={region.StartBand}, Height={region.BandCount}");
+                        await _cameraService.SetParameterAsync("RegionSelector", i);
+                        await _cameraService.SetParameterAsync("RegionMode", 1);   // Integer: 1=활성
+                        // AI가 수정함: Height 먼저 설정 → OffsetY 범위 확장
+                        await _cameraService.SetParameterAsync("Height", 1);
+                        await _cameraService.SetParameterAsync("OffsetY", bands[i]);
+                        Log.Information("MROI Zone {Index}: Band={Band}, Height=1", i, bands[i]);
                     }
 
-                    // 4. 적용 커맨드
                     await _cameraService.ExecuteCommandAsync("RegionApply");
-                    Log.Information("MROI RegionApply Executed Successfully.");
+                    Log.Information("MROI RegionApply 완료 ({Count}개 밴드)", bands.Count);
                 }
                 else
                 {
-                    // 0개인 경우 기본 모드(단일 존 또는 전체 존)로 되돌림 (필요 시)
-                    await _cameraService.SetParameterAsync("WindowingMode", "SingleZone"); // TODO: 올바른 Enum 값 필요
-                    Log.Information("WindowingMode Set: SingleZone (MROI Disabled)");
+                    // AI가 수정함: FX50 Enum 값 "Single" (전체 밴드 모드)
+                    await _cameraService.SetParameterAsync("WindowingMode", "Single");
+                    Log.Information("WindowingMode Set: Single (MROI Disabled)");
                 }
+
+                // AI가 수정함: 설정 완료 후 Acquisition 재시작
+                await _cameraService.ExecuteCommandAsync("AcquisitionStart");
+                Log.Information("MROI 적용: AcquisitionStart");
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "MROI 멀티 밴드 적용 실패");
+                Log.Error(ex, "MROI 밴드 적용 실패");
             }
         }
 

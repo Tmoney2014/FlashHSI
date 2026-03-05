@@ -166,7 +166,8 @@ public class SliderButtonBehavior : Behavior<Slider>
     {
         if (_popupText != null && _slider != null)
         {
-            _popupText.Text = _slider.Value.ToString("F3");
+            string format = SliderValuePopupBehavior.GetFormat(_slider);
+            _popupText.Text = _slider.Value.ToString(format);
         }
     }
 

@@ -48,7 +48,7 @@
                                     <TextBlock Text="Exposure Time (μs)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraExposureTime, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
+                                    <Slider Minimum="100" Maximum="10000" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -60,7 +60,7 @@
                                     <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False">
+                                    <Slider Minimum="1" Maximum="700" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -69,69 +69,43 @@
                                     </Slider>
                                 </DockPanel>
 
-                                <!-- AI가 추가함: MROI (Region of Interest) -->
+                                <!-- AI가 수정함: MROI 구조 개편 — ON/OFF 토글 + 텍스트 기반 밴드 입력 -->
                                 <Separator Margin="0,12"/>
                                 <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="MROI Band Regions (FX50 Multi-Zones)" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="MROI Band Regions" FontWeight="Bold" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                                        <Button Command="{Binding AddMroiRegionCommand}" Content="+ Add Band" 
-                                                Style="{StaticResource MaterialDesignFlatButton}" 
-                                                Foreground="{DynamicResource PrimaryHueMidBrush}"
-                                                Height="24" Padding="8,0" FontSize="11" Margin="0,0,8,0"/>
+                                        <TextBlock Text="OFF" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="Gray" FontSize="11"/>
+                                        <ToggleButton IsChecked="{Binding IsMroiEnabled}" 
+                                                      Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                                      VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="ON" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="Gray" FontSize="11"/>
                                         <Button Command="{Binding ApplyMroiSettingsCommand}" Content="Apply to Camera" 
                                                 Style="{StaticResource MaterialDesignRaisedButton}" 
                                                 Height="28" Padding="12,0" FontSize="11"/>
                                     </StackPanel>
                                 </DockPanel>
 
-                                <!-- 여러 MROI 밴드를 리스트로 보여줌 -->
-                                <ItemsControl ItemsSource="{Binding MroiRegions}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <materialDesign:Card Margin="0,0,0,8" Padding="8" Background="#2A2A2A">
-                                                <DockPanel>
-                                                    <TextBlock Text="{Binding RegionIndex, StringFormat='Zone {0}'}" 
-                                                             VerticalAlignment="Center" FontWeight="Bold" Foreground="LightBlue" Width="50" Margin="0,0,8,0"/>
-                                                    
-                                                    <!-- Delete Button -->
-                                                    <Button Command="{Binding DataContext.RemoveMroiRegionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                            CommandParameter="{Binding}"
-                                                            Style="{StaticResource MaterialDesignIconForegroundButton}"
-                                                            Width="24" Height="24"
-                                                            DockPanel.Dock="Right"
-                                                            ToolTip="Remove Band Region">
-                                                        <materialDesign:PackIcon Kind="Close" Width="16" Height="16"/>
-                                                    </Button>
-
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <!-- OffsetY (Start Band) -->
-                                                        <TextBlock Text="Start Band (OffsetY): " FontSize="11" Foreground="Gray" VerticalAlignment="Center"/>
-                                                        <TextBox Text="{Binding StartBand, UpdateSourceTrigger=LostFocus}" Width="40" TextAlignment="Center" Margin="0,0,16,0"
-                                                                 behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                        
-                                                        <!-- Height (Band Count) -->
-                                                        <TextBlock Text="Count (Height): " FontSize="11" Foreground="Gray" VerticalAlignment="Center"/>
-                                                        <TextBox Text="{Binding BandCount, UpdateSourceTrigger=LostFocus}" Width="40" TextAlignment="Center"
-                                                                 behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                    </StackPanel>
-                                                </DockPanel>
-                                            </materialDesign:Card>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Band Indices" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <TextBox Text="{Binding MroiBandsText, UpdateSourceTrigger=PropertyChanged}" 
+                                             TextAlignment="Left" VerticalAlignment="Center" 
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}" 
+                                             Height="30" Padding="4,4"/>
+                                </DockPanel>
+                                <TextBlock Text="※ 모델 로드 시 RequiredRawBands에서 자동 구성됩니다. 쉼표로 구분된 밴드 인덱스를 수동 입력할 수도 있습니다." 
+                                           Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,0"/>
                             </StackPanel>
                         </materialDesign:Card>
                         
                         <!-- References -->
-                        <!-- AI가 수정함: 레퍼런스 경로 표시 및 상태 아이콘 추가 -->
+                        <!-- AI가 수정함: File Path 탭과 동일한 DockPanel 스타일로 통일 -->
                         <materialDesign:Card Padding="16">
                             <StackPanel>
                                 <TextBlock Text="Calibration References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 
                                 <!-- White Reference -->
-                                <TextBlock Text="White Reference" FontWeight="Medium" Margin="0,0,0,6"/>
-                                <DockPanel Margin="0,0,0,4">
-                                    <!-- 상태 아이콘 -->
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="White Reference" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <materialDesign:PackIcon.Style>
                                             <Style TargetType="materialDesign:PackIcon">
@@ -146,23 +120,14 @@
                                             </Style>
                                         </materialDesign:PackIcon.Style>
                                     </materialDesign:PackIcon>
-                                    <!-- 로드 버튼 -->
-                                    <Button DockPanel.Dock="Right" Command="{Binding LoadWhiteRefCommand}" Content="Load" 
-                                            Style="{StaticResource MaterialDesignOutlinedButton}" 
-                                            Height="30" Padding="12,0" Margin="8,0,0,0"/>
-                                    <!-- 파일 경로 표시 -->
-                                    <TextBox Text="{Binding WhiteRefPath, Mode=OneWay}" IsReadOnly="True" 
-                                             VerticalAlignment="Center"
-                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                             FontSize="12" Height="30" Padding="4,4"/>
+                                    <Button DockPanel.Dock="Right" Command="{Binding LoadWhiteRefCommand}" Content="Select File"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding WhiteRefPath, Mode=OneWay}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
                                 
-                                <Separator Margin="0,12"/>
-                                
                                 <!-- Dark Reference -->
-                                <TextBlock Text="Dark Reference" FontWeight="Medium" Margin="0,12,0,6"/>
-                                <DockPanel Margin="0,0,0,0">
-                                    <!-- 상태 아이콘 -->
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Dark Reference" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <materialDesign:PackIcon.Style>
                                             <Style TargetType="materialDesign:PackIcon">
@@ -177,15 +142,9 @@
                                             </Style>
                                         </materialDesign:PackIcon.Style>
                                     </materialDesign:PackIcon>
-                                    <!-- 로드 버튼 -->
-                                    <Button DockPanel.Dock="Right" Command="{Binding LoadDarkRefCommand}" Content="Load" 
-                                            Style="{StaticResource MaterialDesignOutlinedButton}" 
-                                            Height="30" Padding="12,0" Margin="8,0,0,0"/>
-                                    <!-- 파일 경로 표시 -->
-                                    <TextBox Text="{Binding DarkRefPath, Mode=OneWay}" IsReadOnly="True" 
-                                             VerticalAlignment="Center"
-                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                             FontSize="12" Height="30" Padding="4,4"/>
+                                    <Button DockPanel.Dock="Right" Command="{Binding LoadDarkRefCommand}" Content="Select File"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding DarkRefPath, Mode=OneWay}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>
@@ -269,7 +228,7 @@
                                                                 <TextBlock Text="Threshold Y (Px)" VerticalAlignment="Center" Width="100"/>
                                                                 <TextBox Text="{Binding ThresholdY, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                                                          behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                                <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                                                <Slider Minimum="0" Maximum="1024" Value="{Binding ThresholdY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                                                     <i:Interaction.Behaviors>
                                                                         <behaviors:SliderDragCompletedBehavior/>
                                                                         <behaviors:SliderValuePopupBehavior/>
@@ -282,7 +241,7 @@
                                                                 <TextBlock Text="Correction (ms)" VerticalAlignment="Center" Width="100"/>
                                                                 <TextBox Text="{Binding CorrectionMs, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                                                          behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                                                <Slider Minimum="-20" Maximum="20" Value="{Binding CorrectionMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                                                <Slider Minimum="-20" Maximum="20" Value="{Binding CorrectionMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                                                     <i:Interaction.Behaviors>
                                                                         <behaviors:SliderDragCompletedBehavior/>
                                                                         <behaviors:SliderValuePopupBehavior/>
@@ -302,7 +261,7 @@
                                     <TextBlock Text="Duration (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding EjectionDurationMs}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="5" Maximum="200" Value="{Binding EjectionDurationMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="5" Maximum="200" Value="{Binding EjectionDurationMs, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -315,7 +274,7 @@
                                     <TextBlock Text="Blow Margin (Valves)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding EjectionBlowMargin}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="0" Maximum="5" Value="{Binding EjectionBlowMargin, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="0" Maximum="5" Value="{Binding EjectionBlowMargin, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -338,11 +297,12 @@
                                     <ComboBox ItemsSource="{Binding NetworkInterfaces}" SelectedItem="{Binding SelectedNetworkInterface}"/>
                                 </DockPanel>
 
+                                <!-- AI가 수정함: File Path 탭과 동일한 스타일로 통일 -->
                                 <DockPanel Margin="0,0,0,10" ToolTip="EtherCAT ESI Directory">
                                     <TextBlock Text="ESI Directory" Width="180" VerticalAlignment="Center"/>
-                                    <Button DockPanel.Dock="Right" Command="{Binding SelectEsiDirectoryCommand}" Content="..."
-                                            Style="{StaticResource MaterialDesignIconButton}" Width="32" Height="32" ToolTip="Select Folder"/>
-                                    <TextBox Text="{Binding EsiDirectoryPath}" Width="200" TextAlignment="Left"/>
+                                    <Button DockPanel.Dock="Right" Command="{Binding SelectEsiDirectoryCommand}" Content="Select Folder"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding EsiDirectoryPath}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
                                 
                                 <DockPanel Margin="0,0,0,10">
@@ -444,7 +404,7 @@
                                     <TextBlock Text="Blow Time (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TestBlowTime}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="10" Maximum="500" Value="{Binding TestBlowTime, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -456,7 +416,7 @@
                                     <TextBlock Text="Delay Between (ms)" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TestDelay}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="50" Maximum="2000" Value="{Binding TestDelay, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -480,7 +440,7 @@
                                     <TextBlock Text="Channel" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TestSingleChannel}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="{Binding AirGunChannelCount}" Value="{Binding TestSingleChannel, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="1" Maximum="{Binding AirGunChannelCount}" Value="{Binding TestSingleChannel, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>
@@ -551,7 +511,7 @@
                                     <TextBlock Text="Band Index" Width="200" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding MaskBandIndex, UpdateSourceTrigger=PropertyChanged}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
                                              behaviors:NumericOnlyBehavior.IsEnabled="True"/>
-                                    <Slider Minimum="1" Maximum="255" Value="{Binding MaskBandIndex, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True">
+                                    <Slider Minimum="1" Maximum="255" Value="{Binding MaskBandIndex, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
                                             <behaviors:SliderValuePopupBehavior/>

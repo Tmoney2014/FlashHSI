@@ -10,6 +10,10 @@ namespace FlashHSI.Core.Settings
         // AI가 추가함: 에어건으로 쳐낼 클래스 인덱스 목록
         public List<int> SelectedSortClasses { get; set; } = new List<int>();
 
+        // AI가 추가함: 캡처 저장 경로 및 기본 파일명 설정
+        public string CaptureDirectoryPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "FlashHSI", "Captures");
+        public string CaptureBaseName { get; set; } = "capture";
+
         public double TargetFps { get; set; } = 100.0;
         public double ConfidenceThreshold { get; set; } = 0.75;
         public double BackgroundThreshold { get; set; } = 0.0;

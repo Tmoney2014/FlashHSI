@@ -66,6 +66,10 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private string _lastModelPath = "";
         [ObservableProperty] private string _lastHeaderPath = "";
 
+        // AI가 추가함: 사용자 지정 캡처 옵션
+        [ObservableProperty] private string _captureDirectoryPath = "";
+        [ObservableProperty] private string _captureBaseName = "";
+
         // AI가 추가함: SVM 모델 시 Confidence 슬라이더 비활성화
         [ObservableProperty] private bool _isConfidenceEnabled = true;
 
@@ -139,6 +143,10 @@ namespace FlashHSI.UI.ViewModels
             // AI가 추가함: 저장된 레퍼런스 경로 복원
             _whiteRefPath = s.LastWhiteRefPath;
             _darkRefPath = s.LastDarkRefPath;
+
+            // AI가 추가함: 캡처 옵션 로드
+            _captureDirectoryPath = s.CaptureDirectoryPath;
+            _captureBaseName = string.IsNullOrWhiteSpace(s.CaptureBaseName) ? "capture" : s.CaptureBaseName;
 
             // 카메라 설정 로드
             _cameraExposureTime = s.CameraExposureTime > 0 ? s.CameraExposureTime : 1000.0;
@@ -376,6 +384,41 @@ namespace FlashHSI.UI.ViewModels
                 SettingsService.Instance.Settings.LastHeaderPath = dlg.FileName;
                 SettingsService.Instance.Save();
             }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 캡처 폴더 선택 다이얼로그 (WPF .NET 8 OpenFolderDialog)
+        /// </summary>
+        [RelayCommand]
+        private void SelectCaptureDirectory()
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "캡처 데이터를 저장할 기본 폴더를 선택하세요."
+            };
+
+            if (!string.IsNullOrEmpty(CaptureDirectoryPath) && Directory.Exists(CaptureDirectoryPath))
+            {
+                dialog.InitialDirectory = CaptureDirectoryPath;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                CaptureDirectoryPath = dialog.FolderName;
+            }
+        }
+
+        // AI가 추가함: 캡처 옵션 변경 시 자동 저장
+        partial void OnCaptureDirectoryPathChanged(string value)
+        {
+            SettingsService.Instance.Settings.CaptureDirectoryPath = value;
+            SettingsService.Instance.Save();
+        }
+
+        partial void OnCaptureBaseNameChanged(string value)
+        {
+            SettingsService.Instance.Settings.CaptureBaseName = value;
+            SettingsService.Instance.Save();
         }
 
         partial void OnTargetFpsChanged(double value)

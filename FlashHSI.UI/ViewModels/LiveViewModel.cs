@@ -8,8 +8,11 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Analysis;
 using FlashHSI.Core.Control.Camera;
+using FlashHSI.Core.Control.Hardware;
+using FlashHSI.Core.Control.Serial;
 using FlashHSI.Core.Engine;
 using FlashHSI.Core.Messages;
+using FlashHSI.Core.Services; // AI가 추가함: ICaptureService, SettingsService
 using FlashHSI.UI.Services;
 using Serilog;
 
@@ -24,7 +27,11 @@ namespace FlashHSI.UI.ViewModels
         private readonly ICameraService _cameraService;
         private readonly HsiEngine _hsiEngine;
         private readonly WaterfallService _waterfallService;
+        private readonly CommonDataShareService _commonDataShareService;
         private readonly IMessenger _messenger;
+        private readonly IEtherCATService _etherCATService; // AI: Inject EtherCAT Service
+        private readonly SerialCommandService _serialCommandService;
+        private readonly ICaptureService _captureService; // AI가 추가함: 캡처 전용 공통 서비스
 
         // 카메라 상태
         [ObservableProperty] private bool _isCameraConnected;
@@ -38,23 +45,25 @@ namespace FlashHSI.UI.ViewModels
         // Waterfall 이미지 (MainViewModel에서 이동)
         [ObservableProperty] private ImageSource? _waterfallImage;
 
-        // AI가 추가함: 캡처 프레임 버퍼 (GC 최적화: ArrayPool 사용)
-        private readonly List<ushort[]> _captureBuffer = new();
-        private int _captureWidth;
-        private int _captureHeight;
-        private static readonly ArrayPool<ushort> _ushortPool = ArrayPool<ushort>.Shared;
-
         /// <ai>AI가 작성함: DI 생성자</ai>
         public LiveViewModel(
             ICameraService cameraService,
             HsiEngine hsiEngine,
             WaterfallService waterfallService,
-            IMessenger messenger)
+            CommonDataShareService commonDataShareService,
+            IMessenger messenger,
+            IEtherCATService etherCATService,
+            SerialCommandService serialCommandService,
+            ICaptureService captureService) // AI가 추가함: ICaptureService 주입
         {
             _cameraService = cameraService;
             _hsiEngine = hsiEngine;
             _waterfallService = waterfallService;
+            _commonDataShareService = commonDataShareService;
             _messenger = messenger;
+            _etherCATService = etherCATService;
+            _serialCommandService = serialCommandService;
+            _captureService = captureService; // 할당
 
             // 프레임 처리 이벤트 구독 (MainViewModel에서 이동)
             _hsiEngine.FrameProcessed += OnFrameProcessed;
@@ -69,6 +78,12 @@ namespace FlashHSI.UI.ViewModels
             _cameraService.Connected += () =>
             {
                 Application.Current.Dispatcher.InvokeAsync(SyncCameraState);
+            };
+
+            // AI가 추가함: 캡처 서비스의 프레임 수 업데이트 구독
+            _captureService.CapturedFrameCountChanged += (count) =>
+            {
+                Application.Current.Dispatcher.Invoke(() => CapturedFrameCount = count);
             };
 
             Log.Information("LiveViewModel 생성됨");
@@ -101,18 +116,10 @@ namespace FlashHSI.UI.ViewModels
         /// </summary>
         private void OnCameraFrameReceived(ushort[] data, int width, int height)
         {
-            // AI가 추가함: 캡처 중이면 프레임을 버퍼에 저장
+            // AI가 수정함: 캡처 중이면 프레임을 캡처 서비스로 전달
             if (IsCapturing)
             {
-                lock (_captureBuffer)
-                {
-                    var copy = new ushort[data.Length];
-                    Array.Copy(data, copy, data.Length);
-                    _captureBuffer.Add(copy);
-                    _captureWidth = width;
-                    _captureHeight = height;
-                    CapturedFrameCount = _captureBuffer.Count;
-                }
+                _captureService.AddFrame(data, width, height);
             }
 
             // AI가 수정함: IsLive OR IsPredicting이면 프레임을 엔진으로 전달
@@ -305,18 +312,14 @@ namespace FlashHSI.UI.ViewModels
                 // 캡처 중지 → 파일 저장
                 IsCapturing = false;
                 StatusMessage = "캡처 중지 — 파일 저장 중...";
-                Log.Information("캡처 중지, 프레임 수: {Count}", _captureBuffer.Count);
+                Log.Information("캡처 중지, 프레임 수: {Count}", _captureService.CurrentCapturedFrameCount);
 
                 await SaveCaptureBufferAsync();
             }
             else
             {
                 // 캡처 시작 → 버퍼 초기화
-                lock (_captureBuffer)
-                {
-                    _captureBuffer.Clear();
-                    CapturedFrameCount = 0;
-                }
+                _captureService.ClearBuffer();
                 IsCapturing = true;
                 StatusMessage = "📹 캡처 중... (프레임 수집)";
                 Log.Information("캡처 시작");
@@ -333,71 +336,57 @@ namespace FlashHSI.UI.ViewModels
             List<ushort[]> frames;
             int width, height;
 
-            lock (_captureBuffer)
-            {
-                if (_captureBuffer.Count == 0)
-                {
-                    StatusMessage = "캡처된 프레임이 없습니다";
-                    return;
-                }
+            // AI가 수정함: 캡처 서비스에서 버퍼와 메타데이터를 가져옴
+            (frames, width, height) = _captureService.GetCapturedDataAndClear();
 
-                frames = new List<ushort[]>(_captureBuffer);
-                width = _captureWidth;
-                height = _captureHeight;
-                _captureBuffer.Clear();
+            if (frames.Count == 0)
+            {
+                StatusMessage = "캡처된 프레임이 없습니다";
+                return;
             }
 
             try
             {
-                // 저장 경로 지정 (Documents/FlashHSI/Captures/)
-                var captureDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    "FlashHSI", "Captures");
-                Directory.CreateDirectory(captureDir);
+                var settings = FlashHSI.Core.Settings.SettingsService.Instance.Settings;
+                string captureDir = settings.CaptureDirectoryPath;
+                string baseName = settings.CaptureBaseName;
 
-                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var dataPath = Path.Combine(captureDir, $"capture_{timestamp}.raw");
-                var headerPath = Path.Combine(captureDir, $"capture_{timestamp}.hdr");
-
-                // 바이너리 데이터 저장 (백그라운드 스레드)
-                await Task.Run(() =>
+                if (!Directory.Exists(captureDir))
                 {
-                    using var fs = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536);
-                    using var bw = new BinaryWriter(fs);
+                    Directory.CreateDirectory(captureDir);
+                }
 
-                    foreach (var frame in frames)
-                    {
-                        foreach (var val in frame)
-                        {
-                            bw.Write(val);
-                        }
-                    }
+                // AI가 수정함: 파일 생성/복사/헤더 작성 로직 전체를 CaptureService로 위임
+                await _captureService.SaveCaptureAsync(
+                    baseName: baseName,
+                    captureDirectory: captureDir,
+                    frames: frames,
+                    whiteRefPath: _hsiEngine.CurrentWhiteRefPath,
+                    darkRefPath: _hsiEngine.CurrentDarkRefPath,
+                    width: width,
+                    height: height,
+                    cameraService: _cameraService);
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"캡처 완료 ({frames.Count} 프레임)\n저장 폴더:\n{captureDir}", "캡처 성공", MessageBoxButton.OK, MessageBoxImage.Information);
                 });
 
-                // ENVI 호환 헤더 저장
-                var headerContent = $@"ENVI
-description = {{FlashHSI Capture {timestamp}}}
-samples = {width}
-lines = {frames.Count}
-bands = {height}
-header offset = 0
-data type = 12
-interleave = bil
-byte order = 0
-";
-                await File.WriteAllTextAsync(headerPath, headerContent);
-
-                StatusMessage = $"캡처 저장 완료: {frames.Count}프레임 → {Path.GetFileName(dataPath)}";
+                StatusMessage = $"캡처 저장 완료: {frames.Count}프레임 → {Path.GetFileName(baseName)}";
                 Log.Information("캡처 저장 완료: {Path}, 프레임: {Count}, {Width}x{Height}",
-                    dataPath, frames.Count, width, height);
+                    Path.Combine(captureDir, baseName), frames.Count, width, height);
 
                 // Snackbar 알림
-                _messenger.Send(new SnackbarMessage($"캡처 저장: {frames.Count}프레임 → {Path.GetFileName(dataPath)}"));
+                _messenger.Send(new SnackbarMessage($"캡처 저장: {frames.Count}프레임 → {Path.GetFileName(baseName)}"));
             }
             catch (Exception ex)
             {
                 StatusMessage = $"캡처 저장 실패: {ex.Message}";
                 Log.Error(ex, "캡처 파일 저장 실패");
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"캡처 저장 중 오류가 발생했습니다.\n\n{ex.Message}", "캡처 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             }
         }
     }

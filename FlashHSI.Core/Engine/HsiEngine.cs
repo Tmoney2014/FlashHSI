@@ -86,6 +86,10 @@ namespace FlashHSI.Core.Engine
         // AI가 추가함: 현재 로드된 모델의 OriginalType (UI에서 Confidence 슬라이더 활성화 판단용)
         public string LoadedModelType { get; private set; } = "";
 
+        // AI가 추가함: 원본 레퍼런스 파일 경로 (디폴트 파일 복사용)
+        public string? CurrentWhiteRefPath { get; private set; }
+        public string? CurrentDarkRefPath { get; private set; }
+
         public HsiEngine(ICameraService? cameraService = null)
         {
             _pipeline = new HsiPipeline();
@@ -173,6 +177,9 @@ namespace FlashHSI.Core.Engine
         {
             _whiteRef = white;
             _darkRef = dark;
+            // 수동 할당이므로 원본 파일 경로는 잃음
+            CurrentWhiteRefPath = null;
+            CurrentDarkRefPath = null;
         }
 
         public double[]? LoadReference(string path, bool isDark)
@@ -208,8 +215,16 @@ namespace FlashHSI.Core.Engine
                     double[] avg = new double[bands];
                     for (int b = 0; b < bands; b++) avg[b] = (double)sum[b] / count;
 
-                    if (isDark) _darkRef = avg;
-                    else _whiteRef = avg;
+                    if (isDark)
+                    {
+                        _darkRef = avg;
+                        CurrentDarkRefPath = path;
+                    }
+                    else
+                    {
+                        _whiteRef = avg;
+                        CurrentWhiteRefPath = path;
+                    }
 
                     return avg;
                 }

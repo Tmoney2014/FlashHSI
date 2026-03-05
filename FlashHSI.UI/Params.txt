@@ -14,9 +14,9 @@
     Description: Scan type of the sensor.
 [Command] DeviceReset = 
     Description: Resets the device to its power up state. After reset, the device must be rediscovered.
-[Integer] DeviceUpTime = 225
+[Integer] DeviceUpTime = 305
     Description: Device uptime in minutes since manufacturing.
-[Integer] DeviceBootCount = 6
+[Integer] DeviceBootCount = 7
     Description: Device boot count since manufacturing.
 [Boolean] DeviceReady = True
     Description: Tells if the device is ready for use. If not the camera is still initializing
@@ -115,11 +115,11 @@
     Description: Specifies the Operation Mode for Trigger Inputs.
 [Enum] ExposureMode = Timed
     Description: Sets the operation mode of the Exposure.
-[Float] ExposureTime = 0.09997499734163284
+[Float] ExposureTime = 2.999974012374878
     Description: This value sets the simulated exposure time
-[Float] AcquisitionFrameRate = 269.1000061035156
+[Float] AcquisitionFrameRate = 49.84000015258789
     Description: Sets the acquisition frame rate.
-[Float] AcquisitionFrameRateMeasured = 269.105224609375
+[Float] AcquisitionFrameRateMeasured = 49.852134704589844
     Description: Measured framerate
 [Integer] ResendBufferSize = 100
     Description: Size of the internal resend buffer in frames.
@@ -171,23 +171,23 @@
     Description: Scale factor of ApplicationMetadataVariableIndex.
 [Float] OutputStreamLatencyTarget = <Unreadable>
     Description: The desired system latency in milliseconds. This excludes camera related timings.
-[Float] OutputStreamLatencyMeasured = 8.433759689331055
+[Float] OutputStreamLatencyMeasured = 7.7578558921813965
     Description: The measured system latency in milliseconds. This excludes camera related timings.
 [Command] OutputStreamLatencyRecalculate = 
     Description: Force recalculation of measured system latency.
 [Command] TemperatureUpdate = 
     Description: Update the device temperatures.
-[Float] TemperatureFPA = 80.0199966430664
+[Float] TemperatureFPA = 0
     Description: Detector temperature in Kelvin
 [Float] TemperatureFPGA = 0
     Description: Detector FPGA temperature in Celcius
-[Float] TemperatureBoard = 31
+[Float] TemperatureBoard = 0
     Description: telectrics board temperature in Celsius.
-[Float] TemperatureScb1 = 28.4375
+[Float] TemperatureScb1 = 0
     Description: Hot plate temperature in Celsius.
-[Float] TemperatureScb2 = 20.1875
+[Float] TemperatureScb2 = 0
     Description: Optics temperature in Celsius.
-[Float] TemperatureScb3 = 20.84375
+[Float] TemperatureScb3 = 20.8203125
     Description: Shutter temperature in Celsius.
 [Boolean] NetworkingPerformanceEnabled = False
     Description: When enabled automatic notifications are disabled to optimize network performance and jitter.
@@ -209,9 +209,9 @@
     Description: Defines whether the camera window is configured properly.
 [Command] FrameSizeAsExpectedUpdate = 
     Description: Update camera window configuration status.
-[Integer] NumberOfCoolDowns = 15
+[Integer] NumberOfCoolDowns = 16
     Description: Number of camera cool downs since manufacturing.
-[Integer] DurationUnderThreshold = 803
+[Integer] DurationUnderThreshold = 899
     Description: Camera temperature below temperature threshold in minutes since manufacturing.
 [Boolean] ReferencesLock = False
     Description: Lock the white and dark references to prevent accidental overrides.
@@ -281,7 +281,7 @@
     Description: Indicates if PersistentIP configuration scheme is activated on the given network interface.
 [Integer] GevCurrentIPAddress = 3232240946
     Description: Reports the IP address for the given network interface.
-[Integer] GevCurrentSubnetMask = 4294901760
+[Integer] GevCurrentSubnetMask = 4294967040
     Description: Provides the subnet mask of the given interface.
 [Integer] GevCurrentDefaultGateway = 0
     Description: Indicates the default gateway IP address to be used on the given network interface.
@@ -313,21 +313,21 @@
     Description: Returns the latched 64-bit value of the timestamp counter.
 [Enum] GevCCP = ControlAccess
     Description: Controls the device access privilege of an application.
-[Integer] GevMCPHostPort = 60587
+[Integer] GevMCPHostPort = 49418
     Description: Indicates the port to which the device must send messages. Setting this value to 0 closes the message channel.
-[Integer] GevMCDA = 3232241078
+[Integer] GevMCDA = 3232241020
     Description: Indicates the destination IP address for the message channel.
 [Integer] GevMCTT = 400
     Description: Provides the transmission timeout value in milliseconds.
 [Integer] GevMCRC = 3
     Description: Indicates the number of retransmissions allowed when a message channel message times out.
-[Integer] GevMCSP = 54527
+[Integer] GevMCSP = 57871
     Description: This feature indicates the source port for the message channel.
 [Integer] GevStreamChannelSelector = 0
     Description: Selects the stream channel to control.
 [Integer] GevSCPInterfaceIndex = 0
     Description: Index of network interface to use (from 0 to 3).
-[Integer] GevSCPHostPort = 60589
+[Integer] GevSCPHostPort = 49420
     Description: Indicates the port to which the device must send data stream. Setting this value to 0 closes the stream channel.
 [Boolean] GevSCPSFireTestPacket = False
     Description: Sends a test packet. When this feature is set, the device will fire one test packet.
@@ -339,7 +339,7 @@
     Description: Specifies the stream packet size in bytes to send on this channel.
 [Integer] GevSCPD = 0
     Description: Indicates the delay (in timestamp counter unit) to insert between each packet for this stream channel. This can be used as a crude flow-control mechanism if the application or the network infrastructure cannot keep up with the packets coming from the device.
-[Integer] GevSCDA = 3232241078
+[Integer] GevSCDA = 3232241020
     Description: Indicates the destination IP address for this stream channel.
 [Enum] FileSelector = Application
     Description: Selects the target file in the device.

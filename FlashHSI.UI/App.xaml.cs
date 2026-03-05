@@ -75,6 +75,7 @@ namespace FlashHSI.UI
             services.AddSingleton<WaterfallService>();
             services.AddSingleton<IEtherCATService, EtherCATService>();
             services.AddSingleton<SerialCommandService>();
+            services.AddSingleton<ICaptureService, CaptureService>(); // AI가 추가함: 공용 캡처 로직
 
             // Camera Service (Pleora Driver)
             services.AddSingleton<ICameraService, PleoraCameraService>();

@@ -930,96 +930,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- 4. RECIPE TAB -->
-            <!-- AI가 작성함: 분류 클래스 선택 (에어건 타겟) 탭 -->
-            <TabItem Width="{StaticResource TabControlWidth}" Height="60">
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="FormatListBulletedSquare" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock Text="Recipe" VerticalAlignment="Center" FontSize="14"/>
-                    </StackPanel>
-                </TabItem.Header>
-
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
-                    <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
-                        <TextBlock Text="Sort Class Selection" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
-
-                        <!-- 에어건 타겟 클래스 카드 -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
-                            <StackPanel>
-                                <TextBlock Text="에어건 타겟 클래스" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-
-                                <!-- 전체 선택/해제 버튼 -->
-                                <Grid Margin="0,0,0,16">
-                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" Command="{Binding SelectAllSortClassesCommand}" Content="전체 선택" Margin="0,0,8,0"
-                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
-                                    <Button Grid.Column="1" Command="{Binding DeselectAllSortClassesCommand}" Content="전체 해제" Margin="8,0,0,0"
-                                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                                </Grid>
-
-                                <!-- 클래스 리스트 -->
-                                <ItemsControl ItemsSource="{Binding SortClasses}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <materialDesign:Card Margin="0,0,0,8" Padding="12">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="8"/>
-                                                        <ColumnDefinition Width="12"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <!-- 클래스 색상 표시 -->
-                                                    <Border Grid.Column="0" Width="8" CornerRadius="4"
-                                                            Background="{Binding ColorHex, Converter={StaticResource HexToColorBrushConverter}}"
-                                                            VerticalAlignment="Stretch"/>
-
-                                                    <!-- 클래스 이름 -->
-                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                        <TextBlock FontSize="14" FontWeight="Medium">
-                                                            <Run Text="{Binding Name, Mode=OneWay}"/>
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11" Foreground="Gray">
-                                                            <Run Text="Class"/>
-                                                            <Run Text="{Binding Index, Mode=OneWay}"/>
-                                                        </TextBlock>
-                                                    </StackPanel>
-
-                                                    <!-- 선택 토글 -->
-                                                    <ToggleButton Grid.Column="3"
-                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                                                                  VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </materialDesign:Card>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <!-- 모델 미로드 안내 -->
-                                <TextBlock Text="모델을 먼저 로드해주세요." 
-                                           Foreground="Gray" FontSize="14" 
-                                           HorizontalAlignment="Center" Margin="0,20,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SortClasses.Count}" Value="0">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </materialDesign:Card>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- 5. FILE PATH TAB -->
+            <!-- 4. FILE PATH TAB -->
             <TabItem Width="{StaticResource TabControlWidth}" Height="60">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
@@ -1089,7 +1000,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- 6. LANGUAGE TAB -->
+            <!-- 5. LANGUAGE TAB -->
             <TabItem Width="{StaticResource TabControlWidth}" Height="60">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">

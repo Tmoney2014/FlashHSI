@@ -6,6 +6,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:vm="clr-namespace:FlashHSI.UI.ViewModels"
         xmlns:pages="clr-namespace:FlashHSI.UI.Views.Pages"
+        xmlns:materialDesignDialogHost="clr-namespace:MaterialDesignThemes.Wpf;assembly=MaterialDesignThemes.Wpf"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -18,7 +19,8 @@
         Closing="Window_Closing"
         d:DataContext="{d:DesignInstance vm:MainViewModel, IsDesignTimeCreatable=False}">
     
-    <Grid>
+    <materialDesignDialogHost:DialogHost Identifier="RootDialog">
+        <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -27,17 +29,25 @@
         
         <!-- Header / Status Bar -->
         <materialDesign:ColorZone Mode="PrimaryMid" Padding="16" materialDesign:ShadowAssist.ShadowDepth="Depth2">
-            <DockPanel>
-                <ToggleButton Style="{StaticResource MaterialDesignHamburgerToggleButton}" DockPanel.Dock="Left" Margin="0,0,16,0"/>
-                <TextBlock Text="Flash HSI Sorter" VerticalAlignment="Center" Style="{StaticResource MaterialDesignHeadline6TextBlock}"/>
+            <DockPanel LastChildFill="False">
+                <!-- 타이틀 -->
+                <TextBlock Text="Flash HSI Sorter" VerticalAlignment="Center" 
+                           Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                           DockPanel.Dock="Left"/>
                 
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                     <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Margin="16,0"/>
-                     <materialDesign:PopupBox PlacementMode="BottomAndAlignRightEdges" StaysOpen="False" Margin="16,0,0,0">
-                        <StackPanel>
-                            <Button Content="Exit" Command="{Binding WindowClosingCommand}"/>
-                        </StackPanel>
-                    </materialDesign:PopupBox>
+                <!-- 오른쪽: 상태 메시지 + 종료 버튼 -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                     
+                     <!-- 종료 버튼 (원형, 빨간색, 가장 오른쪽) -->
+                     <Button Click="ExitButton_Click"
+                             ToolTip="Exit Application"
+                             Width="40" Height="40"
+                             Padding="0"
+                             Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                             Background="#E53935"
+                             BorderBrush="#E53935">
+                         <materialDesign:PackIcon Kind="Power" Width="20" Height="20"/>
+                     </Button>
                 </StackPanel>
             </DockPanel>
         </materialDesign:ColorZone>
@@ -144,9 +154,87 @@
             </Border>
         </Border>
         
+        <!-- AI가 추가함: 종료 정보 오버레이 (람프 냉각 대기) -->
+        <Border Grid.Row="1"
+                Background="#99000000"
+                Panel.ZIndex="2000"
+                Visibility="{Binding IsExiting, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="{DynamicResource MaterialDesignPaper}"
+                    CornerRadius="16" Padding="40,32"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MinWidth="380" MaxWidth="450">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" Opacity="0.5" BlurRadius="30" ShadowDepth="5"/>
+                </Border.Effect>
+                
+                <StackPanel>
+                    <!-- 종료 아이콘 -->
+                    <materialDesign:PackIcon Kind="Power"
+                                             Width="56" Height="56"
+                                             Foreground="{DynamicResource MaterialDesign.Brush.Primary}"
+                                             HorizontalAlignment="Center"
+                                             Margin="0,0,0,16"/>
+                    
+                    <!-- 종료 안내 텍스트 -->
+                    <TextBlock Text="Shutting Down..."
+                               FontSize="24" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,24"
+                               Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+                    
+                    <!-- 램프 상태 -->
+                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                            CornerRadius="12" Padding="16" Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- 전구 아이콘 -->
+                            <materialDesign:PackIcon Grid.Column="0"
+                                                     Kind="Lightbulb"
+                                                     Width="24" Height="24"
+                                                     Foreground="#FF9800"
+                                                     VerticalAlignment="Center"/>
+                            
+                            <!-- 텍스트 -->
+                            <TextBlock Grid.Column="1"
+                                       Text="Lamp Temperature"
+                                       FontSize="14" FontWeight="Medium"
+                                       VerticalAlignment="Center" Margin="12,0"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+                            
+                            <!-- 퍼센트 -->
+                            <TextBlock Grid.Column="2"
+                                       VerticalAlignment="Center" FontWeight="Bold"
+                                       Foreground="#FF9800">
+                                <Run Text="{Binding LampCoolingPercent, StringFormat={}{0:F0}}"/><Run Text="%"/>
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- 상태 메시지 -->
+                    <TextBlock Text="{Binding ExitStatusMessage}"
+                               FontSize="13"
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                               HorizontalAlignment="Center" Margin="0,8,0,16"
+                               Opacity="0.8"/>
+                    
+                    <!-- 지금 종료 버튼 -->
+                    <Button Content="Exit Now"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding ImmediateExitCommand}"
+                            Width="180" Height="40"
+                            HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+        
         <!-- AI가 추가함: Snackbar 알림 (하단 오버레이) -->
         <materialDesign:Snackbar Grid.Row="1" MessageQueue="{Binding SnackbarQueue}"
                                   HorizontalAlignment="Center" VerticalAlignment="Bottom"
                                   Margin="0,0,0,8"/>
     </Grid>
+    </materialDesignDialogHost:DialogHost>
 </Window>

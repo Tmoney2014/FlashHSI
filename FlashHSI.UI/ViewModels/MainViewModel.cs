@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -47,6 +48,14 @@ namespace FlashHSI.UI.ViewModels
         /// <ai>AI가 작성함</ai>
         private readonly IList<BusyMessage> _busyList = new List<BusyMessage>();
         [ObservableProperty] private bool _isBusy;
+
+        // AI가 추가함: 종료 상태 관리
+        [ObservableProperty] private bool _isExiting;
+        [ObservableProperty] private string _exitStatusMessage = "";
+        [ObservableProperty] private double _lampCoolingPercent;
+
+        // AI가 추가함: 램프 냉각 모니터링 타이머
+        private DispatcherTimer? _lampCoolingTimer;
 
         // AI가 추가함: Snackbar 알림 큐 (하단 알림 메시지 표시용)
         /// <ai>AI가 작성함</ai>
@@ -119,6 +128,10 @@ namespace FlashHSI.UI.ViewModels
             {
                 SettingVM.HeaderPath = s.LastHeaderPath;
             }
+
+            // AI가 추가함: 앱 시작 시 저장된 램프 상태 복원
+            SettingsService.Instance.RestoreLampState();
+            Log.Information("앱 시작 - 램프 온도 복원: {Percent}%", SettingsService.Instance.GetLampTemperaturePercent());
 
             _hsiEngine.SetTargetFps(s.TargetFps);
 
@@ -219,13 +232,114 @@ namespace FlashHSI.UI.ViewModels
         [RelayCommand]
         public async Task WindowClosing()
         {
-            // AI가 수정함: 종료 안전 처리 — 레거시 MainWindowViewModel.OnTimerCompleted() 동등
+            // 이미 종료 중이면 무시
+            if (IsExiting) return;
+
+            IsExiting = true;
+            ExitStatusMessage = "Shutting down...";
             Log.Information("앱 종료 처리 시작");
 
-            // 1. 엔진 정지
-            _hsiEngine.Stop();
+            try
+            {
+                // 1. 엔진 정지
+                _hsiEngine.Stop();
+                Log.Information("엔진 정지 완료");
 
-            // 2. 시리얼(DIO) 보드 종료 (피더 OFF → 램프 OFF → 벨트 OFF → 전원 OFF)
+                // 2. 종료 확인 및 PrepareShutDown (피더 OFF, 램프 OFF, 벨트는 계속)
+                var currentLampTemp = SettingsService.Instance.GetLampTemperaturePercent();
+                Log.Information("현재 램프 온도: {Percent}%", currentLampTemp);
+
+                if (currentLampTemp > 0)
+                {
+                    // 램프가 켜져 있으면 PrepareShutDown -> 램프 냉각 대기
+                    ExitStatusMessage = "Lamp cooling...";
+                    
+                    try
+                    {
+                        await _serialService.PrepareShutDown();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "PrepareShutDown 실패, 계속 진행");
+                    }
+
+                    // 램프 냉각 모니터링 시작 (백그라운드)
+                    StartLampCoolingMonitor();
+                }
+                else
+                {
+                    // 램프가 이미 꺼져 있으면 바로 ShutDown
+                    await PerformFullShutDown();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "종료 처리 중 오류 발생");
+                try
+                {
+                    await PerformFullShutDown();
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// 램프 냉각 모니터링 시작 - 백그라운드에서 진행 후 완전 종료
+        /// </summary>
+        private void StartLampCoolingMonitor()
+        {
+            Log.Information("람프 냉각 모니터링 시작");
+
+            _lampCoolingTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+
+            _lampCoolingTimer.Tick += async (s, e) =>
+            {
+                try
+                {
+                    var lampTemp = SettingsService.Instance.GetLampTemperaturePercent();
+                    LampCoolingPercent = lampTemp;
+                    ExitStatusMessage = $"Lamp cooling... {lampTemp:F1}%";
+
+                    Log.Debug("람프 냉각 중: {Percent}%", lampTemp);
+
+                    if (lampTemp <= 0)
+                    {
+                        _lampCoolingTimer?.Stop();
+                        _lampCoolingTimer = null;
+                        Log.Information("람프 냉각 완료 - 완전 종료 시작");
+                        
+                        // 완전 종료 (비동기)
+                        await PerformFullShutDown();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "람프 냉각 모니터링 오류");
+                    _lampCoolingTimer?.Stop();
+                    _lampCoolingTimer = null;
+                    await PerformFullShutDown();
+                }
+            };
+
+            _lampCoolingTimer.Start();
+        }
+
+        /// <summary>
+        /// 완전 종료 (ShutDown + EtherCAT 종료 + 설정 저장)
+        /// </summary>
+        private async Task PerformFullShutDown()
+        {
+            // 타이머 중지
+            _lampCoolingTimer?.Stop();
+            _lampCoolingTimer = null;
+
+            ExitStatusMessage = "Shutting down hardware...";
+            Log.Information("PerformFullShutDown 시작");
+
+            // 1. 시리얼(DIO) 보드 완전 종료 (피더 OFF → 램프 OFF → 벨트 OFF → 전원 OFF)
             try
             {
                 await _serialService.ShutDown();
@@ -236,7 +350,7 @@ namespace FlashHSI.UI.ViewModels
                 Log.Error(ex, "시리얼 보드 종료 중 오류 발생");
             }
 
-            // 3. EtherCAT 마스터 종료
+            // 2. EtherCAT 마스터 종료
             try
             {
                 await _hardwareService.DisconnectAsync();
@@ -247,9 +361,11 @@ namespace FlashHSI.UI.ViewModels
                 Log.Error(ex, "EtherCAT 마스터 종료 중 오류 발생");
             }
 
-            // 4. 설정 저장
+            // 3. 설정 저장
             try
             {
+                // 램프 온도 0으로 저장
+                SettingsService.Instance.SetLampOff();
                 SettingsService.Instance.Save();
                 Log.Information("설정 저장 완료");
             }
@@ -257,6 +373,10 @@ namespace FlashHSI.UI.ViewModels
             {
                 Log.Error(ex, "설정 저장 중 오류 발생");
             }
+
+            // 4. 프로그램 종료
+            Log.Information("앱 종료 완료");
+            Application.Current.Shutdown();
         }
 
         /// <summary>
@@ -282,10 +402,95 @@ namespace FlashHSI.UI.ViewModels
             IsBusy = _busyList.Any();
         }
 
+        /// <summary>
+        /// 램프 냉각 타이머 중지
+        /// </summary>
+        public void StopLampCoolingTimer()
+        {
+            _lampCoolingTimer?.Stop();
+            _lampCoolingTimer = null;
+            Log.Information("람프 냉각 타이머 중지됨");
+        }
+
+        /// <summary>
+        /// 강제 완전 종료 ("지금 종료" 버튼용)
+        /// </summary>
+        public async Task PerformFullShutDownForced()
+        {
+            Log.Information("강제 완전 종료 시작");
+            ExitStatusMessage = "Forcing shutdown...";
+
+            // 타이머 중지
+            StopLampCoolingTimer();
+
+            // 시리얼 완전 종료
+            try
+            {
+                await _serialService.ShutDown();
+                Log.Information("시리얼 보드 종료 완료");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "시리얼 보드 종료 중 오류 발생");
+            }
+
+            // EtherCAT 종료
+            try
+            {
+                await _hardwareService.DisconnectAsync();
+                Log.Information("EtherCAT 마스터 종료 완료");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "EtherCAT 마스터 종료 중 오류 발생");
+            }
+
+            // 설정 저장
+            try
+            {
+                SettingsService.Instance.UpdateLampTemperature(0);
+                SettingsService.Instance.Save();
+                Log.Information("설정 저장 완료");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "설정 저장 중 오류 발생");
+            }
+
+            Log.Information("강제 완전 종료 완료");
+            Application.Current.Shutdown();
+        }
+
         /// <ai>AI가 작성함</ai>
         partial void OnIsBusyChanged(bool oldValue, bool newValue)
         {
             Log.Information("IsBusy 값 변경: {NewValue}, 이전: {OldValue}", newValue, oldValue);
+        }
+
+        /// <summary>
+        /// 종료 확인 후 종료 프로세스 시작 (MVVM 패턴)
+        /// </summary>
+        [RelayCommand]
+        public async Task ConfirmExit()
+        {
+            // 종료 Confirm Dialog는 View에서 처리하고, 여기서는 실제 종료 로직만 수행
+            // ViewModel에서 WindowClosingCommand 실행
+            await WindowClosing();
+        }
+
+        /// <summary>
+        /// 즉시 종료 (람프 냉각 대기 중 "지금 종료" 버튼용)
+        /// </summary>
+        [RelayCommand]
+        public async Task ImmediateExit()
+        {
+            Log.Information("즉시 종료 요청");
+            
+            // 타이머 중지
+            StopLampCoolingTimer();
+
+            // 강제 종료 (오버레이는 IsExiting이 true라서 계속 표시됨)
+            await PerformFullShutDownForced();
         }
     }
 }

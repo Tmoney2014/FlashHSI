@@ -36,8 +36,9 @@ namespace FlashHSI.UI.ViewModels
         // 카메라 상태
         [ObservableProperty] private bool _isCameraConnected;
         [ObservableProperty] private bool _isLive;
-        [ObservableProperty] private bool _isPredicting; // AI가 추가함: 분류 진행 상태
+        [ObservableProperty] private bool _isPredicting; // AI가 추가함: 분류 진행 상태 (홈/라이브에서 공유)
         [ObservableProperty] private bool _isCapturing; // AI가 추가함: 캡처(데이터 저장) 상태
+        [ObservableProperty] private bool _isSimulating; // AI가 추가함: 시뮬레이션 상태
         [ObservableProperty] private string _cameraName = "연결 필요";
         [ObservableProperty] private string _statusMessage = "Ready";
         [ObservableProperty] private int _capturedFrameCount; // AI가 추가함: 캡처된 프레임 수
@@ -67,6 +68,9 @@ namespace FlashHSI.UI.ViewModels
 
             // 프레임 처리 이벤트 구독 (MainViewModel에서 이동)
             _hsiEngine.FrameProcessed += OnFrameProcessed;
+            
+            // AI가 추가함: 시뮬레이션 상태 변경 이벤트 구독
+            _hsiEngine.SimulationStateChanged += s => Application.Current.Dispatcher.InvokeAsync(() => IsSimulating = s);
 
             // AI가 추가함: 카메라 프레임 이벤트 → 분류 파이프라인 연결
             _cameraService.FrameReceived += OnCameraFrameReceived;
@@ -122,7 +126,7 @@ namespace FlashHSI.UI.ViewModels
                 _captureService.AddFrame(data, width, height);
             }
 
-            // AI가 수정함: IsLive OR IsPredicting이면 프레임을 엔진으로 전달
+            // AI가 수정함: 라이브 OR 분류 시작이면 프레임 처리 (둘 다 독립적으로 동작)
             if (!IsLive && !IsPredicting) return;
 
             _hsiEngine.ProcessCameraFrame(data, width, height);
@@ -204,27 +208,40 @@ namespace FlashHSI.UI.ViewModels
             {
                 if (IsLive)
                 {
-                    // 라이브 중지
+                    // 라이브 중지 → 분류도 꺼져있으면 어큐제이션 중지
                     _hsiEngine.Stop();
-                    await _cameraService.StopAcquisitionAsync();
+                    if (!IsPredicting)
+                    {
+                        await _cameraService.StopAcquisitionAsync();
+                    }
                     IsLive = false;
                     StatusMessage = "라이브 중지됨";
-                    Log.Information("라이브 스트림 중지");
+                    var logMsg = IsPredicting ? "어큐제이션 계속 진행" : "어큐제이션 중지";
+                    Log.Information("라이브 중지: {LogMsg}", logMsg);
                 }
                 else
                 {
-                    // 라이브 시작
+                    // 라이브 시작 → 분류가 꺼져있으면 어큐제이션 시작
                     if (!IsCameraConnected)
                     {
                         StatusMessage = "카메라를 먼저 연결하세요";
                         return;
                     }
 
-                    await _cameraService.StartAcquisitionAsync();
-                    _hsiEngine.StartLive();
+                    if (!IsPredicting)
+                    {
+                        await _cameraService.StartAcquisitionAsync();
+                        _hsiEngine.StartLive();
+                    }
+                    else
+                    {
+                        // 분류가 이미 진행중이면 라이브만 시작
+                        _hsiEngine.StartLive();
+                    }
                     IsLive = true;
                     StatusMessage = "라이브 스트리밍 중...";
-                    Log.Information("라이브 스트림 시작");
+                    var logMsg = IsPredicting ? "어큐제이션 이미 진행중" : "어큐제이션 시작";
+                    Log.Information("라이브 시작: {LogMsg}", logMsg);
                 }
             }
             catch (Exception ex)
@@ -280,17 +297,69 @@ namespace FlashHSI.UI.ViewModels
         /// AI가 추가함: 분류 예측 시작/정지 토글
         /// </summary>
         [RelayCommand]
-        private void TogglePrediction()
+        private async Task TogglePrediction()
         {
-            if (!IsLive)
+            if (!IsCameraConnected)
             {
-                StatusMessage = "먼저 라이브 스트리밍을 시작하세요";
+                StatusMessage = "먼저 카메라를 연결하세요";
                 return;
             }
 
-            IsPredicting = !IsPredicting;
-            StatusMessage = IsPredicting ? "🔮 분류 진행 중..." : "분류 중지됨";
-            Log.Information("분류 상태 변경: {State}", IsPredicting);
+            if (!IsPredicting)
+            {
+                // 분류 시작 → 라이브가 꺼져있으면 어큐제이션 시작
+                if (!IsLive)
+                {
+                    await _cameraService.StartAcquisitionAsync();
+                    _hsiEngine.StartLive();
+                }
+                IsPredicting = true;
+                StatusMessage = "🔮 분류 진행 중...";
+                var logMsg = IsLive ? "어큐제이션 이미 진행중" : "어큐제이션 시작";
+                Log.Information("분류 시작: {LogMsg}", logMsg);
+            }
+            else
+            {
+                // 분류 중지 → 라이브도 꺼져있으면 어큐제이션 중지
+                IsPredicting = false;
+                if (!IsLive)
+                {
+                    await _cameraService.StopAcquisitionAsync();
+                    _hsiEngine.Stop();
+                }
+                StatusMessage = "분류 중지됨";
+                var logMsg = IsLive ? "어큐제이션 계속 진행" : "어큐제이션 중지";
+                Log.Information("분류 중지: {LogMsg}", logMsg);
+            }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 시뮬레이션 시작/중지 토글
+        /// </summary>
+        [RelayCommand]
+        private void ToggleSimulation()
+        {
+            if (IsSimulating)
+            {
+                _hsiEngine.Stop();
+                StatusMessage = "시뮬레이션 중지됨";
+                Log.Information("시뮬레이션 중지");
+            }
+            else
+            {
+                var hdr = FlashHSI.Core.Settings.SettingsService.Instance.Settings.LastHeaderPath;
+                if (!string.IsNullOrEmpty(hdr))
+                {
+                    _hsiEngine.StartSimulation(hdr);
+                    StatusMessage = "시뮬레이션 실행 중...";
+                    Log.Information("시뮬레이션 시작: {Path}", hdr);
+                }
+                else
+                {
+                    StatusMessage = "시뮬레이션 데이터 파일이 없습니다";
+                    Log.Warning("시뮬레이션 데이터 파일이 설정되지 않음");
+                }
+            }
         }
 
         /// <summary>

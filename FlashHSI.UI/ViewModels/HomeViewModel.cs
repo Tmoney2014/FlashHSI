@@ -44,6 +44,9 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private bool _isHardwareConnected;
         [ObservableProperty] private string _statusMessage = "Ready";
         
+        // AI가 추가함: 분류 진행 상태 (LiveViewModel과 공유)
+        [ObservableProperty] private bool _isPredicting;
+        
         // AI가 추가함: 모델 로드 상태 (HomeView 상단 인디케이터용)
         [ObservableProperty] private bool _isModelLoaded;
         [ObservableProperty] private string _loadedModelName = "";
@@ -131,8 +134,13 @@ namespace FlashHSI.UI.ViewModels
         /// <ai>AI가 작성함</ai>
         [ObservableProperty] private string _modelDirectory = "";
 
-        /// <ai>AI가 수정함: DI 주입 확장 — SettingVM, SerialCommandService, CameraService 추가</ai>
-        public HomeViewModel(HsiEngine engine, IEtherCATService hardware, IMessenger messenger, SettingViewModel settingVM, SerialCommandService serialService, ICameraService cameraService)
+        /// <summary>
+        /// AI가 추가함: LiveViewModel 참조 (분류 상태 동기화용)
+        /// </summary>
+        private readonly LiveViewModel _liveViewModel;
+
+        /// <ai>AI가 수정함: DI 주입 확장 — SettingVM, SerialCommandService, CameraService, LiveViewModel 추가</ai>
+        public HomeViewModel(HsiEngine engine, IEtherCATService hardware, IMessenger messenger, SettingViewModel settingVM, SerialCommandService serialService, ICameraService cameraService, LiveViewModel liveViewModel)
         {
             _hsiEngine = engine;
             _hardwareService = hardware;
@@ -140,6 +148,7 @@ namespace FlashHSI.UI.ViewModels
             _cameraService = cameraService; // AI가 추가함
             _messenger = messenger;
             Settings = settingVM;
+            _liveViewModel = liveViewModel;
             
             _hsiEngine.SimulationStateChanged += s => IsSimulating = s;
             
@@ -226,6 +235,33 @@ namespace FlashHSI.UI.ViewModels
                var hdr = SettingsService.Instance.Settings.LastHeaderPath;
                if(!string.IsNullOrEmpty(hdr)) _hsiEngine.StartSimulation(hdr);
             }
+        }
+
+        /// <summary>
+        /// AI가 추가함: 분류 시작/정지 토글 (홈 화면 분류 시작 버튼용)
+        /// </summary>
+        [RelayCommand]
+        private void TogglePrediction()
+        {
+            // 분류는 카메라 연결 없이도 가능 (라이브와 무관)
+            // 단, 모델이 로드되어 있어야 함
+            if (!IsModelLoaded)
+            {
+                SendStatus("모델을 먼저 로드해주세요");
+                return;
+            }
+            if (!IsCameraConnected)
+            {
+               SendStatus("먼저 카메라를 연결하세요");
+                return;
+            }
+
+            // LiveViewModel의 IsPredicting도 동기화 (프레임 처리 제어)
+            _liveViewModel.IsPredicting = !_liveViewModel.IsPredicting;
+            IsPredicting = _liveViewModel.IsPredicting;
+            
+            SendStatus(IsPredicting ? "🔮 분류 진행 중..." : "분류 중지됨");
+            Log.Information("분류 상태 변경 (홈): {State}", IsPredicting);
         }
 
         [RelayCommand]

@@ -803,19 +803,19 @@
                 <!-- 운영 버튼 5개 가로 배치 -->
                 <UniformGrid Rows="1" Columns="5" Margin="0,0,0,4">
                     
-                    <!-- 1) 시뮬레이션 시작/중지 -->
-                    <Button Command="{Binding ToggleSimulationCommand}" 
+                    <!-- 1) 분류 시작/중지 -->
+                    <Button Command="{Binding TogglePredictionCommand}" 
                             Height="44" FontSize="12" Cursor="Hand" Margin="3,0"
                             materialDesign:ButtonAssist.CornerRadius="8">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                                <Setter Property="Background" Value="#2ed573"/>
+                                <Setter Property="Background" Value="#8e44ad"/>
                                 <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Content" Value="▶ 시뮬레이션"/>
+                                <Setter Property="Content" Value="🔮 분류 시작"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsSimulating}" Value="True">
-                                        <Setter Property="Background" Value="#ff4757"/>
-                                        <Setter Property="Content" Value="⏹ 시뮬레이션"/>
+                                    <DataTrigger Binding="{Binding IsPredicting}" Value="True">
+                                        <Setter Property="Background" Value="#e74c3c"/>
+                                        <Setter Property="Content" Value="⏸ 분류 중지"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

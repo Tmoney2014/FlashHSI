@@ -3,6 +3,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using EtherCAT.NET;
 using EtherCAT.NET.Infrastructure;
+using FlashHSI.Core.Logging;
 using FlashHSI.Core.Messages;
 using FlashHSI.Core.Settings;
 
@@ -35,13 +36,15 @@ namespace FlashHSI.Core.Control.Hardware
         public bool IsMasterOn => _isMasterOn;
         /// <ai>AI가 작성함</ai>
         public int TotalChannels => _totalChannels;
-        public event Action<string>? LogMessage;
+
+        private readonly ILogMessageSender _logSender;
 
         /// <summary>
         /// 생성자 - 메시지 구독
         /// </summary>
-        public EtherCATService()
+        public EtherCATService(ILogMessageSender logSender)
         {
+            _logSender = logSender;
             // 메시지 구독 - EtherCATCycleFrequency (int)
             WeakReferenceMessenger.Default.Register<EtherCATService, SettingsChangedMessage<int>>(this, static (recipient, message) =>
             {
@@ -66,7 +69,7 @@ namespace FlashHSI.Core.Control.Hardware
         /// </summary>
         private void Log(string message)
         {
-            LogMessage?.Invoke(message);
+            _logSender.SendLog(message);
         }
 
         public void Connect(string interfaceName, int cycleFreq = 500)

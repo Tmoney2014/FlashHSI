@@ -6,6 +6,7 @@ using FlashHSI.Core.Classifiers;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.IO;
+using FlashHSI.Core.Logging;
 using FlashHSI.Core.Masking;
 using FlashHSI.Core.Messages;
 using FlashHSI.Core.Pipelines;
@@ -22,6 +23,7 @@ namespace FlashHSI.Core.Engine
         private ICameraService? _cameraService;
         private BlobTracker? _blobTracker;
         private EjectionService? _ejectionService;
+        private readonly ILogMessageSender _logSender;
 
         /// <summary>
         /// AI가 추가함: 현재 로드된 모델 설정 (UI에서 접근 필요)
@@ -69,7 +71,6 @@ namespace FlashHSI.Core.Engine
 
         // Events
         public event Action<EngineStats>? StatsUpdated;
-        public event Action<string>? LogMessage;
         public event Action<bool>? SimulationStateChanged;
         // AI: Changed event signature to pass serialized blob contour array (ArrayPool) instead of objects
         public event Action<int[], int, int[], int>? FrameProcessed;
@@ -90,13 +91,15 @@ namespace FlashHSI.Core.Engine
         public string? CurrentWhiteRefPath { get; private set; }
         public string? CurrentDarkRefPath { get; private set; }
 
-        public HsiEngine(ICameraService? cameraService = null)
+        public HsiEngine(ILogMessageSender logSender, ICameraService? cameraService = null)
         {
+            _logSender = logSender;
             _pipeline = new HsiPipeline();
             _cameraService = cameraService;
 
             // AI: LinearClassifier 디버그 로그 연결 (UI 출력용)
-            LinearClassifier.GlobalLog += (msg) => LogMessage?.Invoke(msg);
+            _globalLogHandler = (msg) => _logSender.SendLog(msg);
+            LinearClassifier.GlobalLog += _globalLogHandler;
 
             // AI가 추가함: 메시지 구독
             WeakReferenceMessenger.Default.Register<HsiEngine, SettingsChangedMessage<double>>(this, static (recipient, message) =>
@@ -133,7 +136,7 @@ namespace FlashHSI.Core.Engine
                 _blobTracker.MinPixels = _cachedMinPixels;
                 _blobTracker.MaxLineGap = _cachedLineGap;
                 _blobTracker.MaxPixelGap = _cachedPixelGap;
-                LogMessage?.Invoke($"BlobTracker Settings Restored: MinPx={_cachedMinPixels}, LineGap={_cachedLineGap}, PixelGap={_cachedPixelGap}");
+                _logSender.SendLog($"BlobTracker Settings Restored: MinPx={_cachedMinPixels}, LineGap={_cachedLineGap}, PixelGap={_cachedPixelGap}");
 
                 _ejectionService = new EjectionService();
                 _ejectionService.OnEjectionSignal += (item) => EjectionOccurred?.Invoke(item);
@@ -145,7 +148,7 @@ namespace FlashHSI.Core.Engine
                 if (_maskRule != null)
                 {
                     _maskMode = MaskMode.MaskRule;
-                    LogMessage?.Invoke($"MaskRules 적용: {config.Preprocessing.MaskRules}");
+                    _logSender.SendLog($"MaskRules 적용: {config.Preprocessing.MaskRules}");
                 }
                 else
                 {
@@ -155,7 +158,7 @@ namespace FlashHSI.Core.Engine
                     {
                         _backgroundThreshold = thresh;
                     }
-                    LogMessage?.Invoke($"Mean 마스킹 적용: Threshold = {_backgroundThreshold}");
+                    _logSender.SendLog($"Mean 마스킹 적용: Threshold = {_backgroundThreshold}");
                 }
 
                 // AI: 초기 Confidence Threshold 설정
@@ -164,11 +167,11 @@ namespace FlashHSI.Core.Engine
                 // AI가 추가함: 모델 타입 저장 (UI 연동용)
                 LoadedModelType = config.OriginalType ?? "";
 
-                LogMessage?.Invoke($"Model Loaded: {config.ModelType}");
+                _logSender.SendLog($"Model Loaded: {config.ModelType}");
             }
             catch (Exception ex)
             {
-                LogMessage?.Invoke($"Error Loading Model: {ex.Message}");
+                _logSender.SendLog($"Error Loading Model: {ex.Message}");
                 throw;
             }
         }
@@ -231,7 +234,7 @@ namespace FlashHSI.Core.Engine
             }
             catch (Exception ex)
             {
-                LogMessage?.Invoke($"Error loading reference: {ex.Message}");
+                _logSender.SendLog($"Error loading reference: {ex.Message}");
             }
             return null;
         }
@@ -273,7 +276,7 @@ namespace FlashHSI.Core.Engine
             {
                 _maskMode = MaskMode.MaskRule;
                 _maskRule = collection.ToMaskRule();
-                LogMessage?.Invoke($"MaskRule 적용: {collection.ToMaskRuleString()}");
+                _logSender.SendLog($"MaskRule 적용: {collection.ToMaskRuleString()}");
             }
             else
             {
@@ -418,7 +421,7 @@ namespace FlashHSI.Core.Engine
             {
                 _pipeline.Configure(bandCount, CurrentConfig.SelectedBands);
                 _lastConfiguredBandCount = bandCount;
-                LogMessage?.Invoke($"[Live] Pipeline Configure: bandCount={bandCount}, features={CurrentConfig.SelectedBands.Count}");
+                _logSender.SendLog($"[Live] Pipeline Configure: bandCount={bandCount}, features={CurrentConfig.SelectedBands.Count}");
             }
 
             // GC 최적화: field-level 버퍼 재사용 (width가 같으면 새 할당 없이 재사용)
@@ -456,7 +459,7 @@ namespace FlashHSI.Core.Engine
                     {
                         long sampleSum = 0;
                         for (int k = 0; k < bandCount; k++) sampleSum += pFrame[k];
-                        LogMessage?.Invoke($"[HsiEngine] 프레임 수신 중... 첫 픽셀 평균값: {sampleSum / bandCount}, Width: {width}");
+                        _logSender.SendLog($"[HsiEngine] 프레임 수신 중... 첫 픽셀 평균값: {sampleSum / bandCount}, Width: {width}");
                     }
 
                     for (int x = 0; x < width; x++)
@@ -604,14 +607,11 @@ namespace FlashHSI.Core.Engine
                             if (_liveStats != null)
                                 _liveStats.Objects++;
 
-                            if (LogMessage != null)
-                            {
-                                string key = bestClass.ToString();
-                                string className = (CurrentConfig?.Labels != null && CurrentConfig.Labels.ContainsKey(key))
-                                    ? CurrentConfig.Labels[key]
-                                    : $"Class {bestClass}";
-                                LogMessage.Invoke($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
-                            }
+                            string key = bestClass.ToString();
+                            string className = (CurrentConfig?.Labels != null && CurrentConfig.Labels.ContainsKey(key))
+                                ? CurrentConfig.Labels[key]
+                                : $"Class {bestClass}";
+                            _logSender.SendLog($"[Live] Object Detected: {className}, X={blob.CenterX:F0}, Size={blob.TotalPixels}");
                         }
                     }
 
@@ -712,7 +712,7 @@ namespace FlashHSI.Core.Engine
             _headerPath = headerPath;
             if (!File.Exists(_headerPath))
             {
-                LogMessage?.Invoke("File not found: " + headerPath);
+                _logSender.SendLog("File not found: " + headerPath);
                 return;
             }
 
@@ -753,11 +753,11 @@ namespace FlashHSI.Core.Engine
                     _pipeline.Configure(bandCount, CurrentConfig.SelectedBands);
                 }
 
-                LogMessage?.Invoke($"Playing: {Path.GetFileName(_headerPath)}");
+                _logSender.SendLog($"Playing: {Path.GetFileName(_headerPath)}");
             }
             catch (Exception ex)
             {
-                LogMessage?.Invoke($"Error: {ex.Message}");
+                _logSender.SendLog($"Error: {ex.Message}");
                 _isRunning = false;
                 SimulationStateChanged?.Invoke(false);
                 return;
@@ -791,8 +791,8 @@ namespace FlashHSI.Core.Engine
 
                 try
                 {
-                    LogMessage?.Invoke($"[RunLoop] Started. Size: {width}x{bandCount}");
-                    LogMessage?.Invoke($"[RunLoop] MaskMode: {_maskMode}, BackgroundThreshold: {_backgroundThreshold}");
+                    _logSender.SendLog($"[RunLoop] Started. Size: {width}x{bandCount}");
+                    _logSender.SendLog($"[RunLoop] MaskMode: {_maskMode}, BackgroundThreshold: {_backgroundThreshold}");
 
                     while (_isRunning)
                     {
@@ -801,7 +801,7 @@ namespace FlashHSI.Core.Engine
                         {
                             lastBackgroundThreshold = _backgroundThreshold;
                             lastUseMean = (_maskMode == MaskMode.Mean);
-                            LogMessage?.Invoke($"[RunLoop] Mask config updated: useMean={lastUseMean}, threshold={_backgroundThreshold}");
+                            _logSender.SendLog($"[RunLoop] Mask config updated: useMean={lastUseMean}, threshold={_backgroundThreshold}");
                         }
 
                         // cached 플래그 사용 (값 변경 시에만 업데이트됨)
@@ -817,11 +817,11 @@ namespace FlashHSI.Core.Engine
                         // IO
                         if (!reader.ReadNextFrame(lineBuffer))
                         {
-                            LogMessage?.Invoke("[RunLoop] EOF. Rewinding...");
+                            _logSender.SendLog("[RunLoop] EOF. Rewinding...");
                             reader.Load(_headerPath); // Restart loop
                             if (!reader.ReadNextFrame(lineBuffer))
                             {
-                                LogMessage?.Invoke("[RunLoop] Failed to read after rewind. Stop.");
+                                _logSender.SendLog("[RunLoop] Failed to read after rewind. Stop.");
                                 break;
                             }
                         }
@@ -1020,8 +1020,8 @@ namespace FlashHSI.Core.Engine
                 }
                 catch (Exception ex)
                 {
-                    LogMessage?.Invoke($"[RunLoop CRASH] {ex.Message}");
-                    LogMessage?.Invoke(ex.StackTrace);
+                    _logSender.SendLog($"[RunLoop CRASH] {ex.Message}");
+                    _logSender.SendLog(ex.StackTrace);
                 }
 
                 reader.Close();
@@ -1030,6 +1030,7 @@ namespace FlashHSI.Core.Engine
 
         // GC 최적화: 이벤트 핸들러 누수 방지
         private bool _disposed;
+        private readonly Action<string>? _globalLogHandler;
 
         public void Dispose()
         {
@@ -1037,7 +1038,7 @@ namespace FlashHSI.Core.Engine
             _disposed = true;
 
             // 정적 이벤트 구독 해제 (메모리 누수 방지)
-            LinearClassifier.GlobalLog -= (msg) => LogMessage?.Invoke(msg);
+            LinearClassifier.GlobalLog -= _globalLogHandler;
 
             // 다른 리소스 정리
             _pipeline = null;

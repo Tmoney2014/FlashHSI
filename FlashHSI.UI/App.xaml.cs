@@ -66,6 +66,7 @@ namespace FlashHSI.UI
 
             // Core Infrastructure/Infrastructure
             services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
+            services.AddSingleton<ILogMessageSender, MessengerLogMessageSender>();
             services.AddSingleton<MemoryMonitoringService>();
             services.AddSingleton<IWindowModalService, WindowModalService>();
             services.AddSingleton<CommonDataShareService>();

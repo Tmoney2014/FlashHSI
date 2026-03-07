@@ -40,8 +40,6 @@ namespace FlashHSI.Core.Control.Hardware
         /// <ai>AI가 작성함: 마스터 OFF + 모든 토큰 취소 + 전체 채널 OFF</ai>
         Task CancelAllAsync();
         
-        event Action<string>? LogMessage;
-        
         Task ResetAsync();
     }
 }

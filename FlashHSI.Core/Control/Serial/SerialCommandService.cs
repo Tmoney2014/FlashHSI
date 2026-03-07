@@ -219,6 +219,48 @@ public class SerialCommandService
         }
     }
 
+    /// <summary>
+    /// 종료 준비 단계 - 피더/램프 OFF, 벨트는 유지 (람프 냉각 대기용)
+    /// </summary>
+    public async Task PrepareShutDown()
+    {
+        try
+        {
+            Log.Information("Serial PrepareShutDown Initiated - Lamp/Feeder OFF, Belt continues");
+
+            if (!IsOpenPort())
+            {
+                try { await ConnectPortAsync(); }
+                catch { /* Ignore connect failure on shutdown */ }
+            }
+
+            if (IsOpenPort())
+            {
+                // 피더 전체 OFF
+                await FeederPowerOffCommandAsync();
+                Log.Information("PrepareShutDown: Feeder Power OFF");
+
+                // 램프 OFF (벨트는 계속 돌림)
+                await LampOffCommandAsync();
+                
+                // 램프 OFF 상태를 설정에 저장 (냉각 계산용)
+                FlashHSI.Core.Settings.SettingsService.Instance.SetLampOff();
+                
+                Log.Information("PrepareShutDown: Lamp OFF");
+            }
+            else
+            {
+                Log.Warning("PrepareShutDown: Port not open, skipping hardware commands");
+            }
+
+            Log.Information("Serial PrepareShutDown Completed");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Serial PrepareShutDown Error");
+        }
+    }
+
     #endregion
 
     #region Internal Logic

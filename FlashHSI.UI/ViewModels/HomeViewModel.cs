@@ -40,9 +40,9 @@ namespace FlashHSI.UI.ViewModels
         private readonly IMessenger _messenger;
         private readonly ICameraService _cameraService; // AI가 추가함: 카메라 서비스
         
-        [ObservableProperty] private bool _isSimulating;
+        
+        // AI가 삭제함: _isSimulating 필드 — UI에서 시뮬레이션 인디케이터 제거됨
         [ObservableProperty] private bool _isHardwareConnected;
-        [ObservableProperty] private string _statusMessage = "Ready";
         
         // AI가 추가함: 분류 진행 상태 (LiveViewModel과 공유)
         [ObservableProperty] private bool _isPredicting;
@@ -150,7 +150,7 @@ namespace FlashHSI.UI.ViewModels
             Settings = settingVM;
             _liveViewModel = liveViewModel;
             
-            _hsiEngine.SimulationStateChanged += s => IsSimulating = s;
+            // AI가 삭제함: SimulationStateChanged 구독 — UI에서 시뮬레이션 인디케이터 제거됨
             
             // AI가 추가함: 사출 신호 → 실제 에어건 발사
             _hsiEngine.EjectionOccurred += OnEjectionOccurred;
@@ -226,16 +226,7 @@ namespace FlashHSI.UI.ViewModels
             LoadedModelName = modelName;
         }
 
-        [RelayCommand]
-        private void ToggleSimulation()
-        {
-            if (IsSimulating) _hsiEngine.Stop();
-            else 
-            {
-               var hdr = SettingsService.Instance.Settings.LastHeaderPath;
-               if(!string.IsNullOrEmpty(hdr)) _hsiEngine.StartSimulation(hdr);
-            }
-        }
+        // AI가 삭제함: ToggleSimulation() 메서드 — UI에서 시뮬레이션 버튼 제거됨
 
         /// <summary>
         /// AI가 추가함: 분류 시작/정지 토글 (홈 화면 분류 시작 버튼용)
@@ -560,14 +551,41 @@ namespace FlashHSI.UI.ViewModels
         /// 타이머 완료 시 카메라 초기화 재시도를 수행합니다.
         /// </summary>
         /// <ai>AI가 작성함</ai>
-        private void OnTimerCompleted()
+        private async void OnTimerCompleted()
         {
             Log.Information("카메라 재시도 타이머 완료 — 카메라 초기화 재시도 시작");
             IsTimerRunning = false;
-            SendStatus("카메라 재시도 타이머 완료");
+            SendStatus("카메라 초기화 재시도 중...");
             
-            // TODO: CameraService 구현 후 여기서 카메라 초기화 재시도 호출
-            // _ = RetryCameraInitAsync();
+            if (!IsCameraConnected)
+            {
+                try
+                {
+                    bool connected = await _cameraService.ConnectAsync();
+                    if (connected)
+                    {
+                        IsCameraConnected = true;
+                        CameraName = "FX50 Connected";
+                        SendStatus("카메라 연결 성공");
+                        Log.Information("카메라 재시도 타이머 완료 후 연결 성공");
+                    }
+                    else
+                    {
+                        SendStatus("카메라 연결 실패 — 수동으로 연결해주세요");
+                        Log.Warning("카메라 재시도 타이머 완료 후 연결 실패");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SendStatus($"카메라 연결 오류: {ex.Message}");
+                    Log.Error(ex, "카메라 재시도 타이머 완료 후 연결 오류");
+                }
+            }
+            else
+            {
+                SendStatus("카메라 이미 연결됨 — 타이머 완료");
+                Log.Information("카메라 재시도 타이머 완료 — 이미 연결 상태");
+            }
         }
         
         /// <summary>

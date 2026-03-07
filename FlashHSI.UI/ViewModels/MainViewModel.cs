@@ -88,10 +88,6 @@ namespace FlashHSI.UI.ViewModels
             SettingVM = settingVM;
             LogVM = logVM;
 
-            // 3. Event Subscriptions
-            _hsiEngine.LogMessage += msg => StatusMessage = msg;
-            _hardwareService.LogMessage += msg => StatusMessage = msg;
-
             // AI가 수정함: FrameProcessed 구독은 LiveViewModel로 이동됨
             _hsiEngine.EjectionOccurred += OnEjectionOccurredHardwareTrigger;
 
@@ -217,6 +213,9 @@ namespace FlashHSI.UI.ViewModels
 
                 // AI가 추가함: 모델의 RequiredRawBands로 MROI 밴드 자동 구성
                 SettingVM.PopulateMroiFromModel(config);
+
+                // 모델 변경 시 MROI 자동 적용 (IsMroiEnabled ON) 또는 Snackbar 알림 (OFF)
+                _ = SettingVM.AutoApplyMroiIfNeededAsync();
 
                 // AI가 추가함: HomeView 모델 상태 갱신
                 HomeVM.NotifyModelLoaded(config.ModelType ?? "Unknown");

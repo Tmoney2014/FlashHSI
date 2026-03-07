@@ -138,8 +138,8 @@ namespace FlashHSI.UI.ViewModels
             // 구독: 프로퍼티 변경 시 설정 저장 및 메시지 전파
             PropertyChanged += OnPropertyChangedHandler;
 
-            // AI가 추가함: 카메라 연결 성공 시 동적 허용 범위(Min, Max) 로드
-            _cameraService.Connected += async () => await UpdateCameraParameterRangesAsync();
+            // AI가 추가함: 카메라 연결 성공 시 저장된 설정 자동 적용
+            _cameraService.Connected += async () => await OnCameraConnectedAsync();
 
             var s = SettingsService.Instance.Settings;
             _headerPath = s.LastHeaderPath;
@@ -184,13 +184,14 @@ namespace FlashHSI.UI.ViewModels
             // AI가 추가함: 네트워크 인터페이스 목록 초기화
             LoadNetworkInterfaces();
 
-            // AI가 추가함: EtherCAT 서비스 로그 구독
-            _etherCATService.LogMessage += msg =>
+            // AI가 수정함: EtherCAT 로그를 통합 SystemMessage 채널에서 수신
+            _messenger.Register<SystemMessage>(this, (r, m) =>
             {
-                AirGunStatusText = msg;
-                IsEtherCATConnected = _etherCATService.IsConnected;
-                IsMasterOn = _etherCATService.IsMasterOn;
-            };
+                var vm = (SettingViewModel)r;
+                vm.AirGunStatusText = m.Value;
+                vm.IsEtherCATConnected = vm._etherCATService.IsConnected;
+                vm.IsMasterOn = vm._etherCATService.IsMasterOn;
+            });
 
             // AI가 수정함: LoadSavedFilesAsync()는 MainViewModel에서 이벤트 구독 완료 후 호출
             // (SettingVM 생성자에서 fire-and-forget 시 ModelLoaded 이벤트 구독 전에 발생하는 레이스 컨디션 수정)
@@ -747,6 +748,47 @@ namespace FlashHSI.UI.ViewModels
             });
         }
 
+        /// <summary>
+        /// 카메라 연결 시 호출: 파라미터 범위 조회 → 저장된 설정(ExposureTime, FrameRate, MROI) 자동 적용
+        /// </summary>
+        private async Task OnCameraConnectedAsync()
+        {
+            try
+            {
+                // 1. 동적 허용 범위(Min, Max) 먼저 조회
+                await UpdateCameraParameterRangesAsync();
+
+                // 2. MROI 활성 시 → ApplyMroiSettingsAsync가 ExposureTime/FPS 복원까지 일괄 처리
+                if (IsMroiEnabled)
+                {
+                    var bands = ParseMroiBands();
+                    if (bands.Count > 0)
+                    {
+                        Log.Information("카메라 연결 → MROI 자동 적용 (IsMroiEnabled=ON, {Count}개 밴드)", bands.Count);
+                        await ApplyMroiSettingsAsync();
+                        return; // ApplyMroiSettingsAsync 내부에서 ExposureTime/FPS도 복원됨
+                    }
+                }
+
+                // 3. MROI 비활성 또는 밴드 없음 → ExposureTime, FrameRate 개별 적용
+                double clampedExposure = Math.Clamp(_cameraExposureTime, CameraExposureMin, CameraExposureMax);
+                double clampedFps = Math.Clamp(_cameraFrameRate, CameraFpsMin, CameraFpsMax);
+
+                await _cameraService.SetParameterAsync("ExposureTime", clampedExposure);
+                Log.Information("카메라 연결 → ExposureTime 적용: {Value} μs", clampedExposure);
+
+                await _cameraService.SetParameterAsync("AcquisitionFrameRate", clampedFps);
+                Log.Information("카메라 연결 → FrameRate 적용: {Value} FPS", clampedFps);
+
+                // 범위가 상호 영향하므로 다시 조회
+                await UpdateCameraParameterRangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "카메라 연결 후 설정 자동 적용 실패");
+            }
+        }
+
         // AI가 수정함: MROI 밴드 텍스트 파싱 → List<int>
         private List<int> ParseMroiBands()
         {
@@ -791,6 +833,30 @@ namespace FlashHSI.UI.ViewModels
             MroiBandsText = string.Join(", ", sorted);
             SaveMroiSettings();
             Log.Information("모델에서 MROI 밴드 자동 구성: {Bands} ({Count}개)", MroiBandsText, sorted.Count);
+        }
+
+        /// <summary>
+        /// 모델 변경 후 호출: IsMroiEnabled ON이면 카메라에 자동 적용, OFF이면 Snackbar 알림
+        /// </summary>
+        public async Task AutoApplyMroiIfNeededAsync()
+        {
+            if (!_cameraService.IsConnected)
+                return;
+
+            var bands = ParseMroiBands();
+            if (bands.Count == 0)
+                return;
+
+            if (IsMroiEnabled)
+            {
+                Log.Information("MROI 자동 적용: 모델 변경 감지, IsMroiEnabled=ON → 카메라에 적용");
+                await ApplyMroiSettingsAsync();
+            }
+            else
+            {
+                Log.Information("MROI 수동 모드: 모델 변경 감지, IsMroiEnabled=OFF → 사용자 알림");
+                _messenger.Send(new FlashHSI.Core.Messages.SnackbarMessage("모델의 MROI 밴드가 변경되었습니다. 설정에서 적용해주세요."));
+            }
         }
 
         // AI가 수정함: FX50 카메라 파라미터에 맞게 MROI 적용

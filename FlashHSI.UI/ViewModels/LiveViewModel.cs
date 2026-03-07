@@ -6,7 +6,6 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using FlashHSI.Core.Analysis;
 using FlashHSI.Core.Control.Camera;
 using FlashHSI.Core.Control.Hardware;
 using FlashHSI.Core.Control.Serial;
@@ -40,7 +39,6 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private bool _isCapturing; // AI가 추가함: 캡처(데이터 저장) 상태
         [ObservableProperty] private bool _isSimulating; // AI가 추가함: 시뮬레이션 상태
         [ObservableProperty] private string _cameraName = "연결 필요";
-        [ObservableProperty] private string _statusMessage = "Ready";
         [ObservableProperty] private int _capturedFrameCount; // AI가 추가함: 캡처된 프레임 수
 
         // Waterfall 이미지 (MainViewModel에서 이동)
@@ -105,14 +103,22 @@ namespace FlashHSI.UI.ViewModels
             {
                 IsCameraConnected = true;
                 CameraName = "FX50 Connected"; // 또는 실제 정보 조회
-                StatusMessage = "카메라 연결됨";
+                SendStatus("카메라 연결됨");
             }
             else
             {
                 IsCameraConnected = false;
                 CameraName = "연결 필요";
-                StatusMessage = "Ready";
+                SendStatus("Ready");
             }
+        }
+
+        /// <summary>
+        /// 통합 상태 메시지 전송 (SystemMessage 경유 → MainViewModel 상태바)
+        /// </summary>
+        private void SendStatus(string message)
+        {
+            _messenger.Send(new SystemMessage(message));
         }
 
         /// <summary>
@@ -142,7 +148,7 @@ namespace FlashHSI.UI.ViewModels
                 IsCameraConnected = false;
                 IsLive = false;
                 IsPredicting = false;
-                StatusMessage = $"카메라 연결 끊김: {reason}";
+                SendStatus($"카메라 연결 끊김: {reason}");
                 Log.Warning("카메라 연결 끊김: {Reason}", reason);
             });
         }
@@ -157,11 +163,11 @@ namespace FlashHSI.UI.ViewModels
             {
                 if (IsCameraConnected)
                 {
-                    StatusMessage = "카메라 연결 해제 중...";
+                    SendStatus("카메라 연결 해제 중...");
                     await _cameraService.DisconnectAsync();
                     IsCameraConnected = false;
                     CameraName = "연결 필요";
-                    StatusMessage = "카메라 연결 해제됨";
+                    SendStatus("카메라 연결 해제됨");
                     Log.Information("카메라 연결 해제");
 
                     // AI: Ensure Live is also stopped if camera disconnects
@@ -173,27 +179,27 @@ namespace FlashHSI.UI.ViewModels
                 }
                 else
                 {
-                    StatusMessage = "카메라 연결 중...";
+                    SendStatus("카메라 연결 중...");
                     bool connected = await _cameraService.ConnectAsync();
 
                     if (connected)
                     {
                         IsCameraConnected = true;
                         CameraName = "FX50 Connected"; // TODO: 실제 카메라 이름 조회
-                        StatusMessage = "카메라 연결 성공";
+                        SendStatus("카메라 연결 성공");
                         Log.Information("카메라 연결 성공");
                     }
                     else
                     {
                         IsCameraConnected = false;
-                        StatusMessage = "카메라 연결 실패";
+                        SendStatus("카메라 연결 실패");
                         Log.Warning("카메라 연결 실패");
                     }
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = $"연결 오류: {ex.Message}";
+                SendStatus($"연결 오류: {ex.Message}");
                 Log.Error(ex, "카메라 연결 오류");
             }
         }
@@ -215,7 +221,7 @@ namespace FlashHSI.UI.ViewModels
                         await _cameraService.StopAcquisitionAsync();
                     }
                     IsLive = false;
-                    StatusMessage = "라이브 중지됨";
+                    SendStatus("라이브 중지됨");
                     var logMsg = IsPredicting ? "어큐제이션 계속 진행" : "어큐제이션 중지";
                     Log.Information("라이브 중지: {LogMsg}", logMsg);
                 }
@@ -224,7 +230,7 @@ namespace FlashHSI.UI.ViewModels
                     // 라이브 시작 → 분류가 꺼져있으면 어큐제이션 시작
                     if (!IsCameraConnected)
                     {
-                        StatusMessage = "카메라를 먼저 연결하세요";
+                        SendStatus("카메라를 먼저 연결하세요");
                         return;
                     }
 
@@ -239,14 +245,14 @@ namespace FlashHSI.UI.ViewModels
                         _hsiEngine.StartLive();
                     }
                     IsLive = true;
-                    StatusMessage = "라이브 스트리밍 중...";
+                    SendStatus("라이브 스트리밍 중...");
                     var logMsg = IsPredicting ? "어큐제이션 이미 진행중" : "어큐제이션 시작";
                     Log.Information("라이브 시작: {LogMsg}", logMsg);
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = $"라이브 오류: {ex.Message}";
+                SendStatus($"라이브 오류: {ex.Message}");
                 Log.Error(ex, "라이브 스트림 오류");
             }
         }
@@ -301,7 +307,7 @@ namespace FlashHSI.UI.ViewModels
         {
             if (!IsCameraConnected)
             {
-                StatusMessage = "먼저 카메라를 연결하세요";
+                SendStatus("먼저 카메라를 연결하세요");
                 return;
             }
 
@@ -314,7 +320,7 @@ namespace FlashHSI.UI.ViewModels
                     _hsiEngine.StartLive();
                 }
                 IsPredicting = true;
-                StatusMessage = "🔮 분류 진행 중...";
+                SendStatus("🔮 분류 진행 중...");
                 var logMsg = IsLive ? "어큐제이션 이미 진행중" : "어큐제이션 시작";
                 Log.Information("분류 시작: {LogMsg}", logMsg);
             }
@@ -327,7 +333,7 @@ namespace FlashHSI.UI.ViewModels
                     await _cameraService.StopAcquisitionAsync();
                     _hsiEngine.Stop();
                 }
-                StatusMessage = "분류 중지됨";
+                SendStatus("분류 중지됨");
                 var logMsg = IsLive ? "어큐제이션 계속 진행" : "어큐제이션 중지";
                 Log.Information("분류 중지: {LogMsg}", logMsg);
             }
@@ -342,7 +348,7 @@ namespace FlashHSI.UI.ViewModels
             if (IsSimulating)
             {
                 _hsiEngine.Stop();
-                StatusMessage = "시뮬레이션 중지됨";
+                SendStatus("시뮬레이션 중지됨");
                 Log.Information("시뮬레이션 중지");
             }
             else
@@ -351,12 +357,12 @@ namespace FlashHSI.UI.ViewModels
                 if (!string.IsNullOrEmpty(hdr))
                 {
                     _hsiEngine.StartSimulation(hdr);
-                    StatusMessage = "시뮬레이션 실행 중...";
+                    SendStatus("시뮬레이션 실행 중...");
                     Log.Information("시뮬레이션 시작: {Path}", hdr);
                 }
                 else
                 {
-                    StatusMessage = "시뮬레이션 데이터 파일이 없습니다";
+                    SendStatus("시뮬레이션 데이터 파일이 없습니다");
                     Log.Warning("시뮬레이션 데이터 파일이 설정되지 않음");
                 }
             }
@@ -372,14 +378,14 @@ namespace FlashHSI.UI.ViewModels
         {
             if (!IsLive)
             {
-                StatusMessage = "먼저 라이브 스트리밍을 시작하세요";
+                SendStatus("먼저 라이브 스트리밍을 시작하세요");
                 return;
             }
 
             // AI가 추가함: MROI 활성 시 캡처 차단 (캡처는 전체 밴드가 필요)
             if (FlashHSI.Core.Settings.SettingsService.Instance.Settings.IsMroiEnabled)
             {
-                StatusMessage = "MROI 활성 상태에서는 캡처할 수 없습니다. 설정에서 MROI를 OFF 하세요.";
+                SendStatus("MROI 활성 상태에서는 캡처할 수 없습니다. 설정에서 MROI를 OFF 하세요.");
                 Log.Warning("MROI 활성 상태에서 캡처 시도 차단");
                 return;
             }
@@ -388,7 +394,7 @@ namespace FlashHSI.UI.ViewModels
             {
                 // 캡처 중지 → 파일 저장
                 IsCapturing = false;
-                StatusMessage = "캡처 중지 — 파일 저장 중...";
+                SendStatus("캡처 중지 — 파일 저장 중...");
                 Log.Information("캡처 중지, 프레임 수: {Count}", _captureService.CurrentCapturedFrameCount);
 
                 await SaveCaptureBufferAsync();
@@ -398,7 +404,7 @@ namespace FlashHSI.UI.ViewModels
                 // 캡처 시작 → 버퍼 초기화
                 _captureService.ClearBuffer();
                 IsCapturing = true;
-                StatusMessage = "📹 캡처 중... (프레임 수집)";
+                SendStatus("📹 캡처 중... (프레임 수집)");
                 Log.Information("캡처 시작");
             }
         }
@@ -418,7 +424,7 @@ namespace FlashHSI.UI.ViewModels
 
             if (frames.Count == 0)
             {
-                StatusMessage = "캡처된 프레임이 없습니다";
+                SendStatus("캡처된 프레임이 없습니다");
                 return;
             }
 
@@ -449,7 +455,7 @@ namespace FlashHSI.UI.ViewModels
                     MessageBox.Show($"캡처 완료 ({frames.Count} 프레임)\n저장 폴더:\n{captureDir}", "캡처 성공", MessageBoxButton.OK, MessageBoxImage.Information);
                 });
 
-                StatusMessage = $"캡처 저장 완료: {frames.Count}프레임 → {Path.GetFileName(baseName)}";
+                SendStatus($"캡처 저장 완료: {frames.Count}프레임 → {Path.GetFileName(baseName)}");
                 Log.Information("캡처 저장 완료: {Path}, 프레임: {Count}, {Width}x{Height}",
                     Path.Combine(captureDir, baseName), frames.Count, width, height);
 
@@ -458,7 +464,7 @@ namespace FlashHSI.UI.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = $"캡처 저장 실패: {ex.Message}";
+                SendStatus($"캡처 저장 실패: {ex.Message}");
                 Log.Error(ex, "캡처 파일 저장 실패");
                 Application.Current.Dispatcher.Invoke(() =>
                 {

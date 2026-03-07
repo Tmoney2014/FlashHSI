@@ -154,6 +154,96 @@
             </Border>
         </Border>
         
+        <!-- AI가 추가함: 장비 준비 중 오버레이 (카메라 재시도 카운트다운) -->
+        <Border Grid.Row="1"
+                Background="#99000000"
+                Panel.ZIndex="1500"
+                Visibility="{Binding HomeVM.IsTimerRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="{DynamicResource MaterialDesignPaper}"
+                    CornerRadius="16" Padding="40,32"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MinWidth="380" MaxWidth="450">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" Opacity="0.5" BlurRadius="30" ShadowDepth="5"/>
+                </Border.Effect>
+                
+                <StackPanel>
+                    <!-- 아이콘 -->
+                    <materialDesign:PackIcon Kind="CameraTimer"
+                                             Width="56" Height="56"
+                                             Foreground="#ff6348"
+                                             HorizontalAlignment="Center"
+                                             Margin="0,0,0,16"/>
+                    
+                    <!-- 제목 -->
+                    <TextBlock Text="장비 준비 중"
+                               FontSize="24" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,8"
+                               Foreground="#ff6348"/>
+                    
+                    <!-- 카운트다운 시간 -->
+                    <TextBlock Text="{Binding HomeVM.RemainingTimeString}" 
+                               FontSize="56" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,8"
+                               Foreground="White"/>
+                    
+                    <!-- 안내 텍스트 -->
+                    <TextBlock Text="카메라 초기화 재시도까지 대기 중입니다."
+                               FontSize="13"
+                               Foreground="White"
+                               HorizontalAlignment="Center" Margin="0,0,0,24"
+                               Opacity="0.7"/>
+                    
+                    <!-- 램프/벨트 퀵 버튼 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <Button Command="{Binding HomeVM.ToggleLampCommand}" 
+                                Width="140" Height="40" FontSize="12" Margin="6,0"
+                                materialDesign:ButtonAssist.CornerRadius="8">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                    <Setter Property="Background" Value="#f1c40f"/>
+                                    <Setter Property="Foreground" Value="#1a1a2e"/>
+                                    <Setter Property="Content" Value="램프 ON"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HomeVM.IsLampOn}" Value="True">
+                                            <Setter Property="Background" Value="#e67e22"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="Content" Value="램프 OFF"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Command="{Binding HomeVM.ToggleBeltCommand}" 
+                                Width="140" Height="40" FontSize="12" Margin="6,0"
+                                materialDesign:ButtonAssist.CornerRadius="8">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                    <Setter Property="Background" Value="#1abc9c"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Content" Value="벨트 ON"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HomeVM.IsBeltOn}" Value="True">
+                                            <Setter Property="Background" Value="#16a085"/>
+                                            <Setter Property="Content" Value="벨트 OFF"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                    
+                    <!-- 타이머 중지 버튼 -->
+                    <Button Content="타이머 중지"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding HomeVM.StopTimerCommand}"
+                            Foreground="#ff6348" BorderBrush="#ff6348"
+                            Width="180" Height="40"
+                            HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+        
         <!-- AI가 추가함: 종료 정보 오버레이 (람프 냉각 대기) -->
         <Border Grid.Row="1"
                 Background="#99000000"

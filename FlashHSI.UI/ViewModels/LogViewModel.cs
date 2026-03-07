@@ -3,8 +3,10 @@ using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using FlashHSI.Core.Control;
 using FlashHSI.Core.Engine;
+using FlashHSI.Core.Messages;
 using Microsoft.Win32;
 
 namespace FlashHSI.UI.ViewModels
@@ -21,10 +23,10 @@ namespace FlashHSI.UI.ViewModels
          public ObservableCollection<string> SystemLogs { get; } = new();
 
          /// <ai>AI가 수정함: DI</ai>
-         public LogViewModel(HsiEngine engine)
+         public LogViewModel(HsiEngine engine, IMessenger messenger)
          {
              engine.EjectionOccurred += OnEjection;
-             engine.LogMessage += OnLogMessage;
+             messenger.Register<SystemMessage>(this, (r, m) => OnLogMessage(m.Value));
          }
          
          private void OnEjection(EjectionLogItem item)

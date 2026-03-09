@@ -43,6 +43,7 @@ namespace FlashHSI.UI.ViewModels
         private readonly SerialCommandService _serialCommandService; // AI가 추가함: 시리얼(피더) 서비스
         private readonly IMessenger _messenger;
         private CancellationTokenSource? _ctsTest; // AI가 추가함: 테스트 취소용
+        private bool _isSuppressingCameraChanges;
 
         // 시뮬레이션/엔진 설정
         [ObservableProperty] private string _headerPath = "";
@@ -88,6 +89,132 @@ namespace FlashHSI.UI.ViewModels
         // AI가 수정함: MROI 구조 개편 — 텍스트 기반 개별 밴드 관리
         [ObservableProperty] private bool _isMroiEnabled;
         [ObservableProperty] private string _mroiBandsText = "";
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Sensor & Binning
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private int _cameraBinningH = 1;
+        [ObservableProperty] private int _cameraBinningHMin = 1;
+        [ObservableProperty] private int _cameraBinningHMax = 4;
+
+        [ObservableProperty] private int _cameraBinningV = 2;
+        [ObservableProperty] private int _cameraBinningVMin = 1;
+        [ObservableProperty] private int _cameraBinningVMax = 4;
+
+        [ObservableProperty] private int _cameraWidth = 640;
+        [ObservableProperty] private int _cameraWidthMin = 4;
+        [ObservableProperty] private int _cameraWidthMax = 640;
+
+        [ObservableProperty] private int _cameraHeight = 153;
+        [ObservableProperty] private int _cameraHeightMin = 0;
+        [ObservableProperty] private int _cameraHeightMax = 154;
+
+        [ObservableProperty] private int _cameraOffsetX = 0;
+        [ObservableProperty] private int _cameraOffsetXMin = 0;
+        [ObservableProperty] private int _cameraOffsetXMax = 0;
+
+        [ObservableProperty] private int _cameraOffsetY = 0;
+        [ObservableProperty] private int _cameraOffsetYMin = 0;
+        [ObservableProperty] private int _cameraOffsetYMax = 1;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Acquisition
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraAcquisitionMode = "Continuous";
+        [ObservableProperty] private List<string> _cameraAcquisitionModeOptions = new();
+
+        [ObservableProperty] private int _cameraAcquisitionFrameCount = 1;
+        [ObservableProperty] private int _cameraAcquisitionFrameCountMin = 1;
+        [ObservableProperty] private int _cameraAcquisitionFrameCountMax = int.MaxValue;
+
+        [ObservableProperty] private int _cameraAcquisitionTimeout = 5000;
+        [ObservableProperty] private int _cameraAcquisitionTimeoutMin = 1;
+        [ObservableProperty] private int _cameraAcquisitionTimeoutMax = int.MaxValue;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Trigger
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraTriggerMode = "Off";
+        [ObservableProperty] private List<string> _cameraTriggerModeOptions = new();
+
+        [ObservableProperty] private string _cameraTriggerSource = "Line0";
+        [ObservableProperty] private List<string> _cameraTriggerSourceOptions = new();
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Readout & Network
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraReadoutMode = "ITR";
+        [ObservableProperty] private List<string> _cameraReadoutModeOptions = new();
+
+        [ObservableProperty] private int _cameraResendBufferSize = 100;
+        [ObservableProperty] private int _cameraResendBufferSizeMin = 10;
+        [ObservableProperty] private int _cameraResendBufferSizeMax = 1000;
+
+        [ObservableProperty] private int _cameraPacketSize = 8192;
+        [ObservableProperty] private int _cameraPacketSizeMin = 512;
+        [ObservableProperty] private int _cameraPacketSizeMax = 8960;
+
+        [ObservableProperty] private int _cameraHeartbeatTimeout = 5000;
+        [ObservableProperty] private int _cameraHeartbeatTimeoutMin = 500;
+        [ObservableProperty] private int _cameraHeartbeatTimeoutMax = int.MaxValue;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Output Format
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraOutputFormat = "Mono16";
+        [ObservableProperty] private List<string> _cameraOutputFormatOptions = new();
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Shutter & Stabilization
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraShutterState = "Open";   // RO
+        [ObservableProperty] private bool _cameraStabilizationEnabled;
+        [ObservableProperty] private bool _cameraStabilizationIsStable; // RO
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Preprocessing & References
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private bool _cameraPreprocessingEnabled = true;
+        [ObservableProperty] private bool _cameraReferencesLock;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — User Set
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraUserSetSelector = "Default";
+        [ObservableProperty] private List<string> _cameraUserSetSelectorOptions = new();
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Networking
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private bool _cameraNetworkingPerformanceEnabled;
+        [ObservableProperty] private bool _cameraImageEmbeddingEnabled;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Temperature Monitor (all RO)
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private double _cameraTemperatureFPA;
+        [ObservableProperty] private double _cameraTemperatureFPGA;
+        [ObservableProperty] private double _cameraTemperatureBoard;
+        [ObservableProperty] private double _cameraTemperatureScb1;
+        [ObservableProperty] private double _cameraTemperatureScb2;
+        [ObservableProperty] private double _cameraTemperatureScb3;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Device Info (all RO)
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private string _cameraDeviceModelName = "";
+        [ObservableProperty] private string _cameraDeviceSerialNumber = "";
+        [ObservableProperty] private string _cameraDeviceVersion = "";
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Measured values (RO)
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private double _cameraFrameRateMeasured;
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameters — Refresh busy flag
+        // ═══════════════════════════════════════════════════════════════
+        [ObservableProperty] private bool _isCameraRefreshing;
 
         // AI가 추가함: Blob Tracking 파라미터
         [ObservableProperty] private int _blobMinPixels = 5;
@@ -683,6 +810,322 @@ namespace FlashHSI.UI.ViewModels
             _ = ApplyCameraFrameRateAsync(value);
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameter OnChanged Handlers
+        // ═══════════════════════════════════════════════════════════════
+
+        partial void OnCameraBinningHChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("BinningHorizontal", value);
+        }
+
+        partial void OnCameraBinningVChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("BinningVertical", value);
+        }
+
+        partial void OnCameraWidthChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("Width", value);
+        }
+
+        partial void OnCameraHeightChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("Height", value);
+        }
+
+        partial void OnCameraOffsetXChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("OffsetX", value);
+        }
+
+        partial void OnCameraOffsetYChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAndRefreshAsync("OffsetY", value);
+        }
+
+        partial void OnCameraAcquisitionModeChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("AcquisitionMode", value);
+        }
+
+        partial void OnCameraAcquisitionFrameCountChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAsync("AcquisitionFrameCount", value);
+        }
+
+        partial void OnCameraAcquisitionTimeoutChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAsync("AcquisitionTimeout", value);
+        }
+
+        partial void OnCameraTriggerModeChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("TriggerMode", value);
+        }
+
+        partial void OnCameraTriggerSourceChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("TriggerSource", value);
+        }
+
+        partial void OnCameraReadoutModeChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("ReadoutMode", value);
+        }
+
+        partial void OnCameraResendBufferSizeChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAsync("ResendBufferSize", value);
+        }
+
+        partial void OnCameraPacketSizeChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAsync("GevSCPSPacketSize", value);
+        }
+
+        partial void OnCameraHeartbeatTimeoutChanged(int value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraIntAsync("GevHeartbeatTimeout", value);
+        }
+
+        partial void OnCameraOutputFormatChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("OutputFormat", value);
+        }
+
+        partial void OnCameraStabilizationEnabledChanged(bool value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraBoolAsync("CameraStabilizationEnabled", value);
+        }
+
+        partial void OnCameraPreprocessingEnabledChanged(bool value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraBoolAsync("PreprocessingEnabled", value);
+        }
+
+        partial void OnCameraReferencesLockChanged(bool value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraBoolAsync("ReferencesLock", value);
+        }
+
+        partial void OnCameraUserSetSelectorChanged(string value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraEnumAsync("UserSetSelector", value);
+        }
+
+        partial void OnCameraNetworkingPerformanceEnabledChanged(bool value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraBoolAsync("NetworkingPerformanceEnabled", value);
+        }
+
+        partial void OnCameraImageEmbeddingEnabledChanged(bool value)
+        {
+            if (_isSuppressingCameraChanges) return;
+            _ = SetCameraBoolAsync("CameraImageEmbeddingEnabled", value);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Parameter Set Helpers
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Integer 파라미터를 카메라에 설정하고 관련 범위를 재조회
+        /// (Width/Height/Offset/Binning 등 상호 영향 파라미터용)
+        /// </summary>
+        private async Task SetCameraIntAndRefreshAsync(string paramName, int value)
+        {
+            if (!_cameraService.IsConnected) return;
+            try
+            {
+                await _cameraService.SetParameterAsync(paramName, value);
+                Log.Information("카메라 {Param} 설정: {Value}", paramName, value);
+                // 상호 영향 범위 재조회 (Width↔OffsetX, Height↔OffsetY, Binning↔Height 등)
+                await UpdateRelatedRangesAsync();
+            }
+            catch (Exception ex) { Log.Warning("카메라 {Param} 설정 실패: {Message}", paramName, ex.Message); }
+        }
+
+        /// <summary>
+        /// Integer 파라미터를 카메라에 설정 (독립적인 파라미터용, 범위 재조회 없음)
+        /// </summary>
+        private async Task SetCameraIntAsync(string paramName, int value)
+        {
+            if (!_cameraService.IsConnected) return;
+            try
+            {
+                await _cameraService.SetParameterAsync(paramName, value);
+                Log.Information("카메라 {Param} 설정: {Value}", paramName, value);
+            }
+            catch (Exception ex) { Log.Warning("카메라 {Param} 설정 실패: {Message}", paramName, ex.Message); }
+        }
+
+        /// <summary>
+        /// Enum 파라미터를 카메라에 설정
+        /// </summary>
+        private async Task SetCameraEnumAsync(string paramName, string value)
+        {
+            if (!_cameraService.IsConnected || string.IsNullOrEmpty(value)) return;
+            try
+            {
+                await _cameraService.SetParameterAsync(paramName, value);
+                Log.Information("카메라 {Param} 설정: {Value}", paramName, value);
+            }
+            catch (Exception ex) { Log.Warning("카메라 {Param} 설정 실패: {Message}", paramName, ex.Message); }
+        }
+
+        /// <summary>
+        /// Boolean 파라미터를 카메라에 설정
+        /// </summary>
+        private async Task SetCameraBoolAsync(string paramName, bool value)
+        {
+            if (!_cameraService.IsConnected) return;
+            try
+            {
+                await _cameraService.SetParameterAsync(paramName, value);
+                Log.Information("카메라 {Param} 설정: {Value}", paramName, value);
+            }
+            catch (Exception ex) { Log.Warning("카메라 {Param} 설정 실패: {Message}", paramName, ex.Message); }
+        }
+
+        /// <summary>
+        /// Sensor/Binning 관련 파라미터 변경 후 상호 영향 범위 재조회
+        /// </summary>
+        private async Task UpdateRelatedRangesAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            _isSuppressingCameraChanges = true;
+            try
+            {
+                // ExposureTime / FPS 범위
+                await UpdateCameraParameterRangesAsync();
+
+                // Width/Height/Offset 범위
+                var widthRange = await _cameraService.GetIntParameterRangeAsync("Width");
+                var heightRange = await _cameraService.GetIntParameterRangeAsync("Height");
+                var offsetXRange = await _cameraService.GetIntParameterRangeAsync("OffsetX");
+                var offsetYRange = await _cameraService.GetIntParameterRangeAsync("OffsetY");
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    CameraWidthMin = (int)widthRange.Min; CameraWidthMax = (int)widthRange.Max;
+                    CameraHeightMin = (int)heightRange.Min; CameraHeightMax = (int)heightRange.Max;
+                    CameraOffsetXMin = (int)offsetXRange.Min; CameraOffsetXMax = (int)offsetXRange.Max;
+                    CameraOffsetYMin = (int)offsetYRange.Min; CameraOffsetYMax = (int)offsetYRange.Max;
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("관련 범위 재조회 실패: {Message}", ex.Message);
+            }
+            finally
+            {
+                _isSuppressingCameraChanges = false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Camera Commands
+        // ═══════════════════════════════════════════════════════════════
+
+        [RelayCommand]
+        private async Task CameraDeviceResetAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("DeviceReset");
+            Log.Information("카메라 DeviceReset 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraShutterOpenAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("ShutterOpen");
+            CameraShutterState = "Open";
+            Log.Information("카메라 ShutterOpen 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraShutterCloseAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("ShutterClose");
+            CameraShutterState = "Close";
+            Log.Information("카메라 ShutterClose 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraTemperatureUpdateAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await RefreshTemperaturesAsync();
+            Log.Information("카메라 Temperature 업데이트 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraStabilizationUpdateAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("CameraStabilizationUpdate");
+            CameraStabilizationIsStable = await SafeGetParamAsync<bool>("CameraStabilizationIsStable");
+            Log.Information("카메라 StabilizationUpdate 실행, IsStable={IsStable}", CameraStabilizationIsStable);
+        }
+
+        [RelayCommand]
+        private async Task CameraDarkCreateAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("ReferencesDarkCreate");
+            Log.Information("카메라 ReferencesDarkCreate 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraWhiteCreateAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("ReferencesWhiteCreate");
+            Log.Information("카메라 ReferencesWhiteCreate 실행");
+        }
+
+        [RelayCommand]
+        private async Task CameraUserSetLoadAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("UserSetLoad");
+            Log.Information("카메라 UserSetLoad 실행 (Selector={Selector})", CameraUserSetSelector);
+            // UserSet 로드 후 모든 파라미터가 변경될 수 있으므로 전체 Refresh
+            await RefreshAllCameraParametersAsync();
+        }
+
+        [RelayCommand]
+        private async Task CameraUserSetSaveAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            await _cameraService.ExecuteCommandAsync("UserSetSave");
+            Log.Information("카메라 UserSetSave 실행 (Selector={Selector})", CameraUserSetSelector);
+        }
+
         private async Task ApplyCameraExposureAsync(double value)
         {
             try
@@ -749,14 +1192,170 @@ namespace FlashHSI.UI.ViewModels
         }
 
         /// <summary>
-        /// 카메라 연결 시 호출: 파라미터 범위 조회 → 저장된 설정(ExposureTime, FrameRate, MROI) 자동 적용
+        /// 카메라 전체 파라미터 값 + 범위를 일괄 조회하여 VM에 반영
+        /// 카메라 연결 직후 또는 수동 Refresh 버튼으로 호출
+        /// </summary>
+        [RelayCommand]
+        private async Task RefreshAllCameraParametersAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+            IsCameraRefreshing = true;
+            _isSuppressingCameraChanges = true;
+            try
+            {
+                // ── Float 범위 (기존 ExposureTime/FPS) ──
+                await UpdateCameraParameterRangesAsync();
+
+                // ── Integer 값 + 범위 ──
+                await RefreshIntParamAsync("BinningHorizontal", v => CameraBinningH = (int)v, (min, max) => { CameraBinningHMin = (int)min; CameraBinningHMax = (int)max; });
+                await RefreshIntParamAsync("BinningVertical", v => CameraBinningV = (int)v, (min, max) => { CameraBinningVMin = (int)min; CameraBinningVMax = (int)max; });
+                await RefreshIntParamAsync("Width", v => CameraWidth = (int)v, (min, max) => { CameraWidthMin = (int)min; CameraWidthMax = (int)max; });
+                await RefreshIntParamAsync("Height", v => CameraHeight = (int)v, (min, max) => { CameraHeightMin = (int)min; CameraHeightMax = (int)max; });
+                await RefreshIntParamAsync("OffsetX", v => CameraOffsetX = (int)v, (min, max) => { CameraOffsetXMin = (int)min; CameraOffsetXMax = (int)max; });
+                await RefreshIntParamAsync("OffsetY", v => CameraOffsetY = (int)v, (min, max) => { CameraOffsetYMin = (int)min; CameraOffsetYMax = (int)max; });
+                await RefreshIntParamAsync("AcquisitionFrameCount", v => CameraAcquisitionFrameCount = (int)v, (min, max) => { CameraAcquisitionFrameCountMin = (int)min; CameraAcquisitionFrameCountMax = (int)max; });
+                await RefreshIntParamAsync("AcquisitionTimeout", v => CameraAcquisitionTimeout = (int)v, (min, max) => { CameraAcquisitionTimeoutMin = (int)min; CameraAcquisitionTimeoutMax = (int)max; });
+                await RefreshIntParamAsync("ResendBufferSize", v => CameraResendBufferSize = (int)v, (min, max) => { CameraResendBufferSizeMin = (int)min; CameraResendBufferSizeMax = (int)max; });
+                await RefreshIntParamAsync("GevSCPSPacketSize", v => CameraPacketSize = (int)v, (min, max) => { CameraPacketSizeMin = (int)min; CameraPacketSizeMax = (int)max; });
+                await RefreshIntParamAsync("GevHeartbeatTimeout", v => CameraHeartbeatTimeout = (int)v, (min, max) => { CameraHeartbeatTimeoutMin = (int)min; CameraHeartbeatTimeoutMax = (int)max; });
+
+                // ── Enum 값 + 옵션 ──
+                await RefreshEnumParamAsync("AcquisitionMode", v => CameraAcquisitionMode = v, opts => CameraAcquisitionModeOptions = opts);
+                await RefreshEnumParamAsync("TriggerMode", v => CameraTriggerMode = v, opts => CameraTriggerModeOptions = opts);
+                await RefreshEnumParamAsync("TriggerSource", v => CameraTriggerSource = v, opts => CameraTriggerSourceOptions = opts);
+                await RefreshEnumParamAsync("ReadoutMode", v => CameraReadoutMode = v, opts => CameraReadoutModeOptions = opts);
+                await RefreshEnumParamAsync("OutputFormat", v => CameraOutputFormat = v, opts => CameraOutputFormatOptions = opts);
+                await RefreshEnumParamAsync("UserSetSelector", v => CameraUserSetSelector = v, opts => CameraUserSetSelectorOptions = opts);
+
+                // ── Boolean 값 ──
+                CameraStabilizationEnabled = await SafeGetParamAsync<bool>("CameraStabilizationEnabled");
+                CameraPreprocessingEnabled = await SafeGetParamAsync<bool>("PreprocessingEnabled");
+                CameraReferencesLock = await SafeGetParamAsync<bool>("ReferencesLock");
+                CameraNetworkingPerformanceEnabled = await SafeGetParamAsync<bool>("NetworkingPerformanceEnabled");
+                CameraImageEmbeddingEnabled = await SafeGetParamAsync<bool>("CameraImageEmbeddingEnabled");
+
+                // ── Read-Only 값 ──
+                CameraShutterState = await SafeGetParamAsync<string>("ShutterState") ?? "Unknown";
+                CameraStabilizationIsStable = await SafeGetParamAsync<bool>("CameraStabilizationIsStable");
+                CameraFrameRateMeasured = await SafeGetParamAsync<double>("AcquisitionFrameRateMeasured");
+
+                // Float current values for ExposureTime / FPS
+                var expVal = await SafeGetParamAsync<double>("ExposureTime");
+                var fpsVal = await SafeGetParamAsync<double>("AcquisitionFrameRate");
+                if (expVal > 0) CameraExposureTime = expVal;
+                if (fpsVal > 0) CameraFrameRate = fpsVal;
+
+                // ── Temperature (requires TemperatureUpdate command first) ──
+                await RefreshTemperaturesAsync();
+
+                // ── Device Info (RO) ──
+                CameraDeviceModelName = await SafeGetParamAsync<string>("DeviceModelName") ?? "";
+                CameraDeviceSerialNumber = await SafeGetParamAsync<string>("DeviceSerialNumber") ?? "";
+                CameraDeviceVersion = await SafeGetParamAsync<string>("DeviceVersion") ?? "";
+
+                Log.Information("카메라 전체 파라미터 Refresh 완료");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "카메라 파라미터 Refresh 실패");
+            }
+            finally
+            {
+                _isSuppressingCameraChanges = false;
+                IsCameraRefreshing = false;
+            }
+        }
+
+        /// <summary>
+        /// Integer 파라미터 값 + 범위를 조회하여 콜백으로 전달
+        /// </summary>
+        private async Task RefreshIntParamAsync(string name, Action<long> setValue, Action<long, long> setRange)
+        {
+            try
+            {
+                var value = await _cameraService.GetParameterAsync<long>(name);
+                var range = await _cameraService.GetIntParameterRangeAsync(name);
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    setRange(range.Min, range.Max);
+                    setValue(value);
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Int param refresh failed for {Name}: {Message}", name, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Enum 파라미터 값 + 옵션 목록을 조회하여 콜백으로 전달
+        /// </summary>
+        private async Task RefreshEnumParamAsync(string name, Action<string> setValue, Action<List<string>> setOptions)
+        {
+            try
+            {
+                var value = await _cameraService.GetParameterAsync<string>(name);
+                var options = await _cameraService.GetEnumParameterOptionsAsync(name);
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    setOptions(options);
+                    setValue(value ?? "");
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Enum param refresh failed for {Name}: {Message}", name, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 파라미터 조회 실패 시 default 반환하는 안전한 래퍼
+        /// </summary>
+        private async Task<T> SafeGetParamAsync<T>(string name)
+        {
+            try
+            {
+                return await _cameraService.GetParameterAsync<T>(name);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Safe get param failed for {Name}: {Message}", name, ex.Message);
+                return default!;
+            }
+        }
+
+        /// <summary>
+        /// Temperature 관련 값을 일괄 업데이트 (TemperatureUpdate 커맨드 후 조회)
+        /// </summary>
+        private async Task RefreshTemperaturesAsync()
+        {
+            try
+            {
+                await _cameraService.ExecuteCommandAsync("TemperatureUpdate");
+                await Task.Delay(100); // 업데이트 대기
+
+                CameraTemperatureFPA = await SafeGetParamAsync<double>("TemperatureFPA");
+                CameraTemperatureFPGA = await SafeGetParamAsync<double>("TemperatureFPGA");
+                CameraTemperatureBoard = await SafeGetParamAsync<double>("TemperatureBoard");
+                CameraTemperatureScb1 = await SafeGetParamAsync<double>("TemperatureScb1");
+                CameraTemperatureScb2 = await SafeGetParamAsync<double>("TemperatureScb2");
+                CameraTemperatureScb3 = await SafeGetParamAsync<double>("TemperatureScb3");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Temperature refresh failed: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 카메라 연결 시 호출: 전체 파라미터 Refresh → 저장된 설정 적용
         /// </summary>
         private async Task OnCameraConnectedAsync()
         {
             try
             {
-                // 1. 동적 허용 범위(Min, Max) 먼저 조회
-                await UpdateCameraParameterRangesAsync();
+                // 1. 전체 파라미터 값 + 범위 일괄 조회
+                await RefreshAllCameraParametersAsync();
 
                 // 2. MROI 활성 시 → ApplyMroiSettingsAsync가 ExposureTime/FPS 복원까지 일괄 처리
                 if (IsMroiEnabled)

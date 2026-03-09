@@ -48,6 +48,17 @@ namespace FlashHSI.Core.Control.Camera
         /// </summary>
         Task<T> GetParameterAsync<T>(string name);
 
+        /// <summary>
+        /// Gets the min/max range for an integer GenICam parameter.
+        /// </summary>
+        Task<(long Min, long Max)> GetIntParameterRangeAsync(string name);
+
+        /// <summary>
+        /// Gets available enum entries for a GenICam enum parameter.
+        /// Returns list of available value strings.
+        /// </summary>
+        Task<List<string>> GetEnumParameterOptionsAsync(string name);
+
         // AI가 추가함: MROI 설정을 적용하기 위한 커맨드 (RegionApply 등) 전송 인터페이스
         Task ExecuteCommandAsync(string cmdName);
 

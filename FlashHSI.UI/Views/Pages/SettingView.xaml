@@ -39,15 +39,29 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                     <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
                         <TextBlock Text="Camera Settings" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
-                        
-                        <!-- Connection / Params -->
+
+                        <!-- Refresh All Button -->
+                        <DockPanel Margin="0,0,0,16">
+                            <Button Command="{Binding RefreshAllCameraParametersCommand}" 
+                                    Style="{StaticResource MaterialDesignRaisedButton}" Height="36" Padding="16,0"
+                                    IsEnabled="{Binding IsCameraRefreshing, Converter={StaticResource InverseBooleanConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Refresh All Parameters" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" 
+                                         IsIndeterminate="True" Width="20" Height="20" Margin="12,0,0,0"
+                                         Visibility="{Binding IsCameraRefreshing, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </DockPanel>
+
+                        <!-- 1. Parameters (기존 — ExposureTime, FPS) -->
                         <materialDesign:Card Padding="16" Margin="0,0,0,16">
                             <StackPanel>
                                 <TextBlock Text="Parameters" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Exposure Time (μs)" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraExposureTime, StringFormat=N3}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <TextBox Text="{Binding CameraExposureTime, StringFormat=N3}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
                                     <Slider Minimum="{Binding CameraExposureMin}" Maximum="{Binding CameraExposureMax}" Value="{Binding CameraExposureTime, UpdateSourceTrigger=Explicit}" TickFrequency="0.001" IsSnapToTickEnabled="False" VerticalAlignment="Center"
                                             behaviors:SliderValuePopupBehavior.Format="N3">
                                         <i:Interaction.Behaviors>
@@ -59,8 +73,7 @@
                                 </DockPanel>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Acquisition FPS" Width="180" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True"/>
+                                    <TextBox Text="{Binding CameraFrameRate, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
                                     <Slider Minimum="{Binding CameraFpsMin}" Maximum="{Binding CameraFpsMax}" Value="{Binding CameraFrameRate, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center">
                                         <i:Interaction.Behaviors>
                                             <behaviors:SliderDragCompletedBehavior/>
@@ -69,9 +82,16 @@
                                         </i:Interaction.Behaviors>
                                     </Slider>
                                 </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Measured FPS" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraFrameRateMeasured, StringFormat=N2}" VerticalAlignment="Center" Foreground="Gray"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
 
-                                <!-- AI가 수정함: MROI 구조 개편 — ON/OFF 토글 + 텍스트 기반 밴드 입력 -->
-                                <Separator Margin="0,12"/>
+                        <!-- MROI -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
                                 <DockPanel Margin="0,0,0,8">
                                     <TextBlock Text="MROI Band Regions" FontWeight="Bold" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
@@ -85,7 +105,6 @@
                                                 Height="28" Padding="12,0" FontSize="11"/>
                                     </StackPanel>
                                 </DockPanel>
-
                                 <DockPanel Margin="0,0,0,6">
                                     <TextBlock Text="Band Indices" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <TextBox Text="{Binding MroiBandsText, UpdateSourceTrigger=PropertyChanged}" 
@@ -94,17 +113,14 @@
                                              Height="30" Padding="4,4"/>
                                 </DockPanel>
                                 <TextBlock Text="※ 모델 로드 시 RequiredRawBands에서 자동 구성됩니다. 쉼표로 구분된 밴드 인덱스를 수동 입력할 수도 있습니다." 
-                                           Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                                           Foreground="Gray" FontSize="11" TextWrapping="Wrap"/>
                             </StackPanel>
                         </materialDesign:Card>
-                        
-                        <!-- References -->
-                        <!-- AI가 수정함: File Path 탭과 동일한 DockPanel 스타일로 통일 -->
-                        <materialDesign:Card Padding="16">
+
+                        <!-- Calibration References -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
                             <StackPanel>
                                 <TextBlock Text="Calibration References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                                
-                                <!-- White Reference -->
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="White Reference" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
@@ -125,8 +141,6 @@
                                             Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
                                     <TextBox Text="{Binding WhiteRefPath, Mode=OneWay}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
-                                
-                                <!-- Dark Reference -->
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Dark Reference" Width="140" VerticalAlignment="Center" FontWeight="Medium"/>
                                     <materialDesign:PackIcon DockPanel.Dock="Left" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0">
@@ -149,6 +163,312 @@
                                 </DockPanel>
                             </StackPanel>
                         </materialDesign:Card>
+
+                        <!-- 2. Sensor & Binning -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Sensor &amp; Binning" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Binning Horizontal" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraBinningH}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraBinningHMin}" Maximum="{Binding CameraBinningHMax}" Value="{Binding CameraBinningH, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Binning Vertical" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraBinningV}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraBinningVMin}" Maximum="{Binding CameraBinningVMax}" Value="{Binding CameraBinningV, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Width" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraWidth}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraWidthMin}" Maximum="{Binding CameraWidthMax}" Value="{Binding CameraWidth, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Height" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraHeight}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraHeightMin}" Maximum="{Binding CameraHeightMax}" Value="{Binding CameraHeight, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Offset X" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraOffsetX}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraOffsetXMin}" Maximum="{Binding CameraOffsetXMax}" Value="{Binding CameraOffsetX, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Offset Y" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraOffsetY}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraOffsetYMin}" Maximum="{Binding CameraOffsetYMax}" Value="{Binding CameraOffsetY, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 3. Acquisition -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Acquisition" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Mode" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraAcquisitionModeOptions}" SelectedItem="{Binding CameraAcquisitionMode}" MinWidth="150"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Frame Count" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraAcquisitionFrameCount}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraAcquisitionFrameCountMin}" Maximum="1000" Value="{Binding CameraAcquisitionFrameCount, UpdateSourceTrigger=Explicit}" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Timeout (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraAcquisitionTimeout}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraAcquisitionTimeoutMin}" Maximum="30000" Value="{Binding CameraAcquisitionTimeout, UpdateSourceTrigger=Explicit}" TickFrequency="100" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 4. Trigger -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Trigger" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Trigger Mode" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraTriggerModeOptions}" SelectedItem="{Binding CameraTriggerMode}" MinWidth="150"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Trigger Source" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraTriggerSourceOptions}" SelectedItem="{Binding CameraTriggerSource}" MinWidth="150"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 5. Readout & Network -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Readout &amp; Network" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Readout Mode" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraReadoutModeOptions}" SelectedItem="{Binding CameraReadoutMode}" MinWidth="150"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Output Format" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraOutputFormatOptions}" SelectedItem="{Binding CameraOutputFormat}" MinWidth="150"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Resend Buffer Size" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraResendBufferSize}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraResendBufferSizeMin}" Maximum="{Binding CameraResendBufferSizeMax}" Value="{Binding CameraResendBufferSize, UpdateSourceTrigger=Explicit}" TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Packet Size" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraPacketSize}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraPacketSizeMin}" Maximum="{Binding CameraPacketSizeMax}" Value="{Binding CameraPacketSize, UpdateSourceTrigger=Explicit}" TickFrequency="64" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Heartbeat Timeout (ms)" Width="180" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding CameraHeartbeatTimeout}" Width="80" DockPanel.Dock="Right" TextAlignment="Right" IsReadOnly="True"/>
+                                    <Slider Minimum="{Binding CameraHeartbeatTimeoutMin}" Maximum="30000" Value="{Binding CameraHeartbeatTimeout, UpdateSourceTrigger=Explicit}" TickFrequency="100" IsSnapToTickEnabled="True" VerticalAlignment="Center">
+                                        <i:Interaction.Behaviors>
+                                            <behaviors:SliderDragCompletedBehavior/>
+                                            <behaviors:SliderValuePopupBehavior/>
+                                            <behaviors:SliderButtonBehavior/>
+                                        </i:Interaction.Behaviors>
+                                    </Slider>
+                                </DockPanel>
+                                <Separator Margin="0,8"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Network Performance" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding CameraNetworkingPerformanceEnabled}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Image Embedding" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding CameraImageEmbeddingEnabled}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 6. Shutter & Stabilization -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Shutter &amp; Stabilization" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Shutter State" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraShutterState}" VerticalAlignment="Center" Foreground="Gray"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <Button Command="{Binding CameraShutterOpenCommand}" Content="Shutter Open" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0" Margin="0,0,8,0"/>
+                                    <Button Command="{Binding CameraShutterCloseCommand}" Content="Shutter Close" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0"/>
+                                </StackPanel>
+                                <Separator Margin="0,4"/>
+                                <DockPanel Margin="0,10,0,10">
+                                    <TextBlock Text="Stabilization Enabled" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding CameraStabilizationEnabled}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Is Stable" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraStabilizationIsStable}" VerticalAlignment="Center" Foreground="Gray"/>
+                                </DockPanel>
+                                <Button Command="{Binding CameraStabilizationUpdateCommand}" Content="Update Stabilization" 
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 7. Preprocessing & References -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Preprocessing &amp; References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Preprocessing Enabled" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding CameraPreprocessingEnabled}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="References Lock" Width="180" VerticalAlignment="Center"/>
+                                    <ToggleButton IsChecked="{Binding CameraReferencesLock}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Command="{Binding CameraDarkCreateCommand}" Content="Create Dark Ref" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0" Margin="0,0,8,0"/>
+                                    <Button Command="{Binding CameraWhiteCreateCommand}" Content="Create White Ref" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 8. User Set -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="User Set" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,10">
+                                    <TextBlock Text="Selector" Width="180" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding CameraUserSetSelectorOptions}" SelectedItem="{Binding CameraUserSetSelector}" MinWidth="150"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Command="{Binding CameraUserSetLoadCommand}" Content="Load" 
+                                            Style="{StaticResource MaterialDesignRaisedButton}" Height="30" Padding="16,0" Margin="0,0,8,0"/>
+                                    <Button Command="{Binding CameraUserSetSaveCommand}" Content="Save" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="16,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 9. Temperature Monitor -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,16">
+                                    <TextBlock Text="Temperature Monitor" Style="{StaticResource MaterialDesignHeadline6TextBlock}" VerticalAlignment="Center"/>
+                                    <Button Command="{Binding CameraTemperatureUpdateCommand}" Content="Update" 
+                                            Style="{StaticResource MaterialDesignOutlinedButton}" Height="28" Padding="12,0" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                                </DockPanel>
+                                <UniformGrid Columns="2" Margin="0,0,0,0">
+                                    <DockPanel Margin="0,0,16,8">
+                                        <TextBlock Text="FPA (K)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureFPA, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock Text="FPGA (°C)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureFPGA, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,16,8">
+                                        <TextBlock Text="Board (°C)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureBoard, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock Text="Hot Plate (°C)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureScb1, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,16,8">
+                                        <TextBlock Text="Optics (°C)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureScb2, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock Text="Shutter (°C)" Width="120" VerticalAlignment="Center" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding CameraTemperatureScb3, StringFormat=N2}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </UniformGrid>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- 10. Device Info (RO) -->
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Device Info" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Model" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraDeviceModelName}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Serial Number" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraDeviceSerialNumber}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Firmware" Width="180" VerticalAlignment="Center" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding CameraDeviceVersion}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <Separator Margin="0,8"/>
+                                <Button Command="{Binding CameraDeviceResetCommand}" Content="Device Reset" 
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="12,0" HorizontalAlignment="Left"
+                                        Foreground="#F44336" BorderBrush="#F44336"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -941,7 +1261,7 @@
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                     <StackPanel MaxWidth="1200" HorizontalAlignment="Stretch">
-                        <TextBlock Text="Paths &amp; Models" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
+                        <TextBlock Text="Paths" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
                         
                         <!-- AI가 추가함: 캡처 설정 카드 -->
                         <materialDesign:Card Padding="16" Margin="0,0,0,16">
@@ -976,12 +1296,10 @@
                                             Style="{StaticResource MaterialDesignOutlinedButton}" Height="30" Padding="8,0" Margin="8,0,0,0"/>
                                     <TextBox Text="{Binding HeaderPath, Mode=OneWay}" TextAlignment="Left" VerticalAlignment="Center" IsReadOnly="True" Style="{StaticResource MaterialDesignOutlinedTextBox}" Height="30" Padding="4,4"/>
                                 </DockPanel>
-                            </StackPanel>
-                        </materialDesign:Card>
-                        
-                        <materialDesign:Card Padding="16">
-                            <StackPanel>
-                                <TextBlock Text="Target FPS (Sim Only)" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+
+                                <Separator Margin="0,16"/>
+
+                                <TextBlock Text="Target FPS (Simulation Only)" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
                                     <TextBlock Text="Target FPS" Width="180" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding TargetFps, StringFormat=N0}" Width="80" DockPanel.Dock="Right" TextAlignment="Right"

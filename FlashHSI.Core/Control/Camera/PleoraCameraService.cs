@@ -602,17 +602,44 @@ namespace FlashHSI.Core.Control.Camera
 
         public async Task<T> GetParameterAsync<T>(string name)
         {
-            if (_device == null) return default;
+            if (_device == null) return default!;
             return await Task.Run(() =>
             {
                 try
                 {
-                    var paramsList = _device.Parameters;
-                    // Generic handling is tricky with Pleora non-generic API
-                    // Return zero/null for now basically
-                    return default(T);
+                    var param = _device.Parameters.Get(name);
+                    object? result = null;
+
+                    if (param is PvGenInteger gInt) result = gInt.Value;
+                    else if (param is PvGenFloat gFloat) result = gFloat.Value;
+                    else if (param is PvGenString gStr) result = gStr.Value;
+                    else if (param is PvGenEnum gEnum) result = gEnum.ValueString;
+                    else if (param is PvGenBoolean gBool) result = gBool.Value;
+
+                    if (result == null) return default!;
+
+                    // Handle type conversions
+                    var targetType = typeof(T);
+                    if (targetType == typeof(string))
+                        return (T)(object)result.ToString()!;
+                    if (targetType == typeof(int))
+                        return (T)(object)Convert.ToInt32(result);
+                    if (targetType == typeof(long))
+                        return (T)(object)Convert.ToInt64(result);
+                    if (targetType == typeof(double))
+                        return (T)(object)Convert.ToDouble(result);
+                    if (targetType == typeof(float))
+                        return (T)(object)Convert.ToSingle(result);
+                    if (targetType == typeof(bool))
+                        return (T)(object)Convert.ToBoolean(result);
+
+                    return (T)result;
                 }
-                catch { return default(T); }
+                catch (Exception ex)
+                {
+                    Log.Error("Failed to get parameter {Name}: {Message}", name, ex.Message);
+                    return default!;
+                }
             });
         }
 
@@ -635,6 +662,57 @@ namespace FlashHSI.Core.Control.Camera
                 {
                     Log.Error($"Failed to get range for {name}: {ex.Message}");
                     return (0.0, 0.0);
+                }
+            });
+        }
+
+        public async Task<(long Min, long Max)> GetIntParameterRangeAsync(string name)
+        {
+            if (_device == null) return (0, 0);
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var param = _device.Parameters.Get(name);
+                    if (param is PvGenInteger gInt)
+                    {
+                        return (gInt.Min, gInt.Max);
+                    }
+                    return (0L, 0L);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Failed to get int range for {Name}: {Message}", name, ex.Message);
+                    return (0L, 0L);
+                }
+            });
+        }
+
+        public async Task<List<string>> GetEnumParameterOptionsAsync(string name)
+        {
+            if (_device == null) return new List<string>();
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var param = _device.Parameters.Get(name);
+                    if (param is PvGenEnum gEnum)
+                    {
+                        var entries = new List<string>();
+                        for (long i = 0; i < gEnum.EntriesCount; i++)
+                        {
+                            var entry = gEnum.GetEntryByIndex(i);
+                            if (entry != null && entry.IsAvailable)
+                                entries.Add(entry.ValueString);
+                        }
+                        return entries;
+                    }
+                    return new List<string>();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Failed to get enum options for {Name}: {Message}", name, ex.Message);
+                    return new List<string>();
                 }
             });
         }

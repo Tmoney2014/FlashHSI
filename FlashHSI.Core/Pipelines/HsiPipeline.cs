@@ -62,6 +62,17 @@ namespace FlashHSI.Core.Pipelines
             _classifier?.SetThreshold(threshold);
         }
 
+        /// <summary>
+        /// AI가 추가함: White/Dark 레퍼런스를 Feature Extractor에 전달하여 방사 보정 활성화
+        /// </summary>
+        public void SetCalibration(double[]? white, double[]? dark)
+        {
+            if (_featureExtractor != null && white != null && dark != null)
+            {
+                _featureExtractor.SetCalibration(white, dark);
+            }
+        }
+
         public int ProcessFrame(ushort* rawData, int length)
         {
             if (_classifier == null || _featureExtractor == null) return -1;

@@ -45,6 +45,9 @@ namespace FlashHSI.UI.ViewModels
         private CancellationTokenSource? _ctsTest; // AI가 추가함: 테스트 취소용
         private bool _isSuppressingCameraChanges;
 
+        // AI가 추가함: 카메라 연결 상태 (카메라 전용 설정 카드 활성/비활성 제어용)
+        [ObservableProperty] private bool _isCameraConnected;
+
         // 시뮬레이션/엔진 설정
         [ObservableProperty] private string _headerPath = "";
         [ObservableProperty] private double _targetFps = 100.0;
@@ -265,8 +268,14 @@ namespace FlashHSI.UI.ViewModels
             // 구독: 프로퍼티 변경 시 설정 저장 및 메시지 전파
             PropertyChanged += OnPropertyChangedHandler;
 
-            // AI가 추가함: 카메라 연결 성공 시 저장된 설정 자동 적용
+            // AI가 추가함: 카메라 연결 상태 추적
+            _isCameraConnected = _cameraService.IsConnected;
             _cameraService.Connected += async () => await OnCameraConnectedAsync();
+            _cameraService.ConnectionLost += (reason) =>
+            {
+                IsCameraConnected = false;
+                Log.Warning("카메라 연결 끊김: {Reason}", reason);
+            };
 
             var s = SettingsService.Instance.Settings;
             _headerPath = s.LastHeaderPath;
@@ -1354,6 +1363,8 @@ namespace FlashHSI.UI.ViewModels
         {
             try
             {
+                IsCameraConnected = true;
+
                 // 1. 전체 파라미터 값 + 범위 일괄 조회
                 await RefreshAllCameraParametersAsync();
 

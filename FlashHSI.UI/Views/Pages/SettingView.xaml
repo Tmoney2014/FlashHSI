@@ -41,7 +41,7 @@
                         <TextBlock Text="Camera Settings" Style="{StaticResource MaterialDesignHeadline5TextBlock}" Margin="0,0,0,20"/>
 
                         <!-- Refresh All Button -->
-                        <DockPanel Margin="0,0,0,16">
+                        <DockPanel Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <Button Command="{Binding RefreshAllCameraParametersCommand}" 
                                     Style="{StaticResource MaterialDesignRaisedButton}" Height="36" Padding="16,0"
                                     IsEnabled="{Binding IsCameraRefreshing, Converter={StaticResource InverseBooleanConverter}}">
@@ -165,7 +165,7 @@
                         </materialDesign:Card>
 
                         <!-- 2. Sensor & Binning -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Sensor &amp; Binning" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -238,7 +238,7 @@
                         </materialDesign:Card>
 
                         <!-- 3. Acquisition -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Acquisition" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -271,7 +271,7 @@
                         </materialDesign:Card>
 
                         <!-- 4. Trigger -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Trigger" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -286,7 +286,7 @@
                         </materialDesign:Card>
 
                         <!-- 5. Readout & Network -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Readout &amp; Network" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -343,7 +343,7 @@
                         </materialDesign:Card>
 
                         <!-- 6. Shutter & Stabilization -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Shutter &amp; Stabilization" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -371,7 +371,7 @@
                         </materialDesign:Card>
 
                         <!-- 7. Preprocessing & References -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Preprocessing &amp; References" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -392,7 +392,7 @@
                         </materialDesign:Card>
 
                         <!-- 8. User Set -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="User Set" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,10">
@@ -409,7 +409,7 @@
                         </materialDesign:Card>
 
                         <!-- 9. Temperature Monitor -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,16">
                                     <TextBlock Text="Temperature Monitor" Style="{StaticResource MaterialDesignHeadline6TextBlock}" VerticalAlignment="Center"/>
@@ -446,7 +446,7 @@
                         </materialDesign:Card>
 
                         <!-- 10. Device Info (RO) -->
-                        <materialDesign:Card Padding="16" Margin="0,0,0,16">
+                        <materialDesign:Card Padding="16" Margin="0,0,0,16" IsEnabled="{Binding IsCameraConnected}">
                             <StackPanel>
                                 <TextBlock Text="Device Info" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
                                 <DockPanel Margin="0,0,0,6">

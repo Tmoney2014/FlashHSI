@@ -167,6 +167,13 @@ namespace FlashHSI.Core.Engine
                 // AI가 추가함: 모델 타입 저장 (UI 연동용)
                 LoadedModelType = config.OriginalType ?? "";
 
+                // AI가 추가함: 기존 White/Dark 레퍼런스가 있으면 새 파이프라인에 보정 재적용
+                if (_whiteRef != null && _darkRef != null)
+                {
+                    _pipeline.SetCalibration(_whiteRef, _darkRef);
+                    _logSender.SendLog("Calibration re-applied to new pipeline after model reload");
+                }
+
                 _logSender.SendLog($"Model Loaded: {config.ModelType}");
             }
             catch (Exception ex)
@@ -183,6 +190,12 @@ namespace FlashHSI.Core.Engine
             // 수동 할당이므로 원본 파일 경로는 잃음
             CurrentWhiteRefPath = null;
             CurrentDarkRefPath = null;
+
+            // AI가 추가함: 파이프라인에 보정 데이터 전달
+            if (_whiteRef != null && _darkRef != null)
+            {
+                _pipeline?.SetCalibration(_whiteRef, _darkRef);
+            }
         }
 
         public double[]? LoadReference(string path, bool isDark)
@@ -227,6 +240,13 @@ namespace FlashHSI.Core.Engine
                     {
                         _whiteRef = avg;
                         CurrentWhiteRefPath = path;
+                    }
+
+                    // AI가 추가함: 양쪽 레퍼런스가 모두 로드되면 파이프라인에 보정 데이터 전달
+                    if (_whiteRef != null && _darkRef != null)
+                    {
+                        _pipeline?.SetCalibration(_whiteRef, _darkRef);
+                        _logSender.SendLog($"Calibration applied to pipeline (White + Dark reference loaded)");
                     }
 
                     return avg;

@@ -78,10 +78,14 @@ BenchmarkDotNet.Artifacts/
 *.raw
 *.img
 *.hdr
-!FlashHSI.Core/Resources/*.hdr # Keep resource headers if any
+!FlashHSI.Core/Resources/*.hdr
+!FlashHSI.Core/libs/*.dll
 
 # OmniSharp / LSP
 omnisharp.json
 
 # Params.txt
 FlashHSI.UI/Params.txt
+
+# Agent
+.agent/

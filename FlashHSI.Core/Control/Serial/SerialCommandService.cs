@@ -22,11 +22,14 @@ public class SerialCommandService
     // 재사용 가능한 버퍼 및 빌더
     private static readonly ArrayPool<byte> _bytePool = ArrayPool<byte>.Shared;
     private readonly StringBuilder _boardIdBuilder = new(2);
+    private readonly StringBuilder _hexBuilder = new(256);
+    private readonly StringBuilder _byteValuesBuilder = new(512);
     private readonly ErrorStatusMessage _errorStatusMessage = new(new ErrorStatus());
     private readonly HardwareStatusMessage _hardwareStatusMessage = new(new HardwareStatus());
     
     // 동기화 및 에러 추적
     private readonly object _stateLock = new();
+    private readonly object _logSbLock = new();
     private readonly SemaphoreSlim _serialSemaphore = new(1, 1);
     private readonly TimeSpan _errorThreshold = TimeSpan.FromSeconds(11);
     
@@ -62,7 +65,7 @@ public class SerialCommandService
     }
 
     /// <summary>
-    /// AI가 추가함: 모든 피더 값 업데이트 (메시지로 호출됨)
+    /// 모든 피더 값 업데이트 (메시지로 호출됨)
     /// </summary>
     private void UpdateAllFeederValues(List<int> values)
     {
@@ -70,11 +73,10 @@ public class SerialCommandService
         
         _cachedFeederValues = new List<int>(values);
         
-        // 시리얼로 각 피더에 값 전송
+        // 시리얼로 각 피더에 값 전송 (0-based 인덱스 — HSIClient와 동일)
         for (int i = 0; i < values.Count; i++)
         {
-            // Task.Run으로 비동기 전송
-            var feederNum = i + 1;
+            var feederNum = i; // 0-based: SetFeederValueCommandAsync 내부에서 FDR_WT_INPUT0 + feederNumber 계산
             var feederVal = values[i];
             Task.Run(async () => await SetFeederValueCommandAsync(feederNum, feederVal));
         }
@@ -190,6 +192,7 @@ public class SerialCommandService
         {
             Log.Error(ex, "Serial StartUp Failed");
             OnErrorOccurred($"Serial Startup Failed: {ex.Message}");
+            throw; // 호출자(ConnectSerialPortAsync)가 실패를 감지할 수 있도록 재전파
         }
     }
 
@@ -207,7 +210,7 @@ public class SerialCommandService
             if (IsOpenPort())
             {
                 await FeederPowerOffCommandAsync();
-                await Task.Delay(500);
+                await Task.Delay(1000);
                 await LampOffCommandAsync();
                 await BeltOffCommandAsync();
                 await PowerOffCommandAsync();
@@ -320,9 +323,11 @@ public class SerialCommandService
 
     private async Task SendCommandAsync(string command)
     {
-        if (!await _serialSemaphore.WaitAsync(TimeSpan.FromSeconds(5)))
+        // 타임아웃 10초 (HSIClient와 동일)
+        if (!await _serialSemaphore.WaitAsync(TimeSpan.FromSeconds(10)))
         {
-            Log.Warning("Serial Command Timeout (Semaphore)");
+            Log.Warning("시리얼 커맨드 전송 대기 타임아웃 (10초)");
+            OnErrorOccurred("Command queue timeout.");
             return;
         }
 
@@ -330,15 +335,19 @@ public class SerialCommandService
         {
             if (!_serialPort.IsOpen) await ConnectPortAsync();
 
-            if (_serialPort.IsOpen)
-            {
-                _serialPort.Write(command);
-                // Log.Debug($"Serial Sent: {command.Trim()}"); 
-            }
+            var cnt = command.Length;
+            var txBuf = new byte[cnt];
+            for (var i = 0; i < cnt; i++) txBuf[i] = (byte)command[i];
+
+            _serialPort.Write(txBuf, 0, cnt);
+            Log.Information("시리얼 커맨드 전송 완료");
+            await Task.Delay(DelayTime);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Serial Send Failed");
+            OnErrorOccurred($"Command send failed: {ex.Message}");
+            await ConnectPortAsync();
+            throw; // 호출자에게 예외 전파
         }
         finally
         {
@@ -432,7 +441,23 @@ public class SerialCommandService
         _hardwareStatusMessage.Value.BeltStatus = (int)DeviceStatus.Warning;
         _hardwareStatusMessage.Value.LampStatus = (int)DeviceStatus.Warning;
         _hardwareStatusMessage.Value.FeederStatus = (int)DeviceStatus.Warning;
+
+        // 에러 상태도 경고(2)로 설정
+        _errorStatusMessage.Value.EmergencyStop = (int)DeviceStatus.Warning;
+        _errorStatusMessage.Value.LeftBeltError = (int)DeviceStatus.Warning;
+        _errorStatusMessage.Value.RightBeltError = (int)DeviceStatus.Warning;
+
         _messenger.Send(_hardwareStatusMessage);
+        _messenger.Send(_errorStatusMessage);
+
+        Log.Information(
+            "모든 인디케이터를 경고 상태로 설정 - HW(Lamp={Lamp}, Belt={Belt}, Feeder={Feeder}), Err(Emerg={E}, L={L}, R={R})",
+            _hardwareStatusMessage.Value.LampStatus,
+            _hardwareStatusMessage.Value.BeltStatus,
+            _hardwareStatusMessage.Value.FeederStatus,
+            _errorStatusMessage.Value.EmergencyStop,
+            _errorStatusMessage.Value.LeftBeltError,
+            _errorStatusMessage.Value.RightBeltError);
     }
 
     private void OnErrorOccurred(string msg)
@@ -440,30 +465,167 @@ public class SerialCommandService
         _messenger.Send(new SystemMessage(msg));
     }
 
+    // 보드 ID 확인 (bytes[1], bytes[2]를 char로 변환 → "52"=DIO, "50"=FDR)
+    private string GetBoardId(byte[] rentedBuffer)
+    {
+        _boardIdBuilder.Clear();
+        _boardIdBuilder.Append((char)rentedBuffer[1]);
+        _boardIdBuilder.Append((char)rentedBuffer[2]);
+        return _boardIdBuilder.ToString();
+    }
+
+    /// <summary>
+    ///     하드웨어 상태(램프, 벨트)를 처리
+    /// </summary>
+    private void ProcessDioHardwareStatus(byte[] bytes)
+    {
+        var isLampOn = (bytes[8] & 0x01) != 0;
+        var isBeltOn = (bytes[8] & 0x02) != 0;
+
+        Log.Information("램프 상태: {Status} (바이트[8]=0x{Value:X2})", isLampOn ? "ON" : "OFF", bytes[8]);
+        Log.Information("벨트 상태: {Status} (바이트[8]=0x{Value:X2})", isBeltOn ? "ON" : "OFF", bytes[8]);
+
+        _hardwareStatusMessage.Value.LampStatus = isLampOn ? (int)DeviceStatus.Running : (int)DeviceStatus.Stopped;
+        _hardwareStatusMessage.Value.BeltStatus = isBeltOn ? (int)DeviceStatus.Running : (int)DeviceStatus.Stopped;
+    }
+
+    /// <summary>
+    ///     피더 하드웨어 상태를 처리
+    /// </summary>
+    private void ProcessFdrHardwareStatus(byte[] bytes)
+    {
+        var isFeederOn = (bytes[8] & 0x01) != 0;
+
+        Log.Information("피더 상태: {Status} (바이트[8]=0x{Value:X2})", isFeederOn ? "ON" : "OFF", bytes[8]);
+
+        _hardwareStatusMessage.Value.FeederStatus = isFeederOn ? (int)DeviceStatus.Running : (int)DeviceStatus.Stopped;
+    }
+
+    /// <summary>
+    ///     에러 상태를 처리 (긴급정지, 좌/우 벨트 에러)
+    /// </summary>
+    private void ProcessStatus(byte[] bytes)
+    {
+        // 긴급정지 상태 확인 (bit3: 0x08)
+        var emergencyStopStatus = (bytes[6] & 0x08) != 0 ? (int)DeviceStatus.Error : (int)DeviceStatus.Running;
+        Log.Information("긴급정지 상태: {S} (바이트[6]={V})", emergencyStopStatus == (int)DeviceStatus.Error ? "활성화(에러)" : "비활성화(정상)", bytes[6]);
+
+        // 왼쪽 벨트 에러 상태 확인 (bit0: 0x01)
+        var leftBeltErrorStatus = (bytes[6] & 0x01) != 0 ? (int)DeviceStatus.Error : (int)DeviceStatus.Running;
+        Log.Information("왼쪽 벨트 에러: {S} (바이트[6]={V})", leftBeltErrorStatus == (int)DeviceStatus.Error ? "에러" : "정상", bytes[6]);
+
+        // 오른쪽 벨트 에러 상태 확인 (bit1: 0x02)
+        var rightBeltErrorStatus = (bytes[6] & 0x02) != 0 ? (int)DeviceStatus.Error : (int)DeviceStatus.Running;
+        Log.Information("오른쪽 벨트 에러: {S} (바이트[6]={V})", rightBeltErrorStatus == (int)DeviceStatus.Error ? "에러" : "정상", bytes[6]);
+
+        _errorStatusMessage.Value.EmergencyStop = emergencyStopStatus;
+        _errorStatusMessage.Value.LeftBeltError = leftBeltErrorStatus;
+        _errorStatusMessage.Value.RightBeltError = rightBeltErrorStatus;
+
+        // 벨트 에러 발생 시 HardwareStatus도 Error로 변경
+        if (leftBeltErrorStatus == (int)DeviceStatus.Error || rightBeltErrorStatus == (int)DeviceStatus.Error)
+            _hardwareStatusMessage.Value.BeltStatus = (int)DeviceStatus.Error;
+    }
+
+    /// <summary>
+    ///     시리얼포트로부터 데이터 수신 처리
+    /// </summary>
     private void SerialPortDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
-        // 간단한 구현: 데이터 수신 처리 (기존 로직 참조)
-        // 실제로는 바이트 단위 파싱 로직이 필요함 (여기서는 구조만 잡음)
+        byte[]? rentedBuffer = null;
         try
         {
-            int bytesToRead = _serialPort.BytesToRead;
-            byte[] buffer = _bytePool.Rent(bytesToRead);
-            try
+            var bytesToRead = _serialPort.BytesToRead;
+            rentedBuffer = _bytePool.Rent(bytesToRead);
+            var actualRead = _serialPort.Read(rentedBuffer, 0, bytesToRead);
+
+            // 로깅
+            lock (_logSbLock)
             {
-                _serialPort.Read(buffer, 0, bytesToRead);
-                
-                // 간단한 파싱: ID 확인
-                // if (buffer[1] == GlobalVariables.idDIO) ProcessDio(buffer);
-                // else if (buffer[1] == GlobalVariables.idFDR) ProcessFdr(buffer);
+                _hexBuilder.Clear();
+                _byteValuesBuilder.Clear();
+                for (var i = 0; i < actualRead; i++)
+                {
+                    if (i > 0) _hexBuilder.Append('-');
+                    _hexBuilder.Append(rentedBuffer[i].ToString("X2"));
+                    if (i > 0) _byteValuesBuilder.Append(", ");
+                    _byteValuesBuilder.Append("0x").Append(rentedBuffer[i].ToString("X2"));
+                }
+                Log.Information(
+                    "바이트 데이터 - Hex: {Hex}, Base64: {Base64}, Bytes: [{ByteValues}]",
+                    _hexBuilder.ToString(),
+                    Convert.ToBase64String(rentedBuffer, 0, actualRead),
+                    _byteValuesBuilder.ToString());
             }
-            finally
+
+            // ACK 응답(5-6바이트 짧은 패킷)은 무시
+            if (actualRead < 9)
             {
-                _bytePool.Return(buffer);
+                Log.Information("ACK 응답 수신 (패킷 길이: {Length}바이트, 무시)", actualRead);
+                return;
             }
+
+            // 보드 ID로 DIO / FDR 분기 처리
+            var boardId = GetBoardId(rentedBuffer);
+
+            switch (boardId)
+            {
+                case "52": // DIO 보드 (bytes[1]='5'=0x35, bytes[2]='2'=0x32)
+                    Log.Information("DIO 보드 데이터 처리 (패킷 길이: {Length}바이트)", actualRead);
+                    // bytes[6..8]이 ASCII로 오므로 숫자로 변환
+                    for (var i = 6; i <= 8 && i < actualRead; i++)
+                    {
+                        if (rentedBuffer[i] >= 0x30 && rentedBuffer[i] <= 0x39)
+                            rentedBuffer[i] = (byte)(rentedBuffer[i] - 0x30);
+                        else if (rentedBuffer[i] >= 0x41 && rentedBuffer[i] <= 0x46)
+                            rentedBuffer[i] = (byte)(rentedBuffer[i] - 0x41 + 10);
+                    }
+                    ProcessDioHardwareStatus(rentedBuffer);
+                    ProcessStatus(rentedBuffer);
+                    break;
+
+                case "50": // FDR 보드 (bytes[1]='5'=0x35, bytes[2]='0'=0x30)
+                    Log.Information("FDR 보드 데이터 처리 (패킷 길이: {Length}바이트)", actualRead);
+                    // bytes[8]이 ASCII로 오므로 숫자로 변환
+                    if (actualRead > 8)
+                    {
+                        if (rentedBuffer[8] >= 0x30 && rentedBuffer[8] <= 0x39)
+                            rentedBuffer[8] = (byte)(rentedBuffer[8] - 0x30);
+                        else if (rentedBuffer[8] >= 0x41 && rentedBuffer[8] <= 0x46)
+                            rentedBuffer[8] = (byte)(rentedBuffer[8] - 0x41 + 10);
+                    }
+                    ProcessFdrHardwareStatus(rentedBuffer);
+                    break;
+
+                default:
+                    Log.Warning($"알 수 없는 보드 ID: {boardId}");
+                    break;
+            }
+
+            // 최종 메시지 전송
+            _messenger.Send(_errorStatusMessage);
+            _messenger.Send(_hardwareStatusMessage);
+        }
+        catch (System.IO.IOException ioEx)
+        {
+            OnErrorOccurred($"I/O error: {ioEx.Message}");
+        }
+        catch (UnauthorizedAccessException uaEx)
+        {
+            OnErrorOccurred($"Access denied: {uaEx.Message}");
+        }
+        catch (InvalidOperationException invOpEx)
+        {
+            OnErrorOccurred($"Invalid operation: {invOpEx.Message}");
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Serial Receive Error");
+            OnErrorOccurred($"Unknown error: {ex.Message}");
+        }
+        finally
+        {
+            if (rentedBuffer != null)
+                _bytePool.Return(rentedBuffer);
         }
     }
 

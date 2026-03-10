@@ -150,11 +150,25 @@ namespace FlashHSI.Core.Control.Hardware
                     Name = "EtherCAT_RT"
                 };
                 _realTimeThread.Start();
+
+                // 연결 성공 메시지 전송 → HomeViewModel이 수신하여 IsHardwareConnected = true
+                WeakReferenceMessenger.Default.Send(new EtherCATConnectionMessage(new EtherCATConnectionStatus
+                {
+                    IsConnected = true,
+                    TotalChannels = _totalChannels
+                }));
             }
             catch (Exception ex)
             {
                 Log($"Connection Failed: {ex.Message}");
                 _isConnected = false;
+
+                // 연결 실패 메시지 전송 → HomeViewModel이 수신하여 상태 초기화
+                WeakReferenceMessenger.Default.Send(new EtherCATConnectionMessage(new EtherCATConnectionStatus
+                {
+                    IsConnected = false,
+                    ErrorMessage = ex.Message
+                }));
             }
         }
 
@@ -352,6 +366,12 @@ namespace FlashHSI.Core.Control.Hardware
             _master?.Dispose();
             _master = null;
             Log("EtherCAT Disconnected");
+
+            // 연결 해제 메시지 전송 → HomeViewModel이 수신하여 IsHardwareConnected = false
+            WeakReferenceMessenger.Default.Send(new EtherCATConnectionMessage(new EtherCATConnectionStatus
+            {
+                IsConnected = false
+            }));
         }
 
         public async Task ResetAsync()

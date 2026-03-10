@@ -248,7 +248,8 @@ namespace FlashHSI.UI.ViewModels
         [ObservableProperty] private int _feederCount;
         [ObservableProperty] private int _allFeederValue;
         [ObservableProperty] private string _selectedSerialPort = "";
-        [ObservableProperty] private string _feederStatusText = "미연결";
+         [ObservableProperty] private string _feederStatusText = "미연결";
+         [ObservableProperty] private bool _isSerialConnected = false;
 
         /// <ai>AI가 작성함: 피더 리스트 (ObservableCollection)</ai>
         public ObservableCollection<Feeder> FeederList { get; } = new();
@@ -351,6 +352,10 @@ namespace FlashHSI.UI.ViewModels
             _feederCount = s.FeederCount;
             LoadAvailableSerialPorts();
             FeedersInit();
+
+            // AI가 추가함: 저장된 포트가 있으면 앱 시작 시 자동으로 시리얼 연결 시도 (HSIClient 동일 방식)
+            if (!string.IsNullOrEmpty(_selectedSerialPort))
+                _ = ConnectSerialPortAsync();
         }
 
         /// <summary>
@@ -1862,18 +1867,20 @@ namespace FlashHSI.UI.ViewModels
             AirGunStatusText = "Disconnected";
         }
 
-        /// <ai>AI가 작성함: 마스터 ON/OFF 토글</ai>
+        /// <ai>AI가 작성함: EtherCAT 리셋</ai>
         [RelayCommand]
-        private void ToggleMaster()
+        private async Task ResetEtherCATAsync()
         {
             if (!_etherCATService.IsConnected)
             {
                 AirGunStatusText = "EtherCAT 미연결 상태";
                 return;
             }
-            var newState = !_etherCATService.IsMasterOn;
-            _etherCATService.SetMasterOn(newState);
-            IsMasterOn = newState;
+            AirGunStatusText = "리셋 중...";
+            await _etherCATService.ResetAsync();
+            IsEtherCATConnected = false;
+            IsMasterOn = false;
+            AirGunStatusText = "EtherCAT 리셋 완료";
         }
 
         /// <ai>AI가 작성함: 전체 채널 순차 테스트</ai>
@@ -1988,28 +1995,32 @@ namespace FlashHSI.UI.ViewModels
             LoadAvailableSerialPorts();
         }
 
-        /// <ai>AI가 작성함: 시리얼 포트 연결 및 피더 StartUp 실행</ai>
+        /// <ai>AI가 작성함: 시리얼 포트 연결 및 피더 StartUp 실행 (앱 시작 자동 연결 + 버튼 수동 연결 공용)</ai>
         [RelayCommand]
         private async Task ConnectSerialPortAsync()
         {
             if (string.IsNullOrEmpty(SelectedSerialPort))
             {
+                IsSerialConnected = false;
                 FeederStatusText = "시리얼 포트를 선택해주세요";
                 return;
             }
 
             try
             {
+                IsSerialConnected = false;
                 FeederStatusText = "연결 중...";
                 var feederValues = FeederList.Select(f => f.FeederValue).ToList();
                 await _serialCommandService.StartUp(SelectedSerialPort, FeederCount, feederValues);
+                IsSerialConnected = true;
                 FeederStatusText = $"연결됨: {SelectedSerialPort}";
                 Log.Information("시리얼 포트 연결 완료: {Port}", SelectedSerialPort);
             }
             catch (Exception ex)
             {
+                IsSerialConnected = false;
                 FeederStatusText = $"연결 실패: {ex.Message}";
-                Log.Error(ex, "시리얼 포트 연결 실패");
+                Log.Error(ex, "시리얼 포트 연결 실패: {Port}", SelectedSerialPort);
             }
         }
 

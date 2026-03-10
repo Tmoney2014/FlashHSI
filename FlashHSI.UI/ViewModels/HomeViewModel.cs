@@ -155,13 +155,32 @@ namespace FlashHSI.UI.ViewModels
             // AI가 추가함: 사출 신호 → 실제 에어건 발사
             _hsiEngine.EjectionOccurred += OnEjectionOccurred;
             
-            // AI가 추가함: HardwareStatusMessage 수신 → 램프 온도 인디케이터 업데이트
+            // AI가 추가함: HardwareStatusMessage 수신 → 실제 하드웨어 상태로 UI 동기화 + 램프 온도 업데이트
             _messenger.Register<HardwareStatusMessage>(this, (r, m) =>
             {
                 _lastHardwareStatus = m.Value;
+                // 시리얼에서 수신된 실제 ON/OFF 상태로 버튼 상태 동기화 (HSIClient 동일 방식)
+                IsBeltOn   = m.Value.BeltStatus   == (int)Core.Enums.DeviceStatus.Running;
+                IsLampOn   = m.Value.LampStatus   == (int)Core.Enums.DeviceStatus.Running;
+                IsFeederOn = m.Value.FeederStatus == (int)Core.Enums.DeviceStatus.Running;
                 UpdateLampIndicator();
             });
             
+            // EtherCATConnectionMessage 수신 → IsHardwareConnected 동기화 (메시지 기반 MVVM 패턴)
+            _messenger.Register<EtherCATConnectionMessage>(this, (r, m) =>
+            {
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    IsHardwareConnected = m.Value.IsConnected;
+                    if (m.Value.IsConnected)
+                        SendStatus($"Hardware Connected (채널 수: {m.Value.TotalChannels})");
+                    else if (!string.IsNullOrEmpty(m.Value.ErrorMessage))
+                        SendStatus($"Hardware 연결 실패: {m.Value.ErrorMessage}");
+                    else
+                        SendStatus("Hardware Disconnected");
+                });
+            });
+
             // AI가 추가함: ErrorStatusMessage 수신 → 에러 인디케이터 업데이트
             _messenger.Register<ErrorStatusMessage>(this, (r, m) =>
             {
@@ -260,18 +279,14 @@ namespace FlashHSI.UI.ViewModels
         {
             if (IsHardwareConnected)
             {
-                _hardwareService.DisconnectAsync();
-                IsHardwareConnected = false;
-                SendStatus("Hardware Disconnected");
+                // 연결 해제 — 결과는 EtherCATConnectionMessage로 수신
+                _ = _hardwareService.DisconnectAsync();
             }
             else
             {
+                // 연결 시도 — 결과는 EtherCATConnectionMessage로 비동기 수신
+                SendStatus("Hardware 연결 중...");
                 _hardwareService.Connect("이더넷");
-                if(_hardwareService.IsConnected)
-                {
-                    IsHardwareConnected = true;
-                    SendStatus("Hardware Connected");
-                }
             }
         }
         
@@ -284,6 +299,7 @@ namespace FlashHSI.UI.ViewModels
                 if (IsFeederOn)
                 {
                     await _serialService.FeederPowerOffCommandAsync();
+                    await Task.Delay(2000); // HSIClient 동일: 명령 후 하드웨어 응답 대기
                     IsFeederOn = false;
                     SendStatus("피더 전원 OFF");
                 }
@@ -309,6 +325,7 @@ namespace FlashHSI.UI.ViewModels
                 if (IsBeltOn)
                 {
                     await _serialService.BeltOffCommandAsync();
+                    await Task.Delay(2000); // HSIClient 동일: 명령 후 하드웨어 응답 대기
                     IsBeltOn = false;
                     SendStatus("벨트 OFF");
                 }
@@ -334,6 +351,7 @@ namespace FlashHSI.UI.ViewModels
                 if (IsLampOn)
                 {
                     await _serialService.LampOffCommandAsync();
+                    await Task.Delay(2000); // HSIClient 동일: 명령 후 하드웨어 응답 대기
                     IsLampOn = false;
                     SendStatus("램프 OFF");
                 }

@@ -692,15 +692,12 @@
                             </StackPanel>
                         </materialDesign:Card>
 
-                        <!-- AI가 추가함: Master Control 카드 -->
+                        <!-- AI가 추가함: EtherCAT Reset 카드 -->
                         <materialDesign:Card Padding="16" Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock Text="Master Control" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
-                                <DockPanel>
-                                    <TextBlock Text="Master ON/OFF" Width="180" VerticalAlignment="Center"/>
-                                    <ToggleButton IsChecked="{Binding IsMasterOn}" Command="{Binding ToggleMasterCommand}"
-                                                  Style="{StaticResource MaterialDesignSwitchToggleButton}" DockPanel.Dock="Right"/>
-                                </DockPanel>
+                                <TextBlock Text="EtherCAT Reset" Style="{StaticResource MaterialDesignHeadline6TextBlock}" Margin="0,0,0,16"/>
+                                <Button Content="Reset EtherCAT" Command="{Binding ResetEtherCATCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
                             </StackPanel>
                         </materialDesign:Card>
 
@@ -854,7 +851,7 @@
                                     <TextBlock Text="Background Threshold" Width="200" VerticalAlignment="Center"/>
                                     <!-- ViewModel 연결된 TextBox: 실제 적용 값 표시 -->
                                     <TextBox x:Name="AppliedValueTextBox" Text="{Binding BackgroundThreshold, StringFormat=F2}" Width="100" DockPanel.Dock="Right" TextAlignment="Right"
-                                             behaviors:NumericOnlyBehavior.IsEnabled="True" MaxLength="10" Opacity="1"/>
+                                             behaviors:NumericOnlyBehavior.IsEnabled="True" />
                                     <Slider x:Name="BackgroundThresholdSlider" Minimum="0" Maximum="65535" Value="{Binding BackgroundThreshold, UpdateSourceTrigger=Explicit}" 
                                             TickFrequency="1" IsSnapToTickEnabled="False" VerticalAlignment="Center"
                                             SmallChange="1" LargeChange="100" behaviors:SliderValuePopupBehavior.Format="F2">
@@ -1079,10 +1076,36 @@
 
                                 <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" Command="{Binding ConnectSerialPortCommand}" Content="Connect" Margin="0,0,8,0"
-                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <Button Grid.Column="0" Command="{Binding ConnectSerialPortCommand}" Margin="0,0,8,0"
+                                            Style="{StaticResource MaterialDesignRaisedButton}">
+                                        <Button.Content>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Connect"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSerialConnected}" Value="True">
+                                                                <Setter Property="Text" Value="Reconnect"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button.Content>
+                                    </Button>
                                     <!-- Disconnect는 ShutDown 메서드가 필요하나 현재 UI에서 필요 시 추가 가능 -->
-                                    <TextBlock Grid.Column="1" Text="{Binding FeederStatusText}" VerticalAlignment="Center" Foreground="Gray" FontSize="12" Margin="8,0,0,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding FeederStatusText}" VerticalAlignment="Center" FontSize="12" Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSerialConnected}" Value="True">
+                                                        <Setter Property="Foreground" Value="#4CAF50"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Grid>
                             </StackPanel>
                         </materialDesign:Card>

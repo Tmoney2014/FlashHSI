@@ -143,17 +143,96 @@ namespace FlashHSI.Core.Pipelines
             }
             SetFeatureExtractor(extractor);
 
-            // 3. Preprocessors (Raw Domain)
-            if (config.Preprocessing.ApplySNV) AddRawProcessor(new SnvProcessor());
-            if (config.Preprocessing.ApplyMinMax) AddRawProcessor(new MinMaxProcessor());
-            
-            // 4. Preprocessors (Feature Domain) - Legacy L2
-            if (config.Preprocessing.ApplyL2) AddProcessor(new L2NormalizeProcessor());
+            // AI가 수정함: PrepChainOrder가 있으면 Python 학습 순서 그대로 전처리 적용 (패리티 보장)
+            // PrepChainOrder 없으면 기존 하드코딩 순서로 폴백 (하위 호환)
+            if (config.PrepChainOrder != null && config.PrepChainOrder.Count > 0)
+            {
+                RegisterProcessorsByChainOrder(config);
+            }
+            else
+            {
+                RegisterProcessorsLegacy(config);
+            }
 
             // 5. Configure
             // Note: rawBandCount is usually unknown here until file load. 
             // So we might need to Re-Configure later. But we can set SelectedBands.
             // HsiEngine calls Configure again on file load, so this is fine.
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// Python PrepChainOrder 순서에 따라 전처리기를 등록합니다.
+        /// 규칙:
+        ///   - SG → 항상 Raw Domain (스펙트럼 평활화)
+        ///   - SimpleDeriv / Absorbance → Feature Extractor가 처리 (건너뜀)
+        ///   - SNV, MinMax, L2, MinSub, Center → SimpleDeriv/Absorbance 이전이면 Raw, 이후면 Feature Domain
+        /// </summary>
+        private void RegisterProcessorsByChainOrder(ModelConfig config)
+        {
+            bool passedExtraction = false;  // SimpleDeriv 또는 Absorbance를 넘었는지 여부
+
+            foreach (string stepName in config.PrepChainOrder)
+            {
+                switch (stepName)
+                {
+                    case "SG":
+                        // SG는 항상 Raw Domain
+                        if (config.Preprocessing.ApplySG)
+                            AddRawProcessor(new SavitzkyGolayProcessor(config.Preprocessing.SGWin, config.Preprocessing.SGPoly));
+                        break;
+
+                    case "SimpleDeriv":
+                    case "Absorbance":
+                        // Feature Extractor가 담당 — 마커만 설정
+                        passedExtraction = true;
+                        break;
+
+                    case "SNV":
+                        if (config.Preprocessing.ApplySNV)
+                            RegisterByDomain(new SnvProcessor(), passedExtraction);
+                        break;
+
+                    case "MinMax":
+                        if (config.Preprocessing.ApplyMinMax)
+                            RegisterByDomain(new MinMaxProcessor(), passedExtraction);
+                        break;
+
+                    case "L2":
+                        if (config.Preprocessing.ApplyL2)
+                            RegisterByDomain(new L2NormalizeProcessor(), passedExtraction);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// passedExtraction에 따라 Raw 또는 Feature Domain에 전처리기를 등록합니다.
+        /// </summary>
+        private void RegisterByDomain(IHsiFrameProcessor processor, bool featureDomain)
+        {
+            if (featureDomain)
+                AddProcessor(processor);
+            else
+                AddRawProcessor(processor);
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// PrepChainOrder 없는 구형 model.json 하위 호환 등록 방식.
+        /// SG → Raw Domain, SNV → Raw, MinMax → Raw, L2 → Feature Domain.
+        /// </summary>
+        private void RegisterProcessorsLegacy(ModelConfig config)
+        {
+            // Raw Domain
+            if (config.Preprocessing.ApplySG)
+                AddRawProcessor(new SavitzkyGolayProcessor(config.Preprocessing.SGWin, config.Preprocessing.SGPoly));
+            if (config.Preprocessing.ApplySNV) AddRawProcessor(new SnvProcessor());
+            if (config.Preprocessing.ApplyMinMax) AddRawProcessor(new MinMaxProcessor());
+            
+            // Feature Domain (Legacy L2)
+            if (config.Preprocessing.ApplyL2) AddProcessor(new L2NormalizeProcessor());
         }
     }
 }

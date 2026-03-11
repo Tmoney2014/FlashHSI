@@ -39,7 +39,7 @@ namespace FlashHSI.Core.Preprocessing
 
             for (int i = 0; i < _count; i++)
             {
-                // Forward Difference: GapIdx = Target + Shift
+                // GapIdx = Target + Shift (Target: 기준 밴드, Gap: 이웃 밴드)
                 int gapIdx = _targetIndices[i] + _gapShift;
                 if (gapIdx >= rawBandCount) gapIdx = rawBandCount - 1; // Clamp to max
                 _gapIndices[i] = gapIdx;
@@ -78,8 +78,11 @@ namespace FlashHSI.Core.Preprocessing
                     valGap = (denomG > Epsilon) ? (valGap - darkG) / denomG : Epsilon;
                 }
 
-                // Forward Difference: Log(Gap/Target) -> Band[i+Gap] / Band[i]
-                output[i] = Math.Log10((valGap + Epsilon) / (valTarget + Epsilon));
+                // AI가 수정함: Python 패리티 일치 (log10(Target/Gap) = log10(A/B))
+                // Python: apply_absorbance(-log10(R)) 후 SimpleDeriv(B-A) = log10(R_target/R_gap)
+                // C# 기존: log10(valGap / valTarget) → 부호 반전
+                // C# 수정: log10(valTarget / valGap) — Python 학습 결과와 동일한 방향
+                output[i] = Math.Log10((valTarget + Epsilon) / (valGap + Epsilon));
             }
         }
     }

@@ -8,6 +8,9 @@ namespace FlashHSI.Core
         // AI가 추가함: 모델이 필요로 하는 정확한 Raw 밴드 인덱스 (MROI 자동 구성용)
         public List<int> RequiredRawBands { get; set; } = new();
         public string ExcludeBands { get; set; } = string.Empty;
+        // AI가 추가함: Python prep_chain 적용 순서 — HsiPipeline이 이 순서대로 전처리를 적용함
+        // 예: ["SG", "SimpleDeriv", "L2"] — Python learning_service.py의 PrepChainOrder 필드와 대응
+        public List<string> PrepChainOrder { get; set; } = new();
         public List<List<double>> Weights { get; set; } = new();
         public List<double> Bias { get; set; } = new();
         public bool IsMultiClass { get; set; }

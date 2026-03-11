@@ -19,8 +19,13 @@ namespace FlashHSI.Tests
                 Weights = new List<List<double>>(),
                 Bias = new List<double>()
             };
-            config.Weights.Add(new List<double> { 10.0 }); // Class 0 (Positive Weight)
-            config.Weights.Add(new List<double> { -10.0 }); // Class 1 (Negative Weight)
+            // AI가 수정함: LogGap 부호 수정 반영 (log10(Target/Gap))
+            // gapShift=-1 → gapIdx=9, input[10]=200(Target), input[9]=100(Gap)
+            // Feat = log10(200/100) = log10(2) ≈ +0.301
+            // Class 0 Score: -10 * 0.301 = -3.01
+            // Class 1 Score: +10 * 0.301 = +3.01 → Winner = Class 1 ✅
+            config.Weights.Add(new List<double> { -10.0 }); // Class 0 (Negative Weight)
+            config.Weights.Add(new List<double> { 10.0 });  // Class 1 (Positive Weight)
             config.Bias.Add(0.0);
             config.Bias.Add(0.0);
 
@@ -33,20 +38,8 @@ namespace FlashHSI.Tests
             pipeline.SetClassifier(classifier);
 
             // 2. Feature Extractor (LogGap)
-            var extractor = new LogGapFeatureExtractor(gapShift: 0);
-            // Gap=0 means Feature = Log(Target/Target) = Log(1) = 0?
-            // Wait, Log(Gap/Target). If Gap=Target, Log(1)=0.
-            // Features = 0.
-            // Scores = 0.
-            // Result? Tie.
-
-            // Let's use Gap=1, Band=10. GapBand=9.
-            // Input: Band 10 = 200, Band 9 = 100.
-            // Feat = Log(100/200) = -0.693.
-            // Class 0 Score: 10 * -0.693 = -6.93
-            // Class 1 Score: -10 * -0.693 = +6.93 -> Winner.
-
-            extractor = new LogGapFeatureExtractor(gapShift: 1);
+            // gapShift=-1: GapBand = SelectedBand(10) + (-1) = 9
+            var extractor = new LogGapFeatureExtractor(gapShift: -1);
             pipeline.SetFeatureExtractor(extractor);
 
             // Configure
@@ -55,7 +48,7 @@ namespace FlashHSI.Tests
             // Input Data (200 Bands)
             ushort[] input = new ushort[200];
             input[10] = 200; // Target
-            input[9] = 100;  // Gap
+            input[9] = 100;  // Gap (index 10 + shift(-1) = 9)
 
             // Act
             int result = -1;

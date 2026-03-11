@@ -43,6 +43,7 @@ namespace FlashHSI.Core.Services
 
         public void AddFrame(ushort[] data, int width, int height)
         {
+            int count;
             lock (_captureBuffer)
             {
                 var copy = new ushort[data.Length];
@@ -50,45 +51,51 @@ namespace FlashHSI.Core.Services
                 _captureBuffer.Add(copy);
                 _captureWidth = width;
                 _captureHeight = height;
-                int count = _captureBuffer.Count;
-                CapturedFrameCountChanged?.Invoke(count);
+                count = _captureBuffer.Count;
             }
+            // AI가 수정함: 데드락 방지 — lock 밖에서 이벤트 발행 (구독자가 Dispatcher.InvokeAsync 호출 가능)
+            CapturedFrameCountChanged?.Invoke(count);
         }
 
         public (List<ushort[]> frames, int width, int height) GetCapturedDataAndClear()
         {
+            List<ushort[]> frames;
+            int w, h;
             lock (_captureBuffer)
             {
-                var frames = new List<ushort[]>(_captureBuffer);
-                int w = _captureWidth;
-                int h = _captureHeight;
+                frames = new List<ushort[]>(_captureBuffer);
+                w = _captureWidth;
+                h = _captureHeight;
                 _captureBuffer.Clear();
-                CapturedFrameCountChanged?.Invoke(0);
-                return (frames, w, h);
             }
+            // AI가 수정함: 데드락 방지 — lock 밖에서 이벤트 발행
+            CapturedFrameCountChanged?.Invoke(0);
+            return (frames, w, h);
         }
 
         public async Task SaveCaptureAsync(string baseName, string captureDirectory, List<ushort[]> frames, string? whiteRefPath, string? darkRefPath, int width, int height, ICameraService cameraService)
         {
             try
             {
-                // 타임스탬프 기반 전용 폴더 생성
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string folderName = $"{baseName}_{timestamp}";
-                string targetDir = Path.Combine(captureDirectory, folderName);
-
-                if (!Directory.Exists(targetDir))
-                {
-                    Directory.CreateDirectory(targetDir);
-                }
-
-                // 1. 원료 파일 경로 설정
-                string rawPath = Path.Combine(targetDir, $"{folderName}.raw");
-                string hdrPath = Path.Combine(targetDir, $"{folderName}.hdr");
-
-                // 바이너리 데이터 저장 (백그라운드 스레드)
+                // AI가 수정함: 모든 파일 IO를 Task.Run 안으로 통합 — UI 스레드 블로킹 완전 차단
+                // (await 이후 SynchronizationContext 복귀 없이 백그라운드 스레드에서 전체 처리)
                 await Task.Run(() =>
                 {
+                    // 타임스탬프 기반 전용 폴더 생성
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    string folderName = $"{baseName}_{timestamp}";
+                    string targetDir = Path.Combine(captureDirectory, folderName);
+
+                    if (!Directory.Exists(targetDir))
+                    {
+                        Directory.CreateDirectory(targetDir);
+                    }
+
+                    // 1. 원료 파일 경로 설정
+                    string rawPath = Path.Combine(targetDir, $"{folderName}.raw");
+                    string hdrPath = Path.Combine(targetDir, $"{folderName}.hdr");
+
+                    // 바이너리 데이터 저장
                     using var fs = new FileStream(rawPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536);
                     using var bw = new BinaryWriter(fs);
 
@@ -99,60 +106,62 @@ namespace FlashHSI.Core.Services
                             bw.Write(val);
                         }
                     }
-                });
 
-                // ENVI 헤더 파일 생성 (.hdr)
-                CreateEnviHeader(hdrPath, baseName, frames.Count, width, height, cameraService);
+                    bw.Flush();
 
-                // 2. White Reference 복사 (원본 보존)
-                if (!string.IsNullOrEmpty(whiteRefPath) && File.Exists(whiteRefPath))
-                {
-                    try
+                    // ENVI 헤더 파일 생성 (.hdr)
+                    CreateEnviHeader(hdrPath, baseName, frames.Count, width, height, cameraService);
+
+                    // 2. White Reference 복사 (원본 보존)
+                    if (!string.IsNullOrEmpty(whiteRefPath) && File.Exists(whiteRefPath))
                     {
-                        string sourceWhiteDir = Path.GetDirectoryName(whiteRefPath) ?? "";
-                        string sourceWhiteName = Path.GetFileNameWithoutExtension(whiteRefPath);
-                        string sourceWhiteRaw = Path.Combine(sourceWhiteDir, $"{sourceWhiteName}.raw");
-
-                        string targetWhiteHdr = Path.Combine(targetDir, $"whiteref_{folderName}.hdr");
-                        string targetWhiteRaw = Path.Combine(targetDir, $"whiteref_{folderName}.raw");
-
-                        File.Copy(whiteRefPath, targetWhiteHdr, true);
-                        if (File.Exists(sourceWhiteRaw))
+                        try
                         {
-                            File.Copy(sourceWhiteRaw, targetWhiteRaw, true);
+                            string sourceWhiteDir = Path.GetDirectoryName(whiteRefPath) ?? "";
+                            string sourceWhiteName = Path.GetFileNameWithoutExtension(whiteRefPath);
+                            string sourceWhiteRaw = Path.Combine(sourceWhiteDir, $"{sourceWhiteName}.raw");
+
+                            string targetWhiteHdr = Path.Combine(targetDir, $"whiteref_{folderName}.hdr");
+                            string targetWhiteRaw = Path.Combine(targetDir, $"whiteref_{folderName}.raw");
+
+                            File.Copy(whiteRefPath, targetWhiteHdr, true);
+                            if (File.Exists(sourceWhiteRaw))
+                            {
+                                File.Copy(sourceWhiteRaw, targetWhiteRaw, true);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warning(ex, $"Failed to copy White Reference to {targetDir}");
                         }
                     }
-                    catch (Exception ex)
+
+                    // 3. Dark Reference 복사 (원본 보존)
+                    if (!string.IsNullOrEmpty(darkRefPath) && File.Exists(darkRefPath))
                     {
-                        Log.Warning(ex, $"Failed to copy White Reference to {targetDir}");
-                    }
-                }
-
-                // 3. Dark Reference 복사 (원본 보존)
-                if (!string.IsNullOrEmpty(darkRefPath) && File.Exists(darkRefPath))
-                {
-                    try
-                    {
-                        string sourceDarkDir = Path.GetDirectoryName(darkRefPath) ?? "";
-                        string sourceDarkName = Path.GetFileNameWithoutExtension(darkRefPath);
-                        string sourceDarkRaw = Path.Combine(sourceDarkDir, $"{sourceDarkName}.raw");
-
-                        string targetDarkHdr = Path.Combine(targetDir, $"darkref_{folderName}.hdr");
-                        string targetDarkRaw = Path.Combine(targetDir, $"darkref_{folderName}.raw");
-
-                        File.Copy(darkRefPath, targetDarkHdr, true);
-                        if (File.Exists(sourceDarkRaw))
+                        try
                         {
-                            File.Copy(sourceDarkRaw, targetDarkRaw, true);
+                            string sourceDarkDir = Path.GetDirectoryName(darkRefPath) ?? "";
+                            string sourceDarkName = Path.GetFileNameWithoutExtension(darkRefPath);
+                            string sourceDarkRaw = Path.Combine(sourceDarkDir, $"{sourceDarkName}.raw");
+
+                            string targetDarkHdr = Path.Combine(targetDir, $"darkref_{folderName}.hdr");
+                            string targetDarkRaw = Path.Combine(targetDir, $"darkref_{folderName}.raw");
+
+                            File.Copy(darkRefPath, targetDarkHdr, true);
+                            if (File.Exists(sourceDarkRaw))
+                            {
+                                File.Copy(sourceDarkRaw, targetDarkRaw, true);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warning(ex, $"Failed to copy Dark Reference to {targetDir}");
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, $"Failed to copy Dark Reference to {targetDir}");
-                    }
-                }
 
-                Log.Information($"Capture saved successfully to directory: {targetDir}");
+                    Log.Information($"Capture saved successfully to directory: {targetDir}");
+                }).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

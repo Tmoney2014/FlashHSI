@@ -83,9 +83,10 @@ namespace FlashHSI.UI.ViewModels
             };
 
             // AI가 추가함: 캡처 서비스의 프레임 수 업데이트 구독
+            // AI가 수정함: 데드락 방지 — Invoke(동기) → InvokeAsync(비동기)
             _captureService.CapturedFrameCountChanged += (count) =>
             {
-                Application.Current.Dispatcher.Invoke(() => CapturedFrameCount = count);
+                Application.Current.Dispatcher.InvokeAsync(() => CapturedFrameCount = count);
             };
 
             Log.Information("LiveViewModel 생성됨");
@@ -376,9 +377,10 @@ namespace FlashHSI.UI.ViewModels
         [RelayCommand]
         private async Task ToggleCapture()
         {
-            if (!IsLive)
+            // AI가 수정함: 라이브 또는 시뮬레이션 중 어느 쪽이든 캡처 허용
+            if (!IsLive && !IsSimulating)
             {
-                SendStatus("먼저 라이브 스트리밍을 시작하세요");
+                SendStatus("먼저 라이브 스트리밍 또는 시뮬레이션을 시작하세요");
                 return;
             }
 
@@ -450,7 +452,8 @@ namespace FlashHSI.UI.ViewModels
                     height: height,
                     cameraService: _cameraService);
 
-                Application.Current.Dispatcher.Invoke(() =>
+                // AI가 수정함: Invoke(동기) → InvokeAsync(비동기) — UI 데드락 방지
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     MessageBox.Show($"캡처 완료 ({frames.Count} 프레임)\n저장 폴더:\n{captureDir}", "캡처 성공", MessageBoxButton.OK, MessageBoxImage.Information);
                 });
@@ -466,7 +469,8 @@ namespace FlashHSI.UI.ViewModels
             {
                 SendStatus($"캡처 저장 실패: {ex.Message}");
                 Log.Error(ex, "캡처 파일 저장 실패");
-                Application.Current.Dispatcher.Invoke(() =>
+                // AI가 수정함: Invoke(동기) → InvokeAsync(비동기) — UI 데드락 방지
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     MessageBox.Show($"캡처 저장 중 오류가 발생했습니다.\n\n{ex.Message}", "캡처 오류", MessageBoxButton.OK, MessageBoxImage.Error);
                 });

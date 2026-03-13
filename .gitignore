@@ -89,3 +89,6 @@ FlashHSI.UI/Params.txt
 
 # Agent
 .agent/
+
+# --- Windows null device artifact (Git Bash에서 2>nul 리다이렉트 시 생성됨) ---
+nul

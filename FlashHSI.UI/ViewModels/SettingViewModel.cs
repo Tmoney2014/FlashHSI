@@ -1150,6 +1150,8 @@ namespace FlashHSI.UI.ViewModels
                     Log.Information("카메라 ExposureTime 설정: {Value} μs", value);
                     // AI가 추가함: ExposureTime 변경 후 FPS와 서로 영향을 주므로 범위 다시 스캔
                     await UpdateCameraParameterRangesAsync();
+                    // AI가 추가함: 범위 갱신 후 반대편 값이 새 범위를 초과하면 clamp 적용
+                    await ClampAndApplyIfNeededAsync();
                 }
                 SettingsService.Instance.Settings.CameraExposureTime = value;
                 SettingsService.Instance.Save();
@@ -1170,6 +1172,8 @@ namespace FlashHSI.UI.ViewModels
                     Log.Information("카메라 FrameRate 설정: {Value} FPS", value);
                     // AI가 추가함: FPS 변경 후 ExposureTime과 서로 영향을 주므로 범위 다시 스캔
                     await UpdateCameraParameterRangesAsync();
+                    // AI가 추가함: 범위 갱신 후 반대편 값이 새 범위를 초과하면 clamp 적용
+                    await ClampAndApplyIfNeededAsync();
                 }
                 SettingsService.Instance.Settings.CameraFrameRate = value;
                 SettingsService.Instance.Save();
@@ -1177,6 +1181,44 @@ namespace FlashHSI.UI.ViewModels
             catch (Exception ex)
             {
                 Log.Warning(ex, "카메라 FrameRate 설정 실패");
+            }
+        }
+
+        /// <summary>
+        /// <ai>AI가 작성함</ai>
+        /// 범위 재조회 후 현재 ExposureTime/FrameRate가 새 범위를 벗어났을 때만 clamp 적용.
+        /// UpdateCameraParameterRangesAsync() 호출 직후에만 사용할 것.
+        /// </summary>
+        private async Task ClampAndApplyIfNeededAsync()
+        {
+            if (!_cameraService.IsConnected) return;
+
+            // 1. ExposureTime 체크
+            double clampedExp = Math.Clamp(CameraExposureTime, CameraExposureMin, CameraExposureMax);
+            if (Math.Abs(clampedExp - CameraExposureTime) > 0.001)
+            {
+                Log.Warning("ExposureTime 범위 초과 ({Old} μs) → clamp 적용: {New} μs [범위: {Min}~{Max}]",
+                    CameraExposureTime, clampedExp, CameraExposureMin, CameraExposureMax);
+                _isSuppressingCameraChanges = true;
+                CameraExposureTime = clampedExp;
+                _isSuppressingCameraChanges = false;
+                await _cameraService.SetParameterAsync("ExposureTime", clampedExp);
+                SettingsService.Instance.Settings.CameraExposureTime = clampedExp;
+                SettingsService.Instance.Save();
+            }
+
+            // 2. FrameRate 체크
+            double clampedFps = Math.Clamp(CameraFrameRate, CameraFpsMin, CameraFpsMax);
+            if (Math.Abs(clampedFps - CameraFrameRate) > 0.001)
+            {
+                Log.Warning("FrameRate 범위 초과 ({Old} FPS) → clamp 적용: {New} FPS [범위: {Min}~{Max}]",
+                    CameraFrameRate, clampedFps, CameraFpsMin, CameraFpsMax);
+                _isSuppressingCameraChanges = true;
+                CameraFrameRate = clampedFps;
+                _isSuppressingCameraChanges = false;
+                await _cameraService.SetParameterAsync("AcquisitionFrameRate", clampedFps);
+                SettingsService.Instance.Settings.CameraFrameRate = clampedFps;
+                SettingsService.Instance.Save();
             }
         }
 

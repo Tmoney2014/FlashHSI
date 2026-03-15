@@ -26,4 +26,21 @@
     <ProjectReference Include="..\FlashHSI.Core\FlashHSI.Core.csproj" />
   </ItemGroup>
 
+  <!-- Pleora eBUS SDK 네이티브 DLL — Core/libs/ 에서 실행 폴더로 자동 복사 -->
+  <!-- 파일이 없는 경우 조용히 건너뜀 (Condition 적용) -->
+  <ItemGroup>
+    <None Include="..\FlashHSI.Core\libs\PvAppUtils64.dll"       Condition="Exists('..\FlashHSI.Core\libs\PvAppUtils64.dll')">       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvAppUtils64.dll</Link>       </None>
+    <None Include="..\FlashHSI.Core\libs\PvBase64.dll"            Condition="Exists('..\FlashHSI.Core\libs\PvBase64.dll')">            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvBase64.dll</Link>            </None>
+    <None Include="..\FlashHSI.Core\libs\PvBuffer64.dll"          Condition="Exists('..\FlashHSI.Core\libs\PvBuffer64.dll')">          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvBuffer64.dll</Link>          </None>
+    <None Include="..\FlashHSI.Core\libs\PvCameraBridge64.dll"    Condition="Exists('..\FlashHSI.Core\libs\PvCameraBridge64.dll')">    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvCameraBridge64.dll</Link>    </None>
+    <None Include="..\FlashHSI.Core\libs\PvDevice64.dll"          Condition="Exists('..\FlashHSI.Core\libs\PvDevice64.dll')">          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvDevice64.dll</Link>          </None>
+    <None Include="..\FlashHSI.Core\libs\PvGenICam64.dll"         Condition="Exists('..\FlashHSI.Core\libs\PvGenICam64.dll')">         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvGenICam64.dll</Link>         </None>
+    <None Include="..\FlashHSI.Core\libs\PvPersistence64.dll"     Condition="Exists('..\FlashHSI.Core\libs\PvPersistence64.dll')">     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvPersistence64.dll</Link>     </None>
+    <None Include="..\FlashHSI.Core\libs\PvSerial64.dll"          Condition="Exists('..\FlashHSI.Core\libs\PvSerial64.dll')">          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvSerial64.dll</Link>          </None>
+    <None Include="..\FlashHSI.Core\libs\PvStream64.dll"          Condition="Exists('..\FlashHSI.Core\libs\PvStream64.dll')">          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvStream64.dll</Link>          </None>
+    <None Include="..\FlashHSI.Core\libs\PvSystem64.dll"          Condition="Exists('..\FlashHSI.Core\libs\PvSystem64.dll')">          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvSystem64.dll</Link>          </None>
+    <None Include="..\FlashHSI.Core\libs\PvTransmitter64.dll"     Condition="Exists('..\FlashHSI.Core\libs\PvTransmitter64.dll')">     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvTransmitter64.dll</Link>     </None>
+    <None Include="..\FlashHSI.Core\libs\PvVirtualDevice64.dll"   Condition="Exists('..\FlashHSI.Core\libs\PvVirtualDevice64.dll')">   <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory> <Link>PvVirtualDevice64.dll</Link>   </None>
+  </ItemGroup>
+
 </Project>

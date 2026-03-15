@@ -116,8 +116,8 @@ dotnet run --project FlashHSI.UI/FlashHSI.UI.csproj
 
 ## 완료 체크리스트
 
-- [ ] `FlashHSI.Core/libs/`에 10개 네이티브 DLL 복사
-- [ ] `dotnet build` 성공 확인
+- [x] `FlashHSI.Core/libs/`에 12개 네이티브 DLL 복사
+- [x] `dotnet build` 성공 확인 (오류 0개)
 - [ ] 앱 실행 시 `PvDotNet.dll` 로드 에러 없음 확인
 - [ ] git commit (`chore: Pleora 네이티브 DLL libs에 추가`)
 

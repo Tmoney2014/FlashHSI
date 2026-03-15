@@ -26,4 +26,45 @@
     </Reference>
   </ItemGroup>
 
+  <!-- Pleora eBUS SDK 네이티브 DLL — libs/ 에 파일을 넣으면 빌드 시 출력 폴더로 자동 복사됨 -->
+  <!-- 파일이 없는 경우 복사를 건너뜀 (Condition 적용) -->
+  <ItemGroup>
+    <None Include="libs\PvAppUtils64.dll" Condition="Exists('libs\PvAppUtils64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvBase64.dll" Condition="Exists('libs\PvBase64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvBuffer64.dll" Condition="Exists('libs\PvBuffer64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvCameraBridge64.dll" Condition="Exists('libs\PvCameraBridge64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvDevice64.dll" Condition="Exists('libs\PvDevice64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvGenICam64.dll" Condition="Exists('libs\PvGenICam64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvPersistence64.dll" Condition="Exists('libs\PvPersistence64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvSerial64.dll" Condition="Exists('libs\PvSerial64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvStream64.dll" Condition="Exists('libs\PvStream64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvSystem64.dll" Condition="Exists('libs\PvSystem64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvTransmitter64.dll" Condition="Exists('libs\PvTransmitter64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libs\PvVirtualDevice64.dll" Condition="Exists('libs\PvVirtualDevice64.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
